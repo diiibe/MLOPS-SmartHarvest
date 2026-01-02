@@ -1,0 +1,10 @@
+earthengine-api
+pandas
+flask
+folium
+markdown
+plotly
+matplotlib
+scipy
+yaml
+seaborn
