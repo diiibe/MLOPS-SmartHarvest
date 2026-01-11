@@ -1,8 +1,7 @@
 import ee
 import config
 import math
-import clouds
-
+from utils import cloudmask, to_celsius
 
 # SENTINEL-2
 
@@ -18,7 +17,7 @@ def s2resample(image):
 
 def tdays(image, startdate):
     """
-    Adds a band ‘t’ that represents the days elapsed since a start date necessary to compute the slope of the linear regression.
+    Adds a band 't' that represents the days elapsed since a start date necessary to compute the slope of the linear regression.
     """
     days = image.date().difference(ee.Date(startdate), 'day')
     return image.addBands(ee.Image.constant(days).rename('t'))
@@ -69,7 +68,6 @@ def s2stats(s2data):
     ])
 
 
-
 # SENTINEL-1
 
 def s1stats(s1data):
@@ -91,19 +89,14 @@ def s1stats(s1data):
     ])
 
 
-
 # LANDSAT
 
 def landsatstats(landsatdata):
     """
     Converts ST_B10 band to celsius and calculates thermal stability.
     """
-    def celsius(image):
-        lst = image.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15)
-        return lst.rename('LST').copyProperties(image, ['system:time_start'])
 
-    lstcol = landsatdata.map(celsius)
-    
+    lstcol = to_celsius('landsat' ,landsatdata)
     lstmed = lstcol.median().rename('LST_med')
     lststd = lstcol.reduce(ee.Reducer.stdDev()).rename('LST_Stability')
     
@@ -116,11 +109,11 @@ def ecostressstats(ecostressdata):
     """
     Converts ECOSTRESS data to celsius.
     """
-    def celsiuseco(image):
-        return image.select('LST').multiply(0.02).subtract(273.15).rename('LST_eco')
 
-    return ecostressdata.map(celsiuseco).median().rename('LST_eco_med')
+    lst_eco = to_celsius('landsat' ,ecostressdata)
+    lst_eco_median = lst_eco.median().rename('LST_eco_med')
 
+    return lst_eco_median
 
 
 # SRTM

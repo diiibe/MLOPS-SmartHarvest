@@ -69,6 +69,40 @@ def retrieve_sensor_data(sensor_name, roi, start_date, end_date, **kwargs):
     return col
 
 def filter_hour(image):
+
     date = image.date()
     hour = date.get('hour')
+
     return image.set('hour', hour)
+
+def cloudmask(image):
+    """
+    Function for cloud masking in Sentinel-2 using the QA60 band to identify clouds.
+    """
+    qa = image.select('QA60')
+    cloudbit = 1 << 10
+    cirrusbit = 1 << 11
+    mask = qa.bitwiseAnd(cloudbit).eq(0).And(qa.bitwiseAnd(cirrusbit).eq(0))
+
+    return image.updateMask(mask)
+
+def to_celsius(satellite_module, image):
+    """
+    Function for for converting K to Celsius
+    
+    Args:
+        satellite_module (str): only landsat or eco avaliable
+        image (ee.ImageCollection)
+    """
+    if satellite_module == 'landsat':
+        # needs to be separated because Landsat data is scaled
+        lst = image.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15)
+        lst = lst.rename('LST').copyProperties(image, ['system:time_start'])
+
+    elif satellite_module == 'eco':
+        lst = image.select('LST').multiply(0.02).subtract(273.15).rename('LST_eco')
+
+    else:
+        raise Exception(f"Incorrect/Unknown satellite_module: {satellite_module}")
+
+    return lst
