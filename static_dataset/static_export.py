@@ -3,13 +3,13 @@ import os
 import sys
 import pandas as pd
 
+# Add parent directory to sys.path to import modules and config
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import config
 from utils import create_conn_ee
 from modules.satellites import sentinel1, sentinel2, landsat_thermal, srtm
 import stats
-
-# Add parent directory to sys.path to import modules and config
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def staticexport():
     

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>SmartHarvest - New Project</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- Leaflet Control Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        #sidebar {
+            width: 320px;
+            background: #2d2d2d;
+            padding: 25px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #404040;
+        }
+
+        #map {
+            flex-grow: 1;
+            height: 100%;
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 22px;
+            margin-bottom: 25px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #b0b0b0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 10px;
+            background: #404040;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+
+        .divider {
+            height: 1px;
+            background: #404040;
+            margin: 20px 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+            margin-top: auto;
+            font-size: 16px;
+            padding: 15px;
+        }
+
+        .btn-success:hover {
+            background: #219150;
+            box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+        }
+
+        .btn-secondary {
+            background: #555;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #666;
+        }
+
+        .instructions {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #444;
+        }
+
+        .instructions p {
+            margin: 5px 0;
+        }
+
+        #progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: #444;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: #3498db;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column-reverse;
+            }
+
+            #sidebar {
+                width: 100%;
+                height: 50%;
+                border-right: none;
+                border-top: 1px solid #404040;
+                box-sizing: border-box;
+                overflow-y: auto;
+            }
+
+            #map {
+                height: 50%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="sidebar">
+        <h1>SmartHarvest Wine</h1>
+
+        <div class="form-group">
+            <label>Project Name</label>
+            <input type="text" id="projectName" placeholder="Enter project name" value="New Vineyard">
+        </div>
+
+        <div class="form-group">
+            <label>Saved Locations</label>
+            <select id="savedRois" onchange="loadRoi()">
+                <option value="">Select Vineyard</option>
+            </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group">
+            <label>Phenological Windows</label>
+
+            <label style="font-size: 11px; color: #3498db; margin-top: 10px;">T1: Vegetative Growth</label>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <input type="date" id="t1Start" value="2025-06-01" title="T1 Start">
+                </div>
+                <div style="flex: 1;">
+                    <input type="date" id="t1End" value="2025-07-15" title="T1 End">
+                </div>
+            </div>
+
+            <label style="font-size: 11px; color: #e74c3c; margin-top: 10px;">T2: Ripening / Maturation</label>
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <input type="date" id="t2Start" value="2025-08-01" title="T2 Start">
+                </div>
+                <div style="flex: 1;">
+                    <input type="date" id="t2End" value="2025-09-15" title="T2 End">
+                </div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="instructions">
+            <p>1. Select date range (May-Sept recommended).</p>
+            <p>2. Use search or select a saved location.</p>
+            <p>3. Draw polygon on the map.</p>
+            <p>4. Save location for future use.</p>
+            <p>5. Start analysis pipeline.</p>
+        </div>
+
+        <button class="btn-secondary" onclick="saveCurrentRoi()">Save Location</button>
+        <button class="btn-success" onclick="startAnalysis()">Start Analysis</button>
+
+        <div id="progress-container">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressBar"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Leaflet Control Geocoder JS -->
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <script>
+        // Initialize map
+        var map = L.map('map').setView([45.0, 10.0], 6);
+
+        // Base Layers
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
+        var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+        var terrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+
+        var baseMaps = {
+            "Satellite": satellite,
+            "Street Map": osm,
+            "Terrain": terrain
+        };
+
+        satellite.addTo(map);
+        L.control.layers(baseMaps).addTo(map);
+
+        // Search Control
+        L.Control.geocoder({
+            defaultMarkGeocode: false,
+            position: 'topleft'
+        })
+            .on('markgeocode', function (e) {
+                var bbox = e.geocode.bbox;
+                var poly = L.polygon([
+                    bbox.getSouthEast(),
+                    bbox.getNorthEast(),
+                    bbox.getNorthWest(),
+                    bbox.getSouthWest()
+                ]);
+                map.fitBounds(poly.getBounds());
+            })
+            .addTo(map);
+
+        // Draw Control
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        var drawControl = new L.Control.Draw({
+            draw: {
+                polygon: { allowIntersection: false, showArea: true },
+                marker: false, circle: false, circlemarker: false, polyline: false, rectangle: true
+            },
+            edit: { featureGroup: drawnItems, remove: true }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (e) {
+            drawnItems.clearLayers();
+            drawnItems.addLayer(e.layer);
+        });
+
+        // Load Saved ROIs
+        fetch('/rois')
+            .then(response => response.json())
+            .then(data => {
+                var select = document.getElementById('savedRois');
+                data.forEach(name => {
+                    var option = document.createElement('option');
+                    option.value = name;
+                    option.text = name;
+                    select.appendChild(option);
+                });
+            });
+
+        function loadRoi() {
+            var name = document.getElementById('savedRois').value;
+            if (!name) return;
+
+            fetch('/rois/' + name)
+                .then(response => response.json())
+                .then(geometry => {
+                    drawnItems.clearLayers();
+                    var layer = L.geoJSON(geometry);
+                    drawnItems.addLayer(layer);
+                    map.fitBounds(layer.getBounds());
+                });
+        }
+
+        function saveCurrentRoi() {
+            var data = drawnItems.toGeoJSON();
+            if (data.features.length === 0) { alert("Please draw a polygon first."); return; }
+
+            var name = prompt("Enter a name for this location:");
+            if (!name) return;
+
+            var geometry = data.features[0].geometry;
+
+            fetch('/rois', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, geometry: geometry })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Location saved successfully.");
+                        location.reload();
+                    } else {
+                        alert("Error saving location.");
+                    }
+                });
+        }
+
+        function startAnalysis() {
+            var projectName = document.getElementById('projectName').value;
+            if (!projectName) { alert("Please enter a project name."); return; }
+
+            var t1Start = document.getElementById('t1Start').value;
+            var t1End = document.getElementById('t1End').value;
+            var t2Start = document.getElementById('t2Start').value;
+            var t2End = document.getElementById('t2End').value;
+
+            if (!t1Start || !t1End || !t2Start || !t2End) { alert("Please select all dates."); return; }
+            if (t1Start >= t1End) { alert("T1 Start must be before T1 End."); return; }
+            if (t2Start >= t2End) { alert("T2 Start must be before T2 End."); return; }
+            if (t1End >= t2Start) { alert("T1 must end before T2 starts."); return; }
+
+            var data = drawnItems.toGeoJSON();
+            if (data.features.length === 0) { alert("Please draw a ROI first."); return; }
+
+            var geometry = data.features[0].geometry;
+
+            // UI Update
+            document.getElementById('progress-container').style.display = 'block';
+            document.querySelector('.btn-success').disabled = true;
+
+            // Start Polling
+            var pollInterval = setInterval(function () {
+                fetch('/progress/' + projectName)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('progressBar').style.width = data.percent + '%';
+                        document.getElementById('progressText').innerText = data.status;
+                    });
+            }, 1000);
+
+            fetch('/run_analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project_name: projectName,
+                    geometry: geometry,
+                    t1_start: t1Start,
+                    t1_end: t1End,
+                    t2_start: t2Start,
+                    t2_end: t2End
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    clearInterval(pollInterval);
+                    if (data.success) {
+                        window.location.href = '/dashboard/' + projectName;
+                    } else {
+                        alert("Error: " + data.error);
+                        document.getElementById('progress-container').style.display = 'none';
+                        document.querySelector('.btn-success').disabled = false;
+                    }
+                })
+                .catch(error => {
+                    clearInterval(pollInterval);
+                    console.error('Error:', error);
+                    alert("An error occurred.");
+                    document.getElementById('progress-container').style.display = 'none';
+                    document.querySelector('.btn-success').disabled = false;
+                });
+        }
+    </script>
+</body>
+
+</html>

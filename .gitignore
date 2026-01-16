@@ -1,3 +1,6 @@
 
 *.json
 output/
+/__pycache__
+SmartHarvest_New_Vineyard.csv
+*.pyc
