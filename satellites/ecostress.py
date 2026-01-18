@@ -1,3 +1,6 @@
+import ee
+import config
+import requests
 from utils import create_conn_ee
 from modules.satellites_data_extraction import get_ecostress_data
 

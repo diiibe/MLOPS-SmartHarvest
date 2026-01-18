@@ -15,7 +15,7 @@ def get_st2(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
         img = img.set('date_str', img.date().format('YYYY-MM-dd'))
         # Seleciona banda e amostra
         return img.select(['NDVI', 'EVI', 'GNDVI', 'IRECI', 'NDMI', 'MNDWI', 'NDRE']).sample(
-            region=ee.Geometry.Polygon(config.ROI_TEST),
+            region=ee.Geometry.Polygon(ROI),
             scale=config.SAMPLING_SCALE,
             geometries=True, # Mantém a geometria
         ).map(lambda feat: feat.set('date', img.get('date_str'))) # Passa a data da imagem para cada ponto
@@ -31,12 +31,8 @@ def get_st2(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
                 filename='sentinel_data'
             )
 
-        print(f"URL gerada com sucesso: {url}")
-        print("\nVocê pode clicar no link acima ou o Python baixará o arquivo agora:")
-
-        # 3. (Opcional) Baixar o arquivo via Python e salvar no disco
         response = requests.get(url)
-        with open('dados_sentinel.csv', 'wb') as f:
+        with open(f'raw_data/sentinel_2_{start_date}_{end_date}.csv', 'wb') as f:
             f.write(response.content)
 
     except Exception as e:

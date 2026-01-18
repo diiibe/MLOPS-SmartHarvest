@@ -30,7 +30,7 @@ def get_landsat(ROI=config.ROI_TEST, start_date=config.START, end_date=config.EN
         img = img.set('date_str', img.date().format('YYYY-MM-dd'))
         # Seleciona banda e amostra
         return img.select(['LST']).sample(
-            region=ROI, 
+            region=ee.Geometry.Polygon(ROI), 
             scale=config.SAMPLING_SCALE,
             geometries=True, # Mantém a geometria
         ).map(lambda feat: feat.set('date', img.get('date_str'))) # Passa a data da imagem para cada ponto
@@ -45,13 +45,9 @@ def get_landsat(ROI=config.ROI_TEST, start_date=config.START, end_date=config.EN
                 selectors=['date', 'LST', '.geo'],  # '.geo' traz a geometria em formato WKT
                 filename='sentinel_data'
             )
-        
-        print(f"URL gerada com sucesso: {url}")
-        print("\nVocê pode clicar no link acima ou o Python baixará o arquivo agora:")
 
-        # 3. (Opcional) Baixar o arquivo via Python e salvar no disco
         response = requests.get(url)
-        with open('landsat.csv', 'wb') as f:
+        with open(f'raw_data/landsat_{start_date}_{end_date}.csv', 'wb') as f:
             f.write(response.content)
 
     except Exception as e:

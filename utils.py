@@ -168,7 +168,7 @@ def cirededge(image):
     cirededge = (b7.divide(b5)-1).rename('CIREDEDGE')
     return image.addBands(cirededge)
 
-    S2REP
+    # S2REP
 # Adds time bands for linear regression since days are needed
 # def timebands(image):
 #     time_start = image.get('system:time_start')
