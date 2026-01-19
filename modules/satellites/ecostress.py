@@ -5,7 +5,7 @@ from utils import retrieve_sensor_data, filter_hour
 def get_ecostress_data():
 
     try:
-        eco = retrieve_sensor_data('NASA/ECOSTRESS/L2_LSTE', config.ROI, config.START, config.END)
+        eco = retrieve_sensor_data('NASA/ECOSTRESS/L2_LSTE', config.ROI, config.START_DATE, config.END_DATE)
 
         # Filter by hour (approximate local time, assuming UTC+1 or similar for Italy/Europe based on coords in example)
         # The example coords are 45.10, 10.20 (Italy). UTC+1/UTC+2.

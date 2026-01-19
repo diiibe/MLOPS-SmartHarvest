@@ -1,18 +1,13 @@
 import os
 import ee
-import config
 import pandas as pd
 from google.oauth2 import service_account
 
 def create_conn_ee():
-    cred = 'google_cred.json'
-    if os.path.exists(cred):
+        cred = 'google_cred.json'
         credentials = service_account.Credentials.from_service_account_file(cred, scopes=["https://www.googleapis.com/auth/drive",
                                                                                           "https://www.googleapis.com/auth/earthengine"])
         ee.Initialize(credentials=credentials)
-    else:
-        print(f"Warning: {cred} not found. Attempting default Earth Engine initialization...")
-        ee.Initialize()
 
 def retrieve_sensor_data(sensor_name, roi, start_date, end_date, **kwargs):
     """
@@ -77,38 +72,3 @@ def filter_hour(image):
     date = image.date()
     hour = date.get('hour')
     return image.set('hour', hour)
-
-# Calculates NDVI for Sentinel-2 Harmonized
-def ndvi(image):
-    ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI')
-    return image.addBands(ndvi)
-
-# Calculates GDD for ERA5 as (T - 283.15) / 24
-def gdd(image):
-    t_base = 283.15
-    gdd = image.select('temperature_2m').subtract(t_base).max(0).divide(24).rename('GDD')
-    return image.addBands(gdd)
-
-# Calculates NDMI for Sentinel-2 Harmonized as (NIR - SWIR) / (NIR + SWIR)
-def ndmi(image):
-    ndmi = image.normalizedDifference(['B8', 'B11']).rename('NDMI')
-    return image.addBands(ndmi)
-
-# Calculates NDRE for Sentinel-2 Harmonized as (NIR - RE) / (NIR + RE)
-def ndre(image):
-    ndre = image.normalizedDifference(['B8', 'B5']).rename('NDRE')
-    return image.addBands(ndre)
-
-# Adds time bands for linear regression since days are needed
-def timebands(image):
-
-    time_start = image.get('system:time_start')
-    start_millis = ee.Date(config.START).millis()
-    t = ee.Number(time_start).subtract(start_millis).divide(1000 * 60 * 60 * 24)
-    return image.addBands(ee.Image.constant(t).rename('t').float()).addBands(ee.Image.constant(1).rename('constant').float())
-
-# Calculates LST for Landsat 8/9 as (ST_B10 * 0.00341802 + 149.0) - 273.15
-def lstbands(image):
-
-    lst = image.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
-    return image.addBands(lst)

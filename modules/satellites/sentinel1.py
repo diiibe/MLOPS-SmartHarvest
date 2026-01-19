@@ -6,7 +6,7 @@ def get_sentinel1_data():
 
     try:
         # 1. Query & Filter (Full Range)
-        s1_full = retrieve_sensor_data('COPERNICUS/S1_GRD', config.ROI, config.T1_START, config.T2_END, 
+        s1_full = retrieve_sensor_data('COPERNICUS/S1_GRD', config.ROI, config.DATE_T1_START, config.DATE_T2_END, # Using specific dates
             s1_pol=['VV', 'VH'],
             s1_mode='IW',
             s1_orbit='ASCENDING'
