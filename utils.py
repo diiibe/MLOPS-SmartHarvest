@@ -131,8 +131,8 @@ def evi(image):
 
 # Calculates GNDVI for Sentinel-2 Harmonized
 def gndvi(image):
-    ndvi = image.normalizedDifference(['B8', 'B3']).rename('GNDVI')
-    return image.addBands(ndvi)
+    gndvi = image.normalizedDifference(['B8', 'B3']).rename('GNDVI')
+    return image.addBands(gndvi)
 
 # Calculates GNDVI for Sentinel-2 Harmonized
 def ireci(image):
