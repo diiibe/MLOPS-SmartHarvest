@@ -6,7 +6,7 @@ def get_era5_data():
 
     try:
 
-        era5 = retrieve_sensor_data('ECMWF/ERA5_LAND/HOURLY', config.ROI, config.START, config.END,
+        era5 = retrieve_sensor_data('ECMWF/ERA5_LAND/HOURLY', config.ROI, config.START_DATE, config.END_DATE,
         seasonal_months=(config.SEASONAL_START_MONTH, config.SEASONAL_END_MONTH)
         )
 

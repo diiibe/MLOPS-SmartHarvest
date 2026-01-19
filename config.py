@@ -1,4 +1,4 @@
-ROI_TEST = [
+ROI_COORDS = [
     [
         
             [
@@ -107,7 +107,6 @@ ROI = None
 # Dynamic ROI Loading
 import os
 import json
-from datetime import datetime
 
 if os.path.exists('roi.json'):
     try:
@@ -117,35 +116,29 @@ if os.path.exists('roi.json'):
             # But it might be nested depending on how it was saved (Polygon vs MultiPolygon)
             # The tool saves the raw geometry object: {"type": "Polygon", "coordinates": [...]}
             if 'coordinates' in roi_data:
-                ROI_TEST = roi_data['coordinates']
+                ROI_COORDS = roi_data['coordinates']
                 print(f"Loaded custom ROI from roi.json")
     except Exception as e:
         print(f"Error loading roi.json: {e}. Using default coordinates.")
 
 
+# Phenological Windows (Temporal Dynamics)
+# T1: Vegetative Development (June 1 - July 20)
+DATE_T1_START = '2025-06-01'
+# T2: Ripening / Maturation (July 21 - September 10)
+DATE_T2_START = '2025-07-21'
+DATE_T2_END = '2025-09-10'
 
+# Global range for other datasets (e.g. ERA5, Thermal)
+HISTORICAL_START_DATE = '2018-01-01' # For Time Series context
+START_DATE = DATE_T1_START
+END_DATE = DATE_T2_END
+TARGET_SCALE = 10 # Resolution in meters (10 for S2, 30 for Landsat)
+CLOUD_THRESHOLD_S2 = 50      # Sentinel-2 (Optical) - Keep strict for good indices
+CLOUD_THRESHOLD_LANDSAT = 80 # Landsat (Thermal) - More permissive as data is scarcer
 
-# Phenological windows for static dataset 
-# T1: Vegetative Development
-T1_START = '2025-06-01'
-T1_END = '2025-07-20' 
-# T2: Maturation
-T2_START = '2025-07-21'
-T2_END = '2025-09-10'
-
-# Range for meteorological modules
-START = T1_START
-END = T2_END
-# For future multi year analysis
-HISTORICAL_START = '2018-01-01' # Start of historical data to current day
-HISTORICAL_END = datetime.now().strftime('%Y-%m-%d')
-SEASONAL_START_MONTH = 4 # Filter out winter data from averages
+# Seasonal Filter (Months to include in historical stats)
+# Extended: April (4) to September (9)
+SEASONAL_START_MONTH = 4
 SEASONAL_END_MONTH = 9
-
-# Cloud thresholds
-CLOUD_THRESH = 50 # Strict cloud threshold for NDVI
-CLOUD_THRESH_LANDSAT = 80 
-
-# Static Dataset sampling scale
-SAMPLING_SCALE = 10 
 
