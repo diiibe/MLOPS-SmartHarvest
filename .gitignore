@@ -1,6 +1,16 @@
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+env/
+venv/
+
+# Project Output
+output/
+
+# Config & Secrets
 *.json
-modules/__pycache__/satellites_data_extraction.cpython-310.pyc
-__pycache__/utils.cpython-310.pyc
-__pycache__/config.cpython-310.pyc
-/.venv
