@@ -6,5 +6,6 @@ markdown
 plotly
 matplotlib
 scipy
+
 PyYAML
 seaborn
