@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: smartharvest_app
+    volumes:
+      # Mount the output directory so generated artifacts appear on your host machine
+      - ./output:/app/output
+    environment:
+      # Placeholder for future credentials
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_cred.json
+    # Overridable command
+    command: python tests/ci_offline_runner.py
