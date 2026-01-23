@@ -4,3 +4,6 @@ modules/__pycache__/satellites_data_extraction.cpython-310.pyc
 __pycache__/utils.cpython-310.pyc
 __pycache__/config.cpython-310.pyc
 /.venv
+*.pyc
+.DS_Store
+.DS_Store

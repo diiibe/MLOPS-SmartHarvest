@@ -1,6 +1,7 @@
 import ee
 import config
 from utils import retrieve_sensor_data, filter_hour
+from s2cleaning import s2cleancollection
 
 def get_ecostress_data(ROI=config.ROI_TEST, start_date=config.START, end_date=config.END):
 
@@ -117,3 +118,12 @@ def get_master_crs(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=con
         print(f"Warning: sentinel2 data not found or error loading collection ({e}). Using dummy data.")
 
     return master_crs
+
+def get_sentinel2_data(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_END):
+    """
+    Wrapper calling the Polibio cleaning pipeline.
+    """
+    # Note: s2cleancollection uses get_sentinel2_data from modules internally, 
+    # so we must be careful not to create a recursion loop if modules imports this file.
+    # Fortunately, modules/s2cleaning imports from modules.satellites_data_extraction directly.
+    return s2cleancollection(config.ROI, start_date, end_date)
