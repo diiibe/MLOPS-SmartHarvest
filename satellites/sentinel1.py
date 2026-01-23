@@ -1,7 +1,9 @@
 import ee
+import os
+import json
 import config
 import requests
-from utils import create_conn_ee, despeckle, indicesst1
+from utils import create_conn_ee, despeckle, indicesst1, generate_metadata
 from modules.satellites_data_extraction import get_sentinel1_data
 
 def get_st1(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_END):
@@ -32,11 +34,18 @@ def get_st1(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
             )
 
         response = requests.get(url)
-        with open(f'raw_data/sentinel_1_{start_date}_{end_date}.csv', 'wb') as f:
+        with open(f'raw_data/sentinel_1/{start_date}_{end_date}.csv', 'wb') as f:
             f.write(response.content)
 
     except Exception as e:
         print(f"Erro ao gerar URL: {e}")
+
+    metadata = generate_metadata("Sentinel-1", "COPERNICUS/S1_GRD", st1_raw.size().getInfo(), start_date, end_date, ['date', 'VV', 'VH', 'RATIOVHVV', '.geo'], config.runid)
+    metadata_filename = f'{config.runid}/metadata_sentinel_1.json'
+    metadata_path = os.path.join(config.metadata_path, metadata_filename)
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=4)
+
 
     return
 

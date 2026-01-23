@@ -146,3 +146,4 @@ CLOUD_THRESH_LANDSAT = 80
 
 # Static Dataset sampling scale
 SAMPLING_SCALE = 10 
+metadata_path = f"{os.getcwd()}/metadata/"

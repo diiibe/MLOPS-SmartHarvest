@@ -1,13 +1,23 @@
 import os
 import ee
 import pandas as pd
+
+from pathlib import Path
+from datetime import datetime
 from google.oauth2 import service_account
+from dateutil.relativedelta import relativedelta
 
 def create_conn_ee():
-        cred = 'google_cred.json'
+    cred = 'google_cred.json'
+    if os.path.exists(cred):
+        print(f"Connecting to Earth Engine using service account: {cred}")
         credentials = service_account.Credentials.from_service_account_file(cred, scopes=["https://www.googleapis.com/auth/drive",
                                                                                           "https://www.googleapis.com/auth/earthengine"])
         ee.Initialize(credentials=credentials)
+    else:
+        print("Service account file not found. Falling back to browser-based authentication.")
+        ee.Authenticate()
+        ee.Initialize()
 
 def retrieve_sensor_data(sensor_name, roi, start_date, end_date, **kwargs):
     """
@@ -106,6 +116,56 @@ def to_celsius(satellite_module, image):
         raise Exception(f"Incorrect/Unknown satellite_module: {satellite_module}")
 
     return lst
+
+def get_missing_partitions(start_date, end_date, base_dir):
+    """
+    Returns a list of dates (partitions) that are MISSING data.
+    Matches format: .../year=YYYY/month=M (no zero padding for single digit months)
+    """
+    # 1. Standardize inputs
+    fmt = "%Y-%m-%d"
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, fmt)
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, fmt)
+
+    base_path = Path(base_dir)
+    missing_dates = []
+    
+    # Start iteration
+    current_date = start_date.replace(day=1)
+    
+    while current_date <= end_date:
+        # 2. Construct path EXACTLY as shown in your example
+        # year=2024
+        # month=3 (We use current_date.month directly to avoid '03')
+        year_part = f"year={current_date.year}"
+        month_part = f"month={current_date.month}" 
+        
+        target_path = base_path / year_part / month_part
+        
+        data_found = False
+        
+        # 3. Check if folder exists AND contains files
+        if target_path.exists() and target_path.is_dir():
+            # Get list of files, ignoring hidden system files like .DS_Store
+            valid_files = [
+                f for f in target_path.iterdir() 
+                if f.is_file() and not f.name.startswith('.')
+            ]
+            
+            if len(valid_files) > 0:
+                data_found = True
+
+        if not data_found:
+            missing_dates.append(current_date)
+            # Optional: Print for debugging
+            # print(f"Missing data at: {target_path}")
+        
+        current_date += relativedelta(months=1)
+
+    return missing_dates
+
 
 # Calculates GDD for ERA5 as (T - 283.15) / 24
 def gdd(image):
@@ -255,3 +315,16 @@ def process_era5(image):
 
 # b5 = image.select('B5').resample('bicubic').reproject(crs=b4_proj, scale=10)
 # b11 = image.select('B11').resample('bicubic').reproject(crs=b4_proj, scale=10) # SWIR for NDMI
+
+def generate_metadata(source, collection, image_count, start_date, end_date, bands, runid):
+
+    metadata = {
+        'source': source,
+        'collection': collection,
+        'image_count': image_count,
+        'date_range': f"{start_date} to {end_date}",
+        'bands_description': bands,
+        'run_id': runid
+    }
+
+    return metadata
