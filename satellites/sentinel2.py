@@ -8,8 +8,7 @@ def get_st2(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
 
     create_conn_ee()
     st2_raw = get_sentinel2_data(ROI, start_date, end_date)
-    st2 = st2_raw.map(cloudmask)
-    st2 = st2.map(indicesanddate)
+    st2 = st2_raw.map(indicesanddate)
 
     def sample_pixel(img):
         img = img.set('date_str', img.date().format('YYYY-MM-dd'))

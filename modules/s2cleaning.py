@@ -1,6 +1,6 @@
 import ee
 import config
-from satellites_data_extraction import get_sentinel2_data
+from modules.satellites_data_extraction import get_sentinel2_rawdata
 
 def s2cleancollection(roi, start_date, end_date):
     """
@@ -23,7 +23,7 @@ def s2cleancollection(roi, start_date, end_date):
     
     # 1. Base Collection (Sentinel-2 Harmonized)
     # Pass roi directly to get_sentinel2_data (it expects a list usually)
-    s2 = get_sentinel2_data(roi, start_date, end_date)
+    s2 = get_sentinel2_rawdata(roi, start_date, end_date)
     
     # Ensure we have a Geometry object for filterBounds
     roi_geo = roi
