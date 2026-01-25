@@ -123,5 +123,29 @@ class TestOfflinePipeline(unittest.TestCase):
             self.assertTrue(isinstance(data.get('features'), list), "GeoJSON must have features list")
         print("  - GeoJSON Schema: OK")
 
+    def test_04_sc3_policy_gate(self):
+        """
+        SC3 Structural Gate: Verify policy compliance invariants.
+        Rule: If Status is 'OK', variables must be within physical ranges (e.g., NDVI 0-1).
+        """
+        print("\nVerifying SC3 Structural Gates (Policy Invariants)...")
+        csv_path = 'output/data_quality_report.csv'
+        with open(csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                variable = row['Variable']
+                status = row['Status']
+                
+                # Invariant: Status 'OK' implies valid numeric ranges
+                if status == 'OK':
+                    val_min = float(row['Min'])
+                    val_max = float(row['Max'])
+                    
+                    if variable == 'NDVI':
+                        self.assertTrue(0.0 <= val_min <= 1.0, f"SC3 Violation: NDVI Min {val_min} out of range [0,1]")
+                        self.assertTrue(0.0 <= val_max <= 1.0, f"SC3 Violation: NDVI Max {val_max} out of range [0,1]")
+        
+        print("  - Policy Invariant (Status='OK' => ValidRange): PASS")
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
