@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartHarvest Data Console</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">SmartHarvest • Satellite Intelligence</p>
+          <h1>SmartHarvest Data Console</h1>
+          <p class="lede">
+            Connect ingestion modules, plan time windows, and preview data readiness in one
+            place.
+          </p>
+        </div>
+        <div class="hero-card">
+          <h2>System status</h2>
+          <p class="status" id="status-indicator">Loading…</p>
+          <p class="muted">API health checks and module availability.</p>
+        </div>
+      </header>
+
+      <section class="grid">
+        <div class="panel">
+          <h2>Available modules</h2>
+          <p class="muted">Pick the satellite and climate layers to include.</p>
+          <div id="module-list" class="module-list"></div>
+        </div>
+        <div class="panel">
+          <h2>Plan a run</h2>
+          <form id="plan-form">
+            <label>
+              Time window
+              <input
+                type="text"
+                id="time-window"
+                placeholder="e.g. 2024-05-01 → 2024-06-15"
+              />
+            </label>
+            <button type="submit">Generate plan</button>
+          </form>
+          <div class="plan-output" id="plan-output">
+            <p class="muted">Select modules and generate a plan.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel secondary">
+        <h2>Pipeline checklist</h2>
+        <ul class="checklist">
+          <li>✔ Validate credentials (Earth Engine + Drive).</li>
+          <li>✔ Normalize spatial resolution to 10m reference grid.</li>
+          <li>✔ Apply cloud masking and QA filters.</li>
+          <li>✔ Publish outputs for analytics dashboards.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
