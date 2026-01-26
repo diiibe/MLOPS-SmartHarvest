@@ -103,6 +103,7 @@ ROI_TEST = [
 
 # Placeholder for the actual ee.Geometry object (initialized in main.py)
 ROI = None
+roi_name='ROI_TEST'
 
 # Dynamic ROI Loading
 import os

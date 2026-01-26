@@ -1,5 +1,6 @@
 import os
 import ee
+import config
 import pandas as pd
 
 from pathlib import Path
@@ -316,7 +317,7 @@ def process_era5(image):
 # b5 = image.select('B5').resample('bicubic').reproject(crs=b4_proj, scale=10)
 # b11 = image.select('B11').resample('bicubic').reproject(crs=b4_proj, scale=10) # SWIR for NDMI
 
-def generate_metadata(source, collection, image_count, start_date, end_date, bands, runid):
+def generate_metadata(source, collection, image_count, start_date, end_date, bands, roi, runid):
 
     metadata = {
         'source': source,
@@ -324,6 +325,7 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
         'image_count': image_count,
         'date_range': f"{start_date} to {end_date}",
         'bands_description': bands,
+        'roi_coords': roi,
         'run_id': runid
     }
 
