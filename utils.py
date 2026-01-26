@@ -1,8 +1,10 @@
 import os
 import ee
+import glob
 import config
 import pandas as pd
 
+from functools import reduce
 from pathlib import Path
 from datetime import datetime
 from google.oauth2 import service_account
@@ -126,12 +128,17 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
 def get_missing_partitions(start_date, end_date, base_dir):
     """
-    Returns a list of tuples: [(partition_start, partition_end), ...]
-    - Past months: (1st of month, Last day of month)
-    - Current month: (1st of month, NOW)
+    Returns a list of dates (partitions) that are MISSING data.
+    Matches format: .../year=YYYY/month=M (no zero padding for single digit months)
+    Do not allow dates bigger than current month.
     """
+    # 1. Standardize inputs
     fmt = "%Y-%m-%d"
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, fmt)
@@ -139,49 +146,48 @@ def get_missing_partitions(start_date, end_date, base_dir):
         end_date = datetime.strptime(end_date, fmt)
 
     base_path = Path(base_dir)
-    missing_partitions = []  # Renamed variable for clarity
+    missing_dates = []
     
     # Initialize iteration at the first of the start month
     current_date = start_date.replace(day=1)
+    
+    # Get the actual current time (Right Now)
     now = datetime.now()
 
     while current_date <= end_date:
-        # Stop if we go beyond the current real-world month
+        # --- NEW CHECK: Stop if we go beyond the current real-world month ---
+        # Since current_date is always day 1, comparing it to 'now' works perfectly.
+        # Example: if current_date is Nov 1st and now is Oct 25th, this breaks.
         if current_date > now:
             break
+        # --------------------------------------------------------------------
 
-        # 1. Check if data exists on disk
+        # 2. Construct path EXACTLY as shown in your example
         year_part = f"year={current_date.year}"
         month_part = f"month={current_date.month}" 
+        
         target_path = base_path / year_part / month_part
         
         data_found = False
+        
+        # 3. Check if folder exists AND contains files
         if target_path.exists() and target_path.is_dir():
-            valid_files = [f for f in target_path.iterdir() if f.is_file() and not f.name.startswith('.')]
+            # Get list of files, ignoring hidden system files like .DS_Store
+            valid_files = [
+                f for f in target_path.iterdir() 
+                if f.is_file() and not f.name.startswith('.')
+            ]
+            
             if len(valid_files) > 0:
                 data_found = True
 
-        # 2. If missing, calculate the correct date range
         if not data_found:
-            # Calculate the standard last day of this month
-            next_month = current_date + relativedelta(months=1)
-            last_day_of_month = next_month - relativedelta(days=1)
-            
-            # LOGIC: Check if we are in the "Current Month"
-            if current_date.year == now.year and current_date.month == now.month:
-                # If current month, cap the end date at NOW
-                partition_end = now
-            else:
-                # Otherwise, use the full month
-                partition_end = last_day_of_month
-            
-            # Append the tuple (Start, End)
-            missing_partitions.append((current_date, partition_end))
+            missing_dates.append(current_date)
         
         # Move to next month
         current_date += relativedelta(months=1)
 
-    return missing_partitions
+    return missing_dates
 
 
 # Calculates GDD for ERA5 as (T - 283.15) / 24
@@ -337,7 +343,7 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
 
     metadata = {
         'run_id': runid,
-        'created_at': datetime.datetime.now(),
+        'created_at': str(datetime.now()),
         'status': '',
         'source': source,
         'provider': collection,
@@ -348,3 +354,76 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
     }
 
     return metadata
+
+def create_partitioned_dataset(input_path, output_path="dataset"):
+    """
+    Reads CSV files, ignores static files (like SRTM) by checking for a 'date' column,
+    merges all time-series data, and writes a Hive-partitioned dataset.
+    """
+    # 1. Collect all CSV files recursively
+    all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
+    
+    if not all_files:
+        print("No CSV files found.")
+        return
+
+    data_frames = []
+
+    # 2. Read and Filter Files
+    for file in all_files:
+        try:
+            # Read the file
+            df = pd.read_csv(file)
+            
+            # Normalize column names (strip whitespace to be safe)
+            df.columns = df.columns.str.strip()
+            
+            # CHECK: Only process files that have BOTH 'date' and '.geo'
+            if 'date' in df.columns and '.geo' in df.columns:
+                print(f"Processing time-series file: {os.path.basename(file)}")
+                
+                # Standardize date format
+                df['date'] = pd.to_datetime(df['date'])
+                data_frames.append(df)
+            else:
+                # This block ignores SRTM or any other file without a date
+                print(f"Ignoring file (no date column): {os.path.basename(file)}")
+                
+        except Exception as e:
+            print(f"Error reading {file}: {e}")
+
+    # 3. Merge Data (Outer Join)
+    # Uses Outer Join so you don't lose rows if one satellite has data and another doesn't
+    if data_frames:
+        print("Merging satellite data...")
+        merged_df = reduce(
+            lambda left, right: pd.merge(
+                left, 
+                right, 
+                on=['date', '.geo'], 
+                how='outer'
+            ), 
+            data_frames
+        )
+    else:
+        print("No valid time-series files found to merge.")
+        return
+
+    # 4. Create Partitions
+    print("Generating partition columns (Year/Month)...")
+    merged_df['year'] = merged_df['date'].dt.year
+    merged_df['month'] = merged_df['date'].dt.month
+
+    # 5. Write to Hive-style Parquet
+    print(f"Writing partitioned dataset to: {output_path}")
+    merged_df.to_parquet(
+        output_path,
+        partition_cols=['year', 'month'],
+        engine='pyarrow',
+        compression='snappy',
+        index=False
+    )
+    print("Success! Dataset created.")
+
+# --- Usage ---
+# create_partitioned_dataset_no_srtm("raw_data/ROI_TEST")
