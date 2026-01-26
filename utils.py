@@ -355,75 +355,91 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
 
     return metadata
 
+import pandas as pd
+import os
+import glob
+from functools import reduce
+
 def create_partitioned_dataset(input_path, output_path="dataset"):
     """
-    Reads CSV files, ignores static files (like SRTM) by checking for a 'date' column,
-    merges all time-series data, and writes a Hive-partitioned dataset.
+    1. Groups files by their parent folder (e.g., sentinel_1, sentinel_2).
+    2. Concatenates (stacks) files within the same folder vertically.
+    3. Merges the resulting DataFrames from different folders horizontally.
+    4. Writes the result to a Hive-partitioned dataset.
     """
-    # 1. Collect all CSV files recursively
+    # 1. Find all CSV files
     all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
     
     if not all_files:
         print("No CSV files found.")
         return
 
-    data_frames = []
+    # Dictionary to hold lists of DataFrames by their folder name
+    # structure: { 'sentinel_1': [df1, df2], 'sentinel_2': [df3, df4] }
+    files_by_source = {}
 
-    # 2. Read and Filter Files
+    print("Reading and grouping files...")
+    
     for file in all_files:
+        # Get the parent folder name to use as the "Source ID"
+        parent_folder = os.path.basename(os.path.dirname(file))
+        
         try:
-            # Read the file
             df = pd.read_csv(file)
-            
-            # Normalize column names (strip whitespace to be safe)
             df.columns = df.columns.str.strip()
             
-            # CHECK: Only process files that have BOTH 'date' and '.geo'
+            # Only process if it has a date (ignore SRTM/static files)
             if 'date' in df.columns and '.geo' in df.columns:
-                print(f"Processing time-series file: {os.path.basename(file)}")
-                
-                # Standardize date format
                 df['date'] = pd.to_datetime(df['date'])
-                data_frames.append(df)
+                
+                if parent_folder not in files_by_source:
+                    files_by_source[parent_folder] = []
+                files_by_source[parent_folder].append(df)
             else:
-                # This block ignores SRTM or any other file without a date
-                print(f"Ignoring file (no date column): {os.path.basename(file)}")
+                print(f"Skipping static file: {os.path.basename(file)}")
                 
         except Exception as e:
             print(f"Error reading {file}: {e}")
 
-    # 3. Merge Data (Outer Join)
-    # Uses Outer Join so you don't lose rows if one satellite has data and another doesn't
-    if data_frames:
-        print("Merging satellite data...")
-        merged_df = reduce(
+    # 2. Concatenate files from the SAME source (Vertical Stack)
+    # This prevents the "Duplicate Columns" error
+    consolidated_dfs = []
+    
+    for source, df_list in files_by_source.items():
+        print(f"Stacking {len(df_list)} files for source: {source}")
+        # Stack rows (e.g. Jan + Dec)
+        stacked_df = pd.concat(df_list, ignore_index=True)
+        consolidated_dfs.append(stacked_df)
+
+    # 3. Merge different sources (Horizontal Join)
+    if consolidated_dfs:
+        print("Merging different sources (Outer Join)...")
+        final_df = reduce(
             lambda left, right: pd.merge(
                 left, 
                 right, 
                 on=['date', '.geo'], 
                 how='outer'
             ), 
-            data_frames
+            consolidated_dfs
         )
     else:
-        print("No valid time-series files found to merge.")
+        print("No valid time-series data found.")
         return
 
-    # 4. Create Partitions
-    print("Generating partition columns (Year/Month)...")
-    merged_df['year'] = merged_df['date'].dt.year
-    merged_df['month'] = merged_df['date'].dt.month
+    # 4. Create Partitions and Write
+    print("Generating partitions and writing to disk...")
+    final_df['year'] = final_df['date'].dt.year
+    final_df['month'] = final_df['date'].dt.month
 
-    # 5. Write to Hive-style Parquet
-    print(f"Writing partitioned dataset to: {output_path}")
-    merged_df.to_parquet(
+    final_df.to_parquet(
         output_path,
         partition_cols=['year', 'month'],
         engine='pyarrow',
         compression='snappy',
         index=False
     )
-    print("Success! Dataset created.")
+    print(f"Success! Data written to: {output_path}")
 
 # --- Usage ---
-# create_partitioned_dataset_no_srtm("raw_data/ROI_TEST")
+# create_partitioned_dataset_grouped("raw_data/ROI_TEST")
