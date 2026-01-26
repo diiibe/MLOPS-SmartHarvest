@@ -7,7 +7,7 @@ def get_ecostress_data(ROI=config.ROI_TEST, start_date=config.START, end_date=co
 
     roi = ee.Geometry.Polygon(ROI)
     try:
-        eco = retrieve_sensor_data('NASA/ECOSTRESS/LT_LSTE', roi, start_date, end_date)
+        eco = retrieve_sensor_data('NASA/ECOSTRESS/L2T_LSTE/V2', roi, start_date, end_date)
         # 'NASA/ECOSTRESS/L2T_LSTE/V2'
         # Filter by hour (approximate local time, assuming UTC+1 or similar for Italy/Europe based on coords in example)
         # The example coords are 45.10, 10.20 (Italy). UTC+1/UTC+2.
