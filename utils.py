@@ -118,12 +118,20 @@ def to_celsius(satellite_module, image):
 
     return lst
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
 def get_missing_partitions(start_date, end_date, base_dir):
     """
-    Returns a list of dates (partitions) that are MISSING data.
-    Matches format: .../year=YYYY/month=M (no zero padding for single digit months)
+    Returns a list of tuples: [(partition_start, partition_end), ...]
+    - Past months: (1st of month, Last day of month)
+    - Current month: (1st of month, NOW)
     """
-    # 1. Standardize inputs
     fmt = "%Y-%m-%d"
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, fmt)
@@ -131,41 +139,49 @@ def get_missing_partitions(start_date, end_date, base_dir):
         end_date = datetime.strptime(end_date, fmt)
 
     base_path = Path(base_dir)
-    missing_dates = []
+    missing_partitions = []  # Renamed variable for clarity
     
-    # Start iteration
+    # Initialize iteration at the first of the start month
     current_date = start_date.replace(day=1)
-    
+    now = datetime.now()
+
     while current_date <= end_date:
-        # 2. Construct path EXACTLY as shown in your example
-        # year=2024
-        # month=3 (We use current_date.month directly to avoid '03')
+        # Stop if we go beyond the current real-world month
+        if current_date > now:
+            break
+
+        # 1. Check if data exists on disk
         year_part = f"year={current_date.year}"
         month_part = f"month={current_date.month}" 
-        
         target_path = base_path / year_part / month_part
         
         data_found = False
-        
-        # 3. Check if folder exists AND contains files
         if target_path.exists() and target_path.is_dir():
-            # Get list of files, ignoring hidden system files like .DS_Store
-            valid_files = [
-                f for f in target_path.iterdir() 
-                if f.is_file() and not f.name.startswith('.')
-            ]
-            
+            valid_files = [f for f in target_path.iterdir() if f.is_file() and not f.name.startswith('.')]
             if len(valid_files) > 0:
                 data_found = True
 
+        # 2. If missing, calculate the correct date range
         if not data_found:
-            missing_dates.append(current_date)
-            # Optional: Print for debugging
-            # print(f"Missing data at: {target_path}")
+            # Calculate the standard last day of this month
+            next_month = current_date + relativedelta(months=1)
+            last_day_of_month = next_month - relativedelta(days=1)
+            
+            # LOGIC: Check if we are in the "Current Month"
+            if current_date.year == now.year and current_date.month == now.month:
+                # If current month, cap the end date at NOW
+                partition_end = now
+            else:
+                # Otherwise, use the full month
+                partition_end = last_day_of_month
+            
+            # Append the tuple (Start, End)
+            missing_partitions.append((current_date, partition_end))
         
+        # Move to next month
         current_date += relativedelta(months=1)
 
-    return missing_dates
+    return missing_partitions
 
 
 # Calculates GDD for ERA5 as (T - 283.15) / 24
@@ -320,13 +336,15 @@ def process_era5(image):
 def generate_metadata(source, collection, image_count, start_date, end_date, bands, roi, runid):
 
     metadata = {
+        'run_id': runid,
+        'created_at': datetime.datetime.now(),
+        'status': '',
         'source': source,
-        'collection': collection,
+        'provider': collection,
         'image_count': image_count,
         'date_range': f"{start_date} to {end_date}",
         'bands_description': bands,
         'roi_coords': roi,
-        'run_id': runid
     }
 
     return metadata
