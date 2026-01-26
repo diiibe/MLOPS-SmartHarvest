@@ -1,13 +1,24 @@
 import os
 import ee
+import config
 import pandas as pd
+
+from pathlib import Path
+from datetime import datetime
 from google.oauth2 import service_account
+from dateutil.relativedelta import relativedelta
 
 def create_conn_ee():
-        cred = 'google_cred.json'
+    cred = 'google_cred.json'
+    if os.path.exists(cred):
+        print(f"Connecting to Earth Engine using service account: {cred}")
         credentials = service_account.Credentials.from_service_account_file(cred, scopes=["https://www.googleapis.com/auth/drive",
                                                                                           "https://www.googleapis.com/auth/earthengine"])
         ee.Initialize(credentials=credentials)
+    else:
+        print("Service account file not found. Falling back to browser-based authentication.")
+        ee.Authenticate()
+        ee.Initialize()
 
 def retrieve_sensor_data(sensor_name, roi, start_date, end_date, **kwargs):
     """
@@ -75,16 +86,16 @@ def filter_hour(image):
 
     return image.set('hour', hour)
 
-def cloudmask(image):
-    """
-    Function for cloud masking in Sentinel-2 using the QA60 band to identify clouds.
-    """
-    qa = image.select('QA60')
-    cloudbit = 1 << 10
-    cirrusbit = 1 << 11
-    mask = qa.bitwiseAnd(cloudbit).eq(0).And(qa.bitwiseAnd(cirrusbit).eq(0))
+# def cloudmask(image):
+#     """
+#     Function for cloud masking in Sentinel-2 using the QA60 band to identify clouds.
+#     """
+#     qa = image.select('QA60')
+#     cloudbit = 1 << 10
+#     cirrusbit = 1 << 11
+#     mask = qa.bitwiseAnd(cloudbit).eq(0).And(qa.bitwiseAnd(cirrusbit).eq(0))
 
-    return image.updateMask(mask)
+#     return image.updateMask(mask)
 
 def to_celsius(satellite_module, image):
     """
@@ -106,6 +117,72 @@ def to_celsius(satellite_module, image):
         raise Exception(f"Incorrect/Unknown satellite_module: {satellite_module}")
 
     return lst
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
+def get_missing_partitions(start_date, end_date, base_dir):
+    """
+    Returns a list of tuples: [(partition_start, partition_end), ...]
+    - Past months: (1st of month, Last day of month)
+    - Current month: (1st of month, NOW)
+    """
+    fmt = "%Y-%m-%d"
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, fmt)
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, fmt)
+
+    base_path = Path(base_dir)
+    missing_partitions = []  # Renamed variable for clarity
+    
+    # Initialize iteration at the first of the start month
+    current_date = start_date.replace(day=1)
+    now = datetime.now()
+
+    while current_date <= end_date:
+        # Stop if we go beyond the current real-world month
+        if current_date > now:
+            break
+
+        # 1. Check if data exists on disk
+        year_part = f"year={current_date.year}"
+        month_part = f"month={current_date.month}" 
+        target_path = base_path / year_part / month_part
+        
+        data_found = False
+        if target_path.exists() and target_path.is_dir():
+            valid_files = [f for f in target_path.iterdir() if f.is_file() and not f.name.startswith('.')]
+            if len(valid_files) > 0:
+                data_found = True
+
+        # 2. If missing, calculate the correct date range
+        if not data_found:
+            # Calculate the standard last day of this month
+            next_month = current_date + relativedelta(months=1)
+            last_day_of_month = next_month - relativedelta(days=1)
+            
+            # LOGIC: Check if we are in the "Current Month"
+            if current_date.year == now.year and current_date.month == now.month:
+                # If current month, cap the end date at NOW
+                partition_end = now
+            else:
+                # Otherwise, use the full month
+                partition_end = last_day_of_month
+            
+            # Append the tuple (Start, End)
+            missing_partitions.append((current_date, partition_end))
+        
+        # Move to next month
+        current_date += relativedelta(months=1)
+
+    return missing_partitions
+
 
 # Calculates GDD for ERA5 as (T - 283.15) / 24
 def gdd(image):
@@ -255,3 +332,19 @@ def process_era5(image):
 
 # b5 = image.select('B5').resample('bicubic').reproject(crs=b4_proj, scale=10)
 # b11 = image.select('B11').resample('bicubic').reproject(crs=b4_proj, scale=10) # SWIR for NDMI
+
+def generate_metadata(source, collection, image_count, start_date, end_date, bands, roi, runid):
+
+    metadata = {
+        'run_id': runid,
+        'created_at': datetime.datetime.now(),
+        'status': '',
+        'source': source,
+        'provider': collection,
+        'image_count': image_count,
+        'date_range': f"{start_date} to {end_date}",
+        'bands_description': bands,
+        'roi_coords': roi,
+    }
+
+    return metadata
