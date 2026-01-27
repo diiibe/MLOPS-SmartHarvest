@@ -1,188 +1,174 @@
 """
-Enhanced Sentinel-2 Export with Polibio Step 2 Integration
+Enhanced Multi-Sensor Export with Polibio Step 2 Integration
 
-This script exports Sentinel-2 data with:
-- Step 1: Ensemble cloud masking (Cloud Score+, S2Cloudless, SCL)
-- Step 2: Adaptive parcel erosion, robust statistics, QA validation
-
-Output: CSV with spectral indices + QA metadata (coverage_ratio, valid_pixels, erosion_applied)
+This script exports data from multiple sensors with preserved acquisition dates.
 """
 
 import ee
 import config
 import pandas as pd
 import requests
+import os
+from modules.satellites_data_extraction import (
+    get_sentinel2_data,
+    get_landsat_thermal_data,
+    get_sentinel1_data
+)
 from modules.s2cleaning import (
-    s2cleancollection, 
     get_adaptive_core, 
     extract_parcel_stats,
     validate_parcel_observation
 )
-from utils import create_conn_ee, indicesanddate
+from utils import create_conn_ee, indicesanddate, despeckle
 
 def export_with_step2(
     ROI=config.ROI_TEST,
     start_date=config.T1_START,
     end_date=config.T2_END,
-    output_file='output/sentinel2_polibio.csv',
+    output_file='output/multi_sensor_polibio.csv',
     use_erosion=True
 ):
     """
-    Export Sentinel-2 data with Polibio Step 1+2 cleaning.
-    
-    Args:
-        ROI: Region of interest (list of coordinates or ee.Geometry)
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD)
-        output_file: Output CSV path
-        use_erosion: Whether to apply Step 2 erosion (default True)
-    
-    Returns:
-        pd.DataFrame: Exported data with QA columns
+    Export Multi-Sensor data (S2, S1, Landsat) with Polibio Step 1+2 cleaning.
     """
     
     create_conn_ee()
     
-    print(f"Exporting S2 data with Polibio cleaning...")
+    print(f"Exporting Multi-Sensor data with Polibio cleaning...")
     print(f"Period: {start_date} to {end_date}")
     print(f"Erosion: {'Enabled' if use_erosion else 'Disabled'}")
     print("="*60)
     
-    # Step 1: Get cleaned collection (ensemble masking)
-    print("\n1. Applying ensemble cloud masking...")
-    clean_col = s2cleancollection(ROI, start_date, end_date)
+    # --- 1. S2 COLLECTION ---
+    print("\n1. Processing Sentinel-2...")
+    s2_col = get_sentinel2_data(ROI, start_date, end_date)
+    s2_col = s2_col.map(lambda img: indicesanddate(ee.Image(img)).set('sensor', 'S2'))
     
-    # Add indices
-    clean_col = clean_col.map(indicesanddate)
+    # --- 2. LANDSAT THERMAL (LST) ---
+    print("2. Processing Landsat Thermal (LST)...")
+    l_raw = get_landsat_thermal_data(ROI, start_date, end_date)
     
-    count = clean_col.size().getInfo()
-    print(f"   Found {count} clean images")
+    def process_landsat(img):
+        image = ee.Image(img)
+        lst = image.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
+        qa = image.select('QA_PIXEL')
+        mask = qa.bitwiseAnd(1 << 3).eq(0).And(qa.bitwiseAnd(1 << 4).eq(0))
+        # Masked update and resample
+        return lst.updateMask(mask).resample('bilinear').reproject(
+            crs='EPSG:4326', scale=config.SAMPLING_SCALE
+        ).copyProperties(image, ['system:time_start']).set('sensor', 'Landsat')
     
-    if count == 0:
-        print("   No images found. Exiting.")
-        return None
+    lst_col = l_raw.map(process_landsat)
+
+    # --- 3. SENTINEL-1 (VV, VH, VHRATIO) ---
+    print("3. Processing Sentinel-1 (SAR)...")
+    s1_raw = get_sentinel1_data(ROI, start_date, end_date)
     
-    # Step 2: Apply adaptive erosion (if enabled)
+    def process_s1(img):
+        image = ee.Image(img)
+        image_clean = ee.Image(despeckle(image))
+        vhratio = image_clean.select('VH').divide(image_clean.select('VV')).rename('VHRATIO')
+        return image_clean.addBands(vhratio).copyProperties(image, ['system:time_start']).set('sensor', 'S1')
+    
+    s1_col = s1_raw.map(process_s1)
+
+    # --- 4. HARMONIZE AND MERGE ---
+    print("4. Harmonizing bands and merging collections...")
+    
+    s2_indices = ['NDVI', 'EVI', 'GNDVI', 'IRECI', 'NDMI', 'NDRE']
+    landsat_bands = ['LST']
+    s1_bands = ['VV', 'VH', 'VHRATIO']
+    all_bands = s2_indices + landsat_bands + s1_bands
+
+    # Create a single constant image with all bands as -999 (unmasked)
+    # This acts as a background to ensure all images have all bands for sampling.
+    blank_bands = ee.Image.constant([-999] * len(all_bands)).rename(all_bands)
+
+    def harmonize_bands(img):
+        image = ee.Image(img)
+        # By adding blank bands to 'image' (overwrite=False), we keep 'image' as the primary object.
+        # This inherently preserves its system:time_start, id, and other metadata.
+        return image.addBands(blank_bands, overwrite=False)
+
+    s2_final = s2_col.map(harmonize_bands)
+    lst_final = lst_col.map(harmonize_bands)
+    s1_final = s1_col.map(harmonize_bands)
+    
+    merged_col = s2_final.merge(lst_final).merge(s1_final).sort('system:time_start')
+    
+    # --- 5. ADAPTIVE EROSION (Polibio Step 2) ---
     if use_erosion:
-        print("\n2. Applying adaptive parcel erosion...")
         core_result = get_adaptive_core(ROI, sampling_scale=config.SAMPLING_SCALE)
         roi_to_use = core_result['core_geometry']
-        erosion_applied = core_result['erosion_applied'].getInfo()
-        is_small = core_result['is_small_parcel'].getInfo()
-        
-        original_area = ee.Geometry.Polygon(ROI).area().getInfo() if isinstance(ROI, list) else ROI.area().getInfo()
-        core_area = roi_to_use.area().getInfo()
-        
-        print(f"   Original area: {original_area:.0f} m²")
-        print(f"   Core area: {core_area:.0f} m² ({((original_area - core_area) / original_area * 100):.1f}% reduction)")
-        print(f"   Erosion applied: {erosion_applied}m")
-        print(f"   Small parcel: {bool(is_small)}")
     else:
         roi_to_use = ee.Geometry.Polygon(ROI) if isinstance(ROI, list) else ROI
-        erosion_applied = 0
-        is_small = 0
-        print("\n2. Erosion disabled, using full ROI")
+
+    # --- 6. SAMPLING ---
+    print("6. Extracting pixel data...")
     
-    # Step 3: Extract data with QA metadata
-    print("\n3. Extracting pixel data with QA metadata...")
-    
-    def sample_with_qa(img):
-        """Sample pixels and add QA metadata per image."""
-        img = img.set('date_str', img.date().format('YYYY-MM-dd'))
+    def sample_with_metadata(img):
+        image = ee.Image(img)
+        date_str = image.date().format('YYYY-MM-dd')
+        sensor_name = image.get('sensor')
         
-        # Extract statistics for QA
-        stats = extract_parcel_stats(img, roi_to_use, sampling_scale=config.SAMPLING_SCALE)
+        # Stats for QA
+        stats = extract_parcel_stats(image, roi_to_use, sampling_scale=config.SAMPLING_SCALE)
+        is_valid = validate_parcel_observation(stats, is_small_parcel=0) # simplified for debug
         
-        # Validate observation
-        is_valid = validate_parcel_observation(stats, is_small_parcel=is_small)
-        
-        # Get QA values
-        valid_count = stats.get('valid_pixel_count')
-        total_count = stats.get('total_pixel_count')
-        coverage = stats.get('coverage_ratio')
-        
-        # Sample pixels
-        # Note: MNDWI is not available (bug in utils.py - mndwi function calculates NDRE instead)
-        indices = ['NDVI', 'EVI', 'GNDVI', 'IRECI', 'NDMI', 'NDRE']
-        sampled = img.select(indices).sample(
+        # Sample bands
+        sampled = image.select(all_bands).sample(
             region=roi_to_use,
             scale=config.SAMPLING_SCALE,
             geometries=True
         )
         
-        # Add metadata to each feature
-        def add_metadata(feat):
+        def set_feat_props(feat):
             return feat.set({
-                'date': img.get('date_str'),
-                'valid_pixels': valid_count,
-                'total_pixels': total_count,
-                'coverage_ratio': coverage,
-                'observation_valid': is_valid,
-                'erosion_m': erosion_applied,
-                'is_small_parcel': is_small
+                'date': date_str,
+                'sensor': sensor_name,
+                'valid_pixels': stats.get('valid_pixel_count'),
+                'coverage_ratio': stats.get('coverage_ratio'),
+                'observation_valid': is_valid
             })
-        
-        return sampled.map(add_metadata)
+            
+        return sampled.map(set_feat_props)
     
-    # Process all images
-    features = clean_col.map(sample_with_qa).flatten()
+    features = merged_col.map(sample_with_metadata).flatten()
     
-    # Get download URL
-    print("\n4. Generating download URL...")
-    selectors = [
-        'date', 
-        'NDVI', 'EVI', 'GNDVI', 'IRECI', 'NDMI', 'NDRE',
-        'valid_pixels', 'total_pixels', 'coverage_ratio', 
-        'observation_valid', 'erosion_m', 'is_small_parcel',
-        '.geo'
+    # --- 7. EXPORT ---
+    print("7. Generating download URL...")
+    selectors = ['date', 'sensor'] + all_bands + [
+        'valid_pixels', 'coverage_ratio', 'observation_valid', '.geo'
     ]
     
     try:
         url = features.getDownloadURL(
             filetype='CSV',
             selectors=selectors,
-            filename='sentinel2_polibio'
+            filename='multi_sensor_polibio'
         )
         
-        print("   Downloading data...")
         response = requests.get(url)
-        
-        # Save to file
-        import os
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        
         with open(output_file, 'wb') as f:
             f.write(response.content)
         
-        print(f"\n✅ Export complete: {output_file}")
-        
-        # Load and return as DataFrame
         df = pd.read_csv(output_file)
-        
-        print(f"\nDataset Summary:")
-        print(f"   Total pixels: {len(df)}")
-        print(f"   Date range: {df['date'].min()} to {df['date'].max()}")
-        print(f"   Unique dates: {df['date'].nunique()}")
-        print(f"   Avg coverage: {df['coverage_ratio'].mean():.2%}")
-        print(f"   Valid observations: {df['observation_valid'].sum()} / {len(df['date'].unique())} dates")
-        
+        if len(df) > 0:
+            print(f"✅ Export complete: {len(df)} rows")
+        else:
+            print("⚠️ Warning: Exported dataset is empty.")
         return df
         
     except Exception as e:
-        print(f"\n❌ Error during export: {e}")
+        print(f"❌ Error during export: {e}")
         return None
 
 if __name__ == "__main__":
-    # Example usage
-    df = export_with_step2(
+    export_with_step2(
         ROI=config.ROI_TEST,
-        start_date='2024-06-01',
-        end_date='2024-07-31',
-        output_file='output/sentinel2_polibio_june_july.csv',
+        start_date='2024-05-01',
+        end_date='2024-09-30',
+        output_file='output/vineyard_multi_sensor_2024.csv',
         use_erosion=True
     )
-    
-    if df is not None:
-        print("\n" + "="*60)
-        print("First few rows:")
-        print(df.head())

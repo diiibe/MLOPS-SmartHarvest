@@ -273,7 +273,7 @@ def indicesanddate(image):
 
 def despeckle(image):
     # Simple BoxCar 5x5
-    return image.focal_mean(radius=2.5, units='pixels', iterations=1).copyProperties(image, ['system:time_start'])
+    return ee.Image(image.focal_mean(radius=2.5, units='pixels', iterations=1).copyProperties(image, ['system:time_start']))
 
 def vv(image):
     return image.select('VV')
