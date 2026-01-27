@@ -1,8 +1,10 @@
 import os
 import ee
+import glob
 import config
 import pandas as pd
 
+from functools import reduce
 from pathlib import Path
 from datetime import datetime
 from google.oauth2 import service_account
@@ -126,12 +128,17 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from pathlib import Path
+
 def get_missing_partitions(start_date, end_date, base_dir):
     """
-    Returns a list of tuples: [(partition_start, partition_end), ...]
-    - Past months: (1st of month, Last day of month)
-    - Current month: (1st of month, NOW)
+    Returns a list of dates (partitions) that are MISSING data.
+    Matches format: .../year=YYYY/month=M (no zero padding for single digit months)
+    Do not allow dates bigger than current month.
     """
+    # 1. Standardize inputs
     fmt = "%Y-%m-%d"
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, fmt)
@@ -139,49 +146,48 @@ def get_missing_partitions(start_date, end_date, base_dir):
         end_date = datetime.strptime(end_date, fmt)
 
     base_path = Path(base_dir)
-    missing_partitions = []  # Renamed variable for clarity
+    missing_dates = []
     
     # Initialize iteration at the first of the start month
     current_date = start_date.replace(day=1)
+    
+    # Get the actual current time (Right Now)
     now = datetime.now()
 
     while current_date <= end_date:
-        # Stop if we go beyond the current real-world month
+        # --- NEW CHECK: Stop if we go beyond the current real-world month ---
+        # Since current_date is always day 1, comparing it to 'now' works perfectly.
+        # Example: if current_date is Nov 1st and now is Oct 25th, this breaks.
         if current_date > now:
             break
+        # --------------------------------------------------------------------
 
-        # 1. Check if data exists on disk
+        # 2. Construct path EXACTLY as shown in your example
         year_part = f"year={current_date.year}"
         month_part = f"month={current_date.month}" 
+        
         target_path = base_path / year_part / month_part
         
         data_found = False
+        
+        # 3. Check if folder exists AND contains files
         if target_path.exists() and target_path.is_dir():
-            valid_files = [f for f in target_path.iterdir() if f.is_file() and not f.name.startswith('.')]
+            # Get list of files, ignoring hidden system files like .DS_Store
+            valid_files = [
+                f for f in target_path.iterdir() 
+                if f.is_file() and not f.name.startswith('.')
+            ]
+            
             if len(valid_files) > 0:
                 data_found = True
 
-        # 2. If missing, calculate the correct date range
         if not data_found:
-            # Calculate the standard last day of this month
-            next_month = current_date + relativedelta(months=1)
-            last_day_of_month = next_month - relativedelta(days=1)
-            
-            # LOGIC: Check if we are in the "Current Month"
-            if current_date.year == now.year and current_date.month == now.month:
-                # If current month, cap the end date at NOW
-                partition_end = now
-            else:
-                # Otherwise, use the full month
-                partition_end = last_day_of_month
-            
-            # Append the tuple (Start, End)
-            missing_partitions.append((current_date, partition_end))
+            missing_dates.append(current_date)
         
         # Move to next month
         current_date += relativedelta(months=1)
 
-    return missing_partitions
+    return missing_dates
 
 
 # Calculates GDD for ERA5 as (T - 283.15) / 24
@@ -337,7 +343,7 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
 
     metadata = {
         'run_id': runid,
-        'created_at': datetime.datetime.now(),
+        'created_at': str(datetime.now()),
         'status': '',
         'source': source,
         'provider': collection,
@@ -348,3 +354,92 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
     }
 
     return metadata
+
+import pandas as pd
+import os
+import glob
+from functools import reduce
+
+def create_partitioned_dataset(input_path, output_path="dataset"):
+    """
+    1. Groups files by their parent folder (e.g., sentinel_1, sentinel_2).
+    2. Concatenates (stacks) files within the same folder vertically.
+    3. Merges the resulting DataFrames from different folders horizontally.
+    4. Writes the result to a Hive-partitioned dataset.
+    """
+    # 1. Find all CSV files
+    all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
+    
+    if not all_files:
+        print("No CSV files found.")
+        return
+
+    # Dictionary to hold lists of DataFrames by their folder name
+    # structure: { 'sentinel_1': [df1, df2], 'sentinel_2': [df3, df4] }
+    files_by_source = {}
+
+    print("Reading and grouping files...")
+    
+    for file in all_files:
+        # Get the parent folder name to use as the "Source ID"
+        parent_folder = os.path.basename(os.path.dirname(file))
+        
+        try:
+            df = pd.read_csv(file)
+            df.columns = df.columns.str.strip()
+            
+            # Only process if it has a date (ignore SRTM/static files)
+            if 'date' in df.columns and '.geo' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                
+                if parent_folder not in files_by_source:
+                    files_by_source[parent_folder] = []
+                files_by_source[parent_folder].append(df)
+            else:
+                print(f"Skipping static file: {os.path.basename(file)}")
+                
+        except Exception as e:
+            print(f"Error reading {file}: {e}")
+
+    # 2. Concatenate files from the SAME source (Vertical Stack)
+    # This prevents the "Duplicate Columns" error
+    consolidated_dfs = []
+    
+    for source, df_list in files_by_source.items():
+        print(f"Stacking {len(df_list)} files for source: {source}")
+        # Stack rows (e.g. Jan + Dec)
+        stacked_df = pd.concat(df_list, ignore_index=True)
+        consolidated_dfs.append(stacked_df)
+
+    # 3. Merge different sources (Horizontal Join)
+    if consolidated_dfs:
+        print("Merging different sources (Outer Join)...")
+        final_df = reduce(
+            lambda left, right: pd.merge(
+                left, 
+                right, 
+                on=['date', '.geo'], 
+                how='outer'
+            ), 
+            consolidated_dfs
+        )
+    else:
+        print("No valid time-series data found.")
+        return
+
+    # 4. Create Partitions and Write
+    print("Generating partitions and writing to disk...")
+    final_df['year'] = final_df['date'].dt.year
+    final_df['month'] = final_df['date'].dt.month
+
+    final_df.to_parquet(
+        output_path,
+        partition_cols=['year', 'month'],
+        engine='pyarrow',
+        compression='snappy',
+        index=False
+    )
+    print(f"Success! Data written to: {output_path}")
+
+# --- Usage ---
+# create_partitioned_dataset_grouped("raw_data/ROI_TEST")
