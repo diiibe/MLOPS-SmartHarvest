@@ -31,7 +31,7 @@ def run_pipeline(roi_coords=config.ROI_TEST, start_date=config.START, end_date=c
                 get_landsat(roi_coords, download_start_date, download_end_date, roi_coords_name)
 
     else:
-         print(f"Roi Coords not defined, please define them. Roi coord used {roi_coords["name"]}")
+         print(f"Roi Coords not defined, please define them. Roi coord used {roi_coords}")
 
     # else:
     #     # return report using existing data

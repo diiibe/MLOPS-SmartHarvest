@@ -12,7 +12,8 @@ import os
 from modules.satellites_data_extraction import (
     get_sentinel2_data,
     get_landsat_thermal_data,
-    get_sentinel1_data
+    get_sentinel1_data,
+    get_srtm_data
 )
 from modules.s2cleaning import (
     get_adaptive_core, 
@@ -103,15 +104,38 @@ def export_with_step2(
     else:
         roi_to_use = ee.Geometry.Polygon(ROI) if isinstance(ROI, list) else ROI
 
-    # --- 6. SAMPLING ---
-    print("6. Extracting pixel data...")
+    # --- 6. ADD SRTM DATA (STATIC) ---
+    print("6. Integrating SRTM terrain data...")
+    srtm_raw = get_srtm_data(ROI)
+    # Compute terrain derivatives
+    elevation = srtm_raw.select('elevation')
+    slope = ee.Terrain.slope(elevation).rename('slope')
+    aspect = ee.Terrain.aspect(elevation).rename('aspect')
+
+    # Combine all terrain bands into a single image
+    # Note: These are static, so we add them to every feature in the collection
+    terrain_img = elevation.addBands([slope, aspect])
+
+    # Update bands list
+    srtm_bands = ['elevation', 'slope', 'aspect']
+    all_bands = all_bands + srtm_bands 
+
+    # Function to add SRTM bands to each image in the collection
+    def add_srtm(img):
+        return img.addBands(terrain_img)
+
+    merged_col = merged_col.map(add_srtm)
+
+    # --- 7. SAMPLING ---
+    print("7. Extracting pixel data...")
     
     def sample_with_metadata(img):
         image = ee.Image(img)
         date_str = image.date().format('YYYY-MM-dd')
         sensor_name = image.get('sensor')
         
-        # Stats for QA
+        # Stats for QA (on original bands, before adding SRTM if that matters, but here it's fine)
+        # Note: extract_parcel_stats typically uses QA/SCL bands which are still present.
         stats = extract_parcel_stats(image, roi_to_use, sampling_scale=config.SAMPLING_SCALE)
         is_valid = validate_parcel_observation(stats, is_small_parcel=0) # simplified for debug
         
@@ -135,8 +159,8 @@ def export_with_step2(
     
     features = merged_col.map(sample_with_metadata).flatten()
     
-    # --- 7. EXPORT ---
-    print("7. Generating download URL...")
+    # --- 8. EXPORT ---
+    print("8. Generating download URL...")
     selectors = ['date', 'sensor'] + all_bands + [
         'valid_pixels', 'coverage_ratio', 'observation_valid', '.geo'
     ]
@@ -149,16 +173,32 @@ def export_with_step2(
         )
         
         response = requests.get(url)
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        with open(output_file, 'wb') as f:
-            f.write(response.content)
-        
-        df = pd.read_csv(output_file)
-        if len(df) > 0:
-            print(f"✅ Export complete: {len(df)} rows")
+        if response.status_code == 200:
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            with open(output_file, 'wb') as f:
+                f.write(response.content)
+            
+            # Check if content is JSON error (even with 200 OK, GEE sometimes returns JSON error as text)
+            # But usually it's fine if status is 200.
+            # However, for large exports, it might fail inside the stream.
+            
+            try:
+                df = pd.read_csv(output_file)
+                if len(df) > 0:
+                    print(f"✅ Export complete: {len(df)} rows")
+                else:
+                    print("⚠️ Warning: Exported dataset is empty.")
+                return df
+            except Exception as e:
+                print(f"❌ Error reading CSV: {e}")
+                print("First few bytes of file:")
+                with open(output_file, 'rb') as f:
+                    print(f.read(200))
+                return None
         else:
-            print("⚠️ Warning: Exported dataset is empty.")
-        return df
+            print(f"❌ Error downloading data. Status code: {response.status_code}")
+            print(f"Response content: {response.text}")
+            return None
         
     except Exception as e:
         print(f"❌ Error during export: {e}")
@@ -168,7 +208,7 @@ if __name__ == "__main__":
     export_with_step2(
         ROI=config.ROI_TEST,
         start_date='2024-05-01',
-        end_date='2024-09-30',
+        end_date='2024-05-30',
         output_file='output/vineyard_multi_sensor_2024.csv',
         use_erosion=True
     )
