@@ -103,6 +103,7 @@ ROI_TEST = [
 
 # Placeholder for the actual ee.Geometry object (initialized in main.py)
 ROI = None
+roi_name='ROI_TEST'
 
 # Dynamic ROI Loading
 import os
@@ -146,3 +147,6 @@ CLOUD_THRESH_LANDSAT = 80
 
 # Static Dataset sampling scale
 SAMPLING_SCALE = 10 
+metadata_path = f"{os.getcwd()}/metadata/"
+
+runid = "test"
