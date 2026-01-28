@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  smart-harvest-pipeline:
+    build:
+      context: .
+      args:
+        - GIT_COMMIT
+    container_name: smart-harvest-runner
+    volumes:
+      # Map local output_docker directory to container output directory
+      # This ensures artifacts (reports, manifests) persist after container exit
+      - ./output_docker:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+      - CI_ARTIFACTS_DIR=/app/output
+    # Override default CMD to run the E2E test (Offline Mode)
+    # This simulates a full run using mocks and exports artifacts to CI_ARTIFACTS_DIR
+    command: python -m pytest tests/test_e2e_pipeline.py

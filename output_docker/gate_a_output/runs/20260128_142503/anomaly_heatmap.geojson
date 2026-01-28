@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [12.83, 46.1]}, "properties": {"parcel_id": "p_001", "anomaly_score": 0.1}}]}

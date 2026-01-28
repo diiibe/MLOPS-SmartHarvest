@@ -8,6 +8,7 @@ from pathlib import Path
 from utils import create_conn_ee, generate_metadata
 from modules.satellites_data_extraction import get_landsat_thermal_data
 
+
 def get_landsat(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_END, ROI_NAME="ROI_TEST"):
     """
     Extract Landsat 8/9 thermal data and convert to Land Surface Temperature (LST) in Celsius.
@@ -27,51 +28,51 @@ def get_landsat(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config
     def process_thermal(image):
         # ST_B10 is the thermal band in Landsat Collection 2 Level 2
         # It's already in Kelvin, scaled by 0.00341802 + 149.0
-        lst_kelvin = image.select('ST_B10').multiply(0.00341802).add(149.0)
+        lst_kelvin = image.select("ST_B10").multiply(0.00341802).add(149.0)
         lst_celsius = lst_kelvin.subtract(273.15)
 
         # Apply QA mask to remove clouds and cloud shadows
-        qa = image.select('QA_PIXEL')
+        qa = image.select("QA_PIXEL")
         # Bit 3: Cloud
         # Bit 4: Cloud Shadow
         cloud_mask = qa.bitwiseAnd(1 << 3).eq(0).And(qa.bitwiseAnd(1 << 4).eq(0))
 
-        return lst_celsius.updateMask(cloud_mask).rename('LST').copyProperties(image, ['system:time_start'])
+        return lst_celsius.updateMask(cloud_mask).rename("LST").copyProperties(image, ["system:time_start"])
 
     # Process all images
     landsat_processed = landsat_raw.map(process_thermal)
 
     def sample_pixel(img):
-        img = img.set('date_str', img.date().format('YYYY-MM-dd'))
+        img = img.set("date_str", img.date().format("YYYY-MM-dd"))
         # Select band and sample
-        return img.select(['LST']).sample(
-            region=ee.Geometry.Polygon(ROI) if isinstance(ROI, list) else ROI,
-            scale=config.SAMPLING_SCALE,
-            geometries=True,
-        ).map(lambda feat: feat.set('date', img.get('date_str')))
+        return (
+            img.select(["LST"])
+            .sample(
+                region=ee.Geometry.Polygon(ROI) if isinstance(ROI, list) else ROI,
+                scale=config.SAMPLING_SCALE,
+                geometries=True,
+            )
+            .map(lambda feat: feat.set("date", img.get("date_str")))
+        )
 
     # Flatten collection to features
     features = landsat_processed.map(sample_pixel).flatten()
 
     try:
         # Define columns to export
-        selectors = ['date', 'LST', '.geo']
+        selectors = ["date", "LST", ".geo"]
 
-        url = features.getDownloadURL(
-            filetype='CSV',
-            selectors=selectors,
-            filename='landsat_thermal_data'
-        )
+        url = features.getDownloadURL(filetype="CSV", selectors=selectors, filename="landsat_thermal_data")
 
         print(f"Downloading Landsat thermal data for {start_date} to {end_date}...")
         response = requests.get(url)
 
         # Create directory if it doesn't exist
-        output_dir = f'raw_data/{ROI_NAME}/landsat_thermal'
+        output_dir = f"raw_data/{ROI_NAME}/landsat_thermal"
         os.makedirs(output_dir, exist_ok=True)
 
-        output_file = f'{output_dir}/{start_date.date()}_{end_date.date()}.csv'
-        with open(output_file, 'wb') as f:
+        output_file = f"{output_dir}/{start_date.date()}_{end_date.date()}.csv"
+        with open(output_file, "wb") as f:
             f.write(response.content)
 
         print(f"Saved to {output_file}")
@@ -88,16 +89,25 @@ def get_landsat(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config
         end_date,
         selectors,
         ROI,
-        config.runid
+        config.runid,
     )
 
-    metadata = generate_metadata("LANDSAT" ,"LANDSAT/LC08/C02/T1_L2, LANDSAT/LC09/C02/T1_L2", landsat_raw.size().getInfo(), start_date, end_date, ['date', 'LST', '.geo'], ROI, config.runid)
-    metadata_filename = f'{ROI_NAME}/landsat/{config.runid}_{start_date.date()}_{end_date.date()}.json'
+    metadata = generate_metadata(
+        "LANDSAT",
+        "LANDSAT/LC08/C02/T1_L2, LANDSAT/LC09/C02/T1_L2",
+        landsat_raw.size().getInfo(),
+        start_date,
+        end_date,
+        ["date", "LST", ".geo"],
+        ROI,
+        config.runid,
+    )
+    metadata_filename = f"{ROI_NAME}/landsat/{config.runid}_{start_date.date()}_{end_date.date()}.json"
     metadata_path = Path(f"{config.metadata_path}{metadata_filename}")
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.touch(exist_ok=True)
 
-    with open(metadata_path, 'w') as f:
+    with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=4)
 
     return

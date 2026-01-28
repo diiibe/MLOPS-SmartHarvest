@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+
+# Data & Output
+output/
+database.zip
+database/
+Per Andrea/
+*.pdf

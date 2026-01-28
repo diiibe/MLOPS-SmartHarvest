@@ -1,0 +1,176 @@
+name: Python CI (Offline)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    name: Code Quality (Lint)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.9 (same as tests job)
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+    - name: Install Lint Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy
+    - name: Check Formatting (Black)
+      run: |
+        # BLOCKS build if formatting is incorrect
+        black . --check
+    - name: Check Syntax (Flake8 Errors)
+      run: |
+        # BLOCKS build on syntax errors
+        # Config loaded from setup.cfg
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    - name: Check Style (Flake8 Warnings)
+      run: |
+        # REPORTS only (exit-zero)
+        # Config loaded from setup.cfg
+        flake8 . --count --exit-zero --statistics
+    - name: Check Typing (Mypy)
+      run: |
+        # REPORTS only (non-blocking)
+        # Config loaded from pyproject.toml
+        mypy . || true
+
+  test:
+    name: Run Tests & Contracts
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pytest
+
+    - name: Run Validation & E2E Tests
+      run: |
+        # Run validation tests + E2E logic test + pure unit tests
+        # -v for verbose output
+        python -m pytest tests/test_config_validation.py tests/test_schema_contracts.py tests/test_e2e_pipeline.py tests/test_business_rules.py tests/test_schema_validators.py -v
+
+  docker-build:
+    name: Verify Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build Docker Image
+        run: docker build . --file Dockerfile --tag ci-build:${{ github.sha }}
+  smoke-gate:
+    name: Gate A - Smoke Execution
+    runs-on: ubuntu-latest
+    needs: [lint] # Can run parallel with full tests, but must pass for merge
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install pytest specifically
+          pip install pytest
+
+      - name: Run Smoke Test [BLOCKING]
+        env:
+          CI_ARTIFACTS_DIR: ${{ github.workspace }}/ci_artifacts
+        run: |
+          mkdir -p ${{ github.workspace }}/ci_artifacts
+          # Fails if main.py doesn't produce run bundle (manifest + config snapshot)
+          python -m pytest tests/test_e2e_pipeline.py -v
+
+      - name: Upload Run Bundle
+        if: always() # Uploads even if test fails (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-a-smoke-bundle
+          path: ci_artifacts/gate_a_output/
+
+
+  output-gate:
+    name: Gate B - Output Completeness
+    runs-on: ubuntu-latest
+    # Parallel execution: No 'needs' dependency strictly required on 'lint' for logic, 
+    # but efficient to fail fast if lint fails.
+    # User requested separate job.
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest fpdf2
+
+      - name: Run Gate B (Contract Check)
+        run: |
+          python -m pytest tests/test_gate_b.py -v
+
+  policy-gate:
+    name: Gate C - Conservative Policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest fpdf2
+
+      - name: Run Gate C (Invariant Check)
+        run: |
+          python -m pytest tests/test_gate_c.py -v
+
+  export-gate:
+    name: Gate D - Export Validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Ensure pypdf/shapely are installed if not in requirements (redundancy safe)
+          pip install pytest fpdf2 pypdf shapely
+
+      - name: Run Gate D (Deep Validation)
+        run: |
+          python -m pytest tests/test_gate_d.py -v
+

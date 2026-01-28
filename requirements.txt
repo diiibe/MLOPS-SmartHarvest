@@ -6,5 +6,10 @@ markdown
 plotly
 matplotlib
 scipy
-yaml
+
+PyYAML
 seaborn
+fpdf2
+pypdf
+shapely
+pytest

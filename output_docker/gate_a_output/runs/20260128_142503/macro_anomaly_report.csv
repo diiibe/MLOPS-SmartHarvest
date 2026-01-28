@@ -1,0 +1,4 @@
+parcel_id,anomaly_score,cluster_id,date,coherence_score,persistence_score,anomaly_status
+p_001,0.9,1,2026-01-28,0.9,0.8,CONFIRMED
+p_002,0.4,1,2026-01-28,0.2,0.1,unconfirmed
+p_003,0.95,2,2026-01-28,0.8,0.4,unconfirmed
