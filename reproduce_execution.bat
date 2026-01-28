@@ -5,7 +5,10 @@ echo   SmartHarvest - Continuous Delivery Reproduction Script
 echo ========================================================
 
 echo [1/3] Building Docker Image (Clean Build)...
-docker compose build --no-cache
+FOR /F "tokens=*" %%g IN ('git rev-parse HEAD') do (SET GIT_COMMIT=%%g)
+echo       Git Commit: %GIT_COMMIT%
+
+docker compose build --no-cache --build-arg GIT_COMMIT=%GIT_COMMIT%
 IF %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Docker build failed.
     exit /b %ERRORLEVEL%

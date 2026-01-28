@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   smart-harvest-pipeline:
-    build: .
+    build:
+      context: .
+      args:
+        - GIT_COMMIT
     container_name: smart-harvest-runner
     volumes:
       # Map local output_docker directory to container output directory

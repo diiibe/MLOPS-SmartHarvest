@@ -10,6 +10,10 @@ ENV PYTHONUNBUFFERED=1
 # Set the working directory in the container
 WORKDIR /app
 
+# Capture Git Commit Hash for Traceability
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT_HASH=${GIT_COMMIT}
+
 # Install system dependencies (if any are needed for scipy/pandas/folium)
 # RUN apt-get update && apt-get install -y --no-install-recommends gcc && rm -rf /var/lib/apt/lists/*
 
