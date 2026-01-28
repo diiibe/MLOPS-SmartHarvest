@@ -3,26 +3,38 @@ class MockEE(object):
     Mock Earth Engine Module.
     Acts as 'ee' module when injected into sys.modules.
     """
+
     def __getattr__(self, name):
         # Return specific mock classes if available, else MockEEObject
-        if name == 'Image': return Image
-        if name == 'ImageCollection': return ImageCollection
-        if name == 'Geometry': return Geometry
-        if name == 'Filter': return Filter
-        if name == 'Date': return Date
-        if name == 'Number': return Number
-        if name == 'Reducer': return Reducer
-        if name == 'Terrain': return Terrain
-        if name == 'Algorithms': return Algorithms
+        if name == "Image":
+            return Image
+        if name == "ImageCollection":
+            return ImageCollection
+        if name == "Geometry":
+            return Geometry
+        if name == "Filter":
+            return Filter
+        if name == "Date":
+            return Date
+        if name == "Number":
+            return Number
+        if name == "Reducer":
+            return Reducer
+        if name == "Terrain":
+            return Terrain
+        if name == "Algorithms":
+            return Algorithms
         return MockEEObject
 
     def Initialize(self, *args, **kwargs):
         pass
 
+
 class Algorithms(object):
     @staticmethod
     def If(condition, trueCase, falseCase):
         return trueCase
+
 
 class MockEEObject:
     """Base class for all mock EE objects."""
@@ -33,7 +45,7 @@ class MockEEObject:
     def getInfo(self):
         """Mock getInfo returning dummy data or stored value."""
         if self._value is not None:
-             return self._value
+            return self._value
         return {"type": "MockObject", "data": "dummy"}
 
     def map(self, func):

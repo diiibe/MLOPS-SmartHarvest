@@ -125,8 +125,6 @@ def to_celsius(satellite_module, image):
     return lst
 
 
-
-
 def get_missing_partitions(start_date, end_date, base_dir):
     """
     Returns a list of dates (partitions) that are MISSING data.
@@ -144,7 +142,7 @@ def get_missing_partitions(start_date, end_date, base_dir):
     missing_dates = []
     # Initialize iteration at the first of the start month
     current_date = start_date.replace(day=1)
-    
+
     # Get the actual current time (Right Now)
     now = datetime.now()
 
@@ -162,20 +160,17 @@ def get_missing_partitions(start_date, end_date, base_dir):
         target_path = base_path / year_part / month_part
 
         data_found = False
-        
+
         # 3. Check if folder exists AND contains files
         if target_path.exists() and target_path.is_dir():
             # Get list of files, ignoring hidden system files like .DS_Store
-            valid_files = [
-                f for f in target_path.iterdir() 
-                if f.is_file() and not f.name.startswith('.')
-            ]
+            valid_files = [f for f in target_path.iterdir() if f.is_file() and not f.name.startswith(".")]
             if len(valid_files) > 0:
                 data_found = True
 
         if not data_found:
             missing_dates.append(current_date)
-        
+
         # Move to next month
         current_date += relativedelta(months=1)
 
@@ -357,23 +352,25 @@ def process_era5(image):
 def generate_metadata(source, collection, image_count, start_date, end_date, bands, roi, runid):
 
     metadata = {
-        'run_id': runid,
-        'created_at': str(datetime.now()),
-        'status': '',
-        'source': source,
-        'provider': collection,
-        'image_count': image_count,
-        'date_range': f"{start_date} to {end_date}",
-        'bands_description': bands,
-        'roi_coords': roi,
+        "run_id": runid,
+        "created_at": str(datetime.now()),
+        "status": "",
+        "source": source,
+        "provider": collection,
+        "image_count": image_count,
+        "date_range": f"{start_date} to {end_date}",
+        "bands_description": bands,
+        "roi_coords": roi,
     }
 
     return metadata
+
 
 import pandas as pd
 import os
 import glob
 from functools import reduce
+
 
 def create_partitioned_dataset(input_path, output_path="dataset"):
     """
@@ -384,7 +381,7 @@ def create_partitioned_dataset(input_path, output_path="dataset"):
     """
     # 1. Find all CSV files
     all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
-    
+
     if not all_files:
         print("No CSV files found.")
         return
@@ -394,32 +391,32 @@ def create_partitioned_dataset(input_path, output_path="dataset"):
     files_by_source = {}
 
     print("Reading and grouping files...")
-    
+
     for file in all_files:
         # Get the parent folder name to use as the "Source ID"
         parent_folder = os.path.basename(os.path.dirname(file))
-        
+
         try:
             df = pd.read_csv(file)
             df.columns = df.columns.str.strip()
-            
+
             # Only process if it has a date (ignore SRTM/static files)
-            if 'date' in df.columns and '.geo' in df.columns:
-                df['date'] = pd.to_datetime(df['date'])
-                
+            if "date" in df.columns and ".geo" in df.columns:
+                df["date"] = pd.to_datetime(df["date"])
+
                 if parent_folder not in files_by_source:
                     files_by_source[parent_folder] = []
                 files_by_source[parent_folder].append(df)
             else:
                 print(f"Skipping static file: {os.path.basename(file)}")
-                
+
         except Exception as e:
             print(f"Error reading {file}: {e}")
 
     # 2. Concatenate files from the SAME source (Vertical Stack)
     # This prevents the "Duplicate Columns" error
     consolidated_dfs = []
-    
+
     for source, df_list in files_by_source.items():
         print(f"Stacking {len(df_list)} files for source: {source}")
         # Stack rows (e.g. Jan + Dec)
@@ -429,32 +426,19 @@ def create_partitioned_dataset(input_path, output_path="dataset"):
     # 3. Merge different sources (Horizontal Join)
     if consolidated_dfs:
         print("Merging different sources (Outer Join)...")
-        final_df = reduce(
-            lambda left, right: pd.merge(
-                left, 
-                right, 
-                on=['date', '.geo'], 
-                how='outer'
-            ), 
-            consolidated_dfs
-        )
+        final_df = reduce(lambda left, right: pd.merge(left, right, on=["date", ".geo"], how="outer"), consolidated_dfs)
     else:
         print("No valid time-series data found.")
         return
 
     # 4. Create Partitions and Write
     print("Generating partitions and writing to disk...")
-    final_df['year'] = final_df['date'].dt.year
-    final_df['month'] = final_df['date'].dt.month
+    final_df["year"] = final_df["date"].dt.year
+    final_df["month"] = final_df["date"].dt.month
 
-    final_df.to_parquet(
-        output_path,
-        partition_cols=['year', 'month'],
-        engine='pyarrow',
-        compression='snappy',
-        index=False
-    )
+    final_df.to_parquet(output_path, partition_cols=["year", "month"], engine="pyarrow", compression="snappy", index=False)
     print(f"Success! Data written to: {output_path}")
+
 
 # --- Usage ---
 # create_partitioned_dataset_grouped("raw_data/ROI_TEST")

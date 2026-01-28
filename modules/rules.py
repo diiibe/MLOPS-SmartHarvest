@@ -6,7 +6,7 @@ def evaluate_observation_quality(valid_pixels: int, total_pixels: int, coverage_
     Rules:
     - Minimum Absolute Pixels: 25
     - Minimum Relative coverage: 30% of total possible pixels
-    - Coverage Ratio Threshold: 
+    - Coverage Ratio Threshold:
         - 60% for normal parcels
         - 50% for small parcels (< 60 pixels)
     - Small Parcel Relaxation:
@@ -15,15 +15,15 @@ def evaluate_observation_quality(valid_pixels: int, total_pixels: int, coverage_
     Returns:
         str: 'SUCCESS', 'LOW_CONFIDENCE', or 'NO_DECISION' (reserved for missing data)
     """
-    
+
     # 0. Sanity checks (No Decision)
     if total_pixels <= 0:
-        return 'NO_DECISION'
+        return "NO_DECISION"
 
     # 1. Define Thresholds
     MIN_ABSOLUTE_PIXELS = 25
     MIN_RELATIVE_PCT = 0.30
-    
+
     if is_small_parcel:
         COVERAGE_THRESHOLD = 0.50
         # Relaxed minimum for small parcels
@@ -40,6 +40,6 @@ def evaluate_observation_quality(valid_pixels: int, total_pixels: int, coverage_
     has_enough_coverage = coverage_ratio >= COVERAGE_THRESHOLD
 
     if has_enough_pixels and has_enough_coverage:
-        return 'SUCCESS'
+        return "SUCCESS"
     else:
-        return 'LOW_CONFIDENCE'
+        return "LOW_CONFIDENCE"

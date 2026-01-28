@@ -1,4 +1,3 @@
-
 import unittest
 import os
 import json
@@ -24,6 +23,7 @@ sys.path.insert(0, parent_dir)
 sys.path.insert(0, current_dir)
 
 import mock_ee
+
 sys.modules["ee"] = mock_ee
 sys.modules["google"] = MagicMock()
 sys.modules["google.oauth2"] = MagicMock()
@@ -31,6 +31,7 @@ sys.modules["google.oauth2.service_account"] = MagicMock()
 
 import main
 import config
+
 
 class TestGateDExportValidity(unittest.TestCase):
     """
@@ -68,9 +69,10 @@ class TestGateDExportValidity(unittest.TestCase):
 
         # 1. Setup Mock
         from datetime import datetime
+
         start_date = datetime(2025, 6, 1)
         mock_missing.return_value = [start_date]
-        
+
         # 2. RUN PIPELINE
         try:
             main.run_pipeline()
@@ -82,7 +84,7 @@ class TestGateDExportValidity(unittest.TestCase):
         found_manifests = glob.glob(manifest_pattern)
         self.assertTrue(len(found_manifests) > 0, "Gate D Fail: No run_manifest.json found.")
         manifest_path = found_manifests[0]
-        
+
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
 
@@ -100,13 +102,13 @@ class TestGateDExportValidity(unittest.TestCase):
             # Artifact path in manifest: "runs/{run_id}/foo.pdf"
             # Main.py uses os.path.relpath(..., start="output") -> "runs/{run_id}/foo.pdf"
             # So absolute path in test context = output_root + "output" + rel_path
-            
+
             # Wait, main.py says: relpath(..., start="output").
             # If generated file is output/runs/id/foo, relpath is runs/id/foo.
             # Local structure: temp_dir/output/runs/id/foo.
-            
+
             full_path = os.path.join("output", rel_path)
-            
+
             print(f"   [Checking] {art_key} ({art_type}) at {full_path}")
             self.assertTrue(os.path.exists(full_path), f"Artifact {art_key} missing at {full_path}")
 
@@ -128,9 +130,9 @@ class TestGateDExportValidity(unittest.TestCase):
             df = pd.read_csv(path)
         except Exception as e:
             self.fail(f"CSV {key} parsing failed: {e}")
-        
+
         self.assertGreater(len(df), 0, f"CSV {key} is empty (0 rows)")
-        
+
         # Critical checks depend on artifact key usually, but generic non-null is good
         if "macro_anomaly" in key:
             self.assertTrue(df["parcel_id"].notna().all(), "CSV Macro: Null parcel_id found")
@@ -144,29 +146,29 @@ class TestGateDExportValidity(unittest.TestCase):
                 data = json.load(f)
         except Exception as e:
             self.fail(f"GeoJSON {key} parsing failed: {e}")
-            
+
         self.assertEqual(data.get("type"), "FeatureCollection", "GeoJSON must be FeatureCollection")
         features = data.get("features", [])
-        
+
         if not features:
-             # Depending on run, empty might be valid, but for smoke test we expect mocks
-             pass 
-             
+            # Depending on run, empty might be valid, but for smoke test we expect mocks
+            pass
+
         for idx, feat in enumerate(features):
             geom = feat.get("geometry")
             self.assertIsNotNone(geom, f"Feature {idx} missing geometry")
-            
+
             # Shapely Validity
             try:
                 shp = shape(geom)
                 self.assertTrue(shp.is_valid, f"Feature {idx} geometry is invalid (self-intersection etc.)")
             except Exception as e:
                 self.fail(f"Shapely validaton crashed for Feature {idx}: {e}")
-                
+
             # CRS/Coords check (simple range for Lat/Lon 4326)
-            # Assuming bounds [long, lat]. 
+            # Assuming bounds [long, lat].
             # SmartHarvest usually Italy/Europe? Just check valid global bounds.
-            bounds = shp.bounds # (minx, miny, maxx, maxy)
+            bounds = shp.bounds  # (minx, miny, maxx, maxy)
             self.assertTrue(-180 <= bounds[0] <= 180, f"Feature {idx} Lon out of bounds")
             self.assertTrue(-90 <= bounds[1] <= 90, f"Feature {idx} Lat out of bounds")
 
@@ -177,22 +179,23 @@ class TestGateDExportValidity(unittest.TestCase):
         try:
             reader = PdfReader(path)
         except Exception as e:
-             self.fail(f"PDF {key} unreadable by pypdf: {e}")
-             
+            self.fail(f"PDF {key} unreadable by pypdf: {e}")
+
         self.assertGreater(len(reader.pages), 0, "PDF has 0 pages")
-        
+
         try:
             first_page_text = reader.pages[0].extract_text()
         except:
             first_page_text = ""
-            
+
         self.assertTrue(len(first_page_text.strip()) > 0, "PDF first page is blank (no text extracted)")
-        
+
         # Verify Key Metadata (Gate A/B Traceability in PDF)
         self.assertIn("Run ID", first_page_text, "PDF missing 'Run ID' keyword")
         self.assertIn("Date", first_page_text, "PDF missing 'Date' keyword")
-        
+
         print("      PASS (PDF Readable, Non-empty text, Metadata present)")
+
 
 if __name__ == "__main__":
     unittest.main()

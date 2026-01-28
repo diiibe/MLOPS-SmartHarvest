@@ -1,4 +1,3 @@
-
 import unittest
 import os
 import json
@@ -16,6 +15,7 @@ sys.path.insert(0, parent_dir)
 sys.path.insert(0, current_dir)
 
 import mock_ee
+
 sys.modules["ee"] = mock_ee
 sys.modules["google"] = MagicMock()
 sys.modules["google.oauth2"] = MagicMock()
@@ -23,6 +23,7 @@ sys.modules["google.oauth2.service_account"] = MagicMock()
 
 import main
 import config
+
 
 class TestGateBOutputCompleteness(unittest.TestCase):
     """
@@ -57,9 +58,10 @@ class TestGateBOutputCompleteness(unittest.TestCase):
 
         # 1. Setup Mock (Simulate minimal successful data flow)
         from datetime import datetime
+
         start_date = datetime(2025, 6, 1)
         mock_missing.return_value = [start_date]
-        
+
         # 2. RUN PIPELINE
         try:
             main.run_pipeline()
@@ -72,26 +74,24 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         self.assertTrue(len(found_manifests) > 0, "Gate B Fail: No manifest found. Run did not produce traceability.")
         manifest_path = found_manifests[0]
         run_bundle_dir = os.path.dirname(manifest_path)
-        
+
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
 
         # 4. PRECONDITION: Terminal Status
         print(f"   Run Status: {manifest.get('status')}")
-        self.assertIn(manifest.get("status"), ["SUCCESS", "LOW_CONFIDENCE_DONE"], 
-                      "Gate B Skip/Fail: Gate B applies to terminal runs. Status was not terminal.")
+        self.assertIn(
+            manifest.get("status"),
+            ["SUCCESS", "LOW_CONFIDENCE_DONE"],
+            "Gate B Skip/Fail: Gate B applies to terminal runs. Status was not terminal.",
+        )
 
         # 5. VERIFY MANIFEST ARTIFACTS SECTION
         print("1. Checking Manifest 'artifacts' contract...")
         self.assertIn("artifacts", manifest, "Manifest missing 'artifacts' section")
         artifacts = manifest["artifacts"]
-        
-        expected_keys = [
-            "pdf_report", 
-            "macro_anomaly_report", 
-            "anomaly_heatmap", 
-            "coverage_reliability_report"
-        ]
+
+        expected_keys = ["pdf_report", "macro_anomaly_report", "anomaly_heatmap", "coverage_reliability_report"]
         for key in expected_keys:
             self.assertIn(key, artifacts, f"Artifact key '{key}' missing in manifest")
             self.assertIn("path", artifacts[key], f"Path missing for artifact '{key}'")
@@ -104,7 +104,7 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         pdf_rel_path = artifacts["pdf_report"]["path"]
         pdf_abs_path = os.path.join("output", pdf_rel_path)
         self.assertTrue(os.path.exists(pdf_abs_path), f"PDF file missing at {pdf_abs_path}")
-        
+
         with open(pdf_abs_path, "rb") as f:
             header = f.read(5)
             self.assertEqual(header, b"%PDF-", "Invalid PDF header. File is not a valid PDF.")
@@ -114,7 +114,7 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         geojson_rel_path = artifacts["anomaly_heatmap"]["path"]
         geojson_abs_path = os.path.join("output", geojson_rel_path)
         self.assertTrue(os.path.exists(geojson_abs_path), f"GeoJSON file missing at {geojson_abs_path}")
-        
+
         with open(geojson_abs_path, "r") as f:
             geo_data = json.load(f)
             self.assertEqual(geo_data.get("type"), "FeatureCollection", "GeoJSON must be FeatureCollection")
@@ -127,7 +127,7 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         macro_rel_path = artifacts["macro_anomaly_report"]["path"]
         macro_abs_path = os.path.join("output", macro_rel_path)
         self.assertTrue(os.path.exists(macro_abs_path), f"Macro CSV missing at {macro_abs_path}")
-        
+
         df_macro = pd.read_csv(macro_abs_path)
         required_cols_macro = ["parcel_id", "anomaly_score", "cluster_id", "date"]
         for col in required_cols_macro:
@@ -138,7 +138,7 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         cov_rel_path = artifacts["coverage_reliability_report"]["path"]
         cov_abs_path = os.path.join("output", cov_rel_path)
         self.assertTrue(os.path.exists(cov_abs_path), f"Coverage CSV missing at {cov_abs_path}")
-        
+
         df_cov = pd.read_csv(cov_abs_path)
         required_cols_cov = ["coverage_ratio", "valid_pixels", "reliability_factor", "status"]
         for col in required_cols_cov:
@@ -146,6 +146,7 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         print("   [Coverage CSV] OK (Schema verified)")
 
         print("Gate B: Output Completeness - PASS")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,5 @@
 # Cloud thresholds
-CLOUD_THRESH = 50 # Strict cloud threshold for NDVI
+CLOUD_THRESH = 50  # Strict cloud threshold for NDVI
 
 # Policy Thresholds (Gate C)
 CONFIRM_COHERENCE_MIN = 0.6

@@ -24,13 +24,13 @@ class TestConfigValidation(unittest.TestCase):
         # 1. Structure Check: List of Lines (Polygon) or List of Lists (Simple Polygon)
         # Contract: We expect a Polygon structure [[[lon, lat], ...]]
         # (Assuming simple polygon for now, or MultiPolygon structure)
-        
+
         # Ensure it's a list
         self.assertIsInstance(roi, list, "ROI_TEST must be a list")
-        
+
         # Access the first ring (outer shell)
         ring = roi[0] if isinstance(roi[0], list) and isinstance(roi[0][0], list) else roi
-        
+
         # 2. Minimum Points Check
         # A valid closed ring needs at least 4 points (Triangle + Close point) or 3 if implicitly closed (but GeoJSON standard is 4)
         # We enforce strict GeoJSON compliance: First == Last, Min 4 points.
@@ -66,7 +66,7 @@ class TestConfigValidation(unittest.TestCase):
 
         # Contract: T1 should start before T2 (Vegetative before Maturation)
         self.assertTrue(t1_start <= t2_start, "T1 should start before or at the same time as T2")
-        
+
         # Contract: T1 should end before or when T2 ends
         self.assertTrue(t1_end <= t2_end, "T1 (Vegetative) must end before or when T2 (Maturation) ends")
 
@@ -75,7 +75,7 @@ class TestConfigValidation(unittest.TestCase):
         MAX_DAYS = 365
         t1_days = (t1_end - t1_start).days
         t2_days = (t2_end - t2_start).days
-        
+
         self.assertTrue(t1_days <= MAX_DAYS, f"T1 window too long ({t1_days} days). Max {MAX_DAYS}.")
         self.assertTrue(t2_days <= MAX_DAYS, f"T2 window too long ({t2_days} days). Max {MAX_DAYS}.")
 

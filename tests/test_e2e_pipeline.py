@@ -46,21 +46,22 @@ class TestE2EPipeline(unittest.TestCase):
         if ci_artifacts_dir:
             try:
                 import shutil
+
                 # We are currently in self.output_root.
                 # The pipeline generates 'output/runs/...'
                 source_output = os.path.join(self.output_root, "output")
-                
+
                 if os.path.exists(source_output):
                     # Destination: CI_ARTIFACTS_DIR/run_bundle_<timestamp> or just contents
                     # User asked for: ci_artifacts/run_bundle/
                     # We create a unique subfolder to avoid collisions if multiple tests run?
                     # For e2e smoke, just copy 'output' to 'CI_ARTIFACTS_DIR/gate_a_output'
                     dest_path = os.path.join(ci_artifacts_dir, "gate_a_output")
-                    
+
                     # copytree requires dest not to exist usually, or use dirs_exist_ok in py3.8+
                     if os.path.exists(dest_path):
-                         shutil.rmtree(dest_path)
-                    
+                        shutil.rmtree(dest_path)
+
                     shutil.copytree(source_output, dest_path)
                     print(f"\\n[CI] Artifacts copied to {dest_path}")
             except Exception as e:
@@ -146,26 +147,26 @@ class TestE2EPipeline(unittest.TestCase):
                 print("Gate 4: Regression Check (NDVI Limits) - PASS")
             else:
                 self.fail("Regression Fail: NDVI column missing in output")
-        
+
         # --- Gate A: Smoke Execution & Traceability ---
         # Search for run_manifest.json in output/runs/*/run_manifest.json
         # Since run_id is dynamic, we use glob. CWD is already self.output_root
         manifest_pattern = os.path.join("output", "runs", "*", "run_manifest.json")
         found_manifests = glob.glob(manifest_pattern)
-        
+
         self.assertTrue(len(found_manifests) > 0, "Gate A Fail: No run_manifest.json found (Traceability)")
         manifest_path = found_manifests[0]
-        
+
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-            
+
         # Assertions
         self.assertIn("run_id", manifest, "Manifest missing 'run_id'")
         self.assertIn("status", manifest, "Manifest missing 'status'")
         self.assertIn("config_snapshot_path", manifest, "Manifest missing 'config_snapshot_path'")
-        
+
         self.assertIn(manifest["status"], ["SUCCESS", "LOW_CONFIDENCE_DONE"], f"Run status {manifest['status']} not valid")
-        
+
         print(f"Gate A: Smoke Execution - PASS [Run ID: {manifest['run_id']}]")
 
 

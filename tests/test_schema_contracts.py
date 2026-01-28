@@ -12,13 +12,23 @@ sys.path.insert(0, current_dir)
 
 # 1. Register MockEE
 from tests.mock_ee import MockEE, MockEEObject
-sys.modules['ee'] = MockEE()
+
+sys.modules["ee"] = MockEE()
 
 # 2. Patch ee in modules if they are already loaded
-for module in ['modules.satellites_data_extraction', 'modules.s2cleaning', 'utils', 'export_polibio', 'satellites.sentinel2', 'satellites.sentinel1', 'satellites.landsat_thermal', 'satellites.srtm']:
+for module in [
+    "modules.satellites_data_extraction",
+    "modules.s2cleaning",
+    "utils",
+    "export_polibio",
+    "satellites.sentinel2",
+    "satellites.sentinel1",
+    "satellites.landsat_thermal",
+    "satellites.srtm",
+]:
     if module in sys.modules:
         sys.modules[module].ee = MockEE()
-        
+
 sys.modules["google"] = MagicMock()
 sys.modules["google.oauth2"] = MagicMock()
 sys.modules["google.oauth2.service_account"] = MagicMock()
