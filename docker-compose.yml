@@ -1,14 +1,16 @@
 version: '3.8'
 
 services:
-  app:
+  smart-harvest-pipeline:
     build: .
-    container_name: smartharvest_app
+    container_name: smart-harvest-runner
     volumes:
-      # Mount the output directory so generated artifacts appear on your host machine
-      - ./output:/app/output
+      # Map local output_docker directory to container output directory
+      # This ensures artifacts (reports, manifests) persist after container exit
+      - ./output_docker:/app/output
     environment:
-      # Placeholder for future credentials
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_cred.json
-    # Overridable command
-    command: python tests/ci_offline_runner.py
+      - PYTHONUNBUFFERED=1
+      - CI_ARTIFACTS_DIR=/app/output
+    # Override default CMD to run the E2E test (Offline Mode)
+    # This simulates a full run using mocks and exports artifacts to CI_ARTIFACTS_DIR
+    command: python -m pytest tests/test_e2e_pipeline.py

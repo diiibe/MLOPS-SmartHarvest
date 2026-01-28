@@ -28,4 +28,4 @@ USER appuser
 
 # Define the command to run your application
 # For now, we run the offline runner to demonstrate the app works "out of the box"
-CMD ["python", "tests/ci_offline_runner.py"]
+CMD ["python", "main.py"]

@@ -12,3 +12,4 @@ seaborn
 fpdf2
 pypdf
 shapely
+pytest
