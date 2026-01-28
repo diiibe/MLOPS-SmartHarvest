@@ -2,14 +2,48 @@ name: Python CI (Offline)
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
+  lint:
+    name: Code Quality (Lint)
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.9 (same as tests job)
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+    - name: Install Lint Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy
+    - name: Check Formatting (Black)
+      run: |
+        # BLOCKS build if formatting is incorrect
+        black . --check
+    - name: Check Syntax (Flake8 Errors)
+      run: |
+        # BLOCKS build on syntax errors
+        # Config loaded from setup.cfg
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    - name: Check Style (Flake8 Warnings)
+      run: |
+        # REPORTS only (exit-zero)
+        # Config loaded from setup.cfg
+        flake8 . --count --exit-zero --statistics
+    - name: Check Typing (Mypy)
+      run: |
+        # REPORTS only (non-blocking)
+        # Config loaded from pyproject.toml
+        mypy . || true
 
+  test:
+    name: Run Tests & Contracts
+    runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v3
 
@@ -22,8 +56,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pytest
 
-    - name: Run Offline CI/CD Verification
+    - name: Run Validation & E2E Tests
       run: |
-        # Run the offline runner script which mocks dependencies and validates output
-        python tests/ci_offline_runner.py
+        # Run validation tests + E2E logic test + pure unit tests
+        # -v for verbose output
+        python -m pytest tests/test_config_validation.py tests/test_schema_contracts.py tests/test_e2e_pipeline.py tests/test_business_rules.py tests/test_schema_validators.py -v
+
+  docker-build:
+    name: Verify Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Build Docker Image
+        run: docker build . --file Dockerfile --tag smart-harvest:top
