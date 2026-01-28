@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Build Docker Image
-
+        run: docker build . --file Dockerfile --tag ci-build:${{ github.sha }}
   smoke-gate:
     name: Gate A - Smoke Execution
     runs-on: ubuntu-latest
