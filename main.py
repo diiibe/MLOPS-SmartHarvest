@@ -41,6 +41,7 @@ def run_pipeline(roi_coords=config.ROI_TEST, start_date=config.START, end_date=c
     import json
     import hashlib
     import os
+    from modules.exports import generate_all_exports
 
     # 1. Generate Run ID
     run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -72,6 +73,11 @@ def run_pipeline(roi_coords=config.ROI_TEST, start_date=config.START, end_date=c
         print(f"Warning: Could not save config snapshot: {e}")
         config_hash = "ERROR"
 
+    # --- GATE B: EXPORTS ---
+    # Trigger exports only if successful so far (which we assume if we are here)
+    print("Generating Gate B Artifacts...")
+    export_paths = generate_all_exports(run_dir, run_id, config_dict)
+    
     # 4. Generate Run Manifest
     manifest = {
         "run_id": run_id,
@@ -79,9 +85,33 @@ def run_pipeline(roi_coords=config.ROI_TEST, start_date=config.START, end_date=c
         "timestamp": datetime.datetime.now().isoformat(),
         "config_snapshot_path": f"runs/{run_id}/config_snapshot.json",
         "config_snapshot_sha256": config_hash,
+        "policy": {
+            "confirmation": {
+                "coherence_min": config.CONFIRM_COHERENCE_MIN,
+                "persistence_min": config.CONFIRM_PERSISTENCE_MIN
+            }
+        },
         "stages": {
             "extraction": "SUCCESS", # Implicit
             "partitioning": "SUCCESS"
+        },
+        "artifacts": {
+            "pdf_report": {
+                "path": os.path.relpath(export_paths["pdf_report"], start="output"), 
+                "type": "pdf"
+            },
+            "macro_anomaly_report": {
+                "path": os.path.relpath(export_paths["macro_anomaly_report"], start="output"), 
+                "type": "csv"
+            },
+            "anomaly_heatmap": {
+                "path": os.path.relpath(export_paths["anomaly_heatmap"], start="output"), 
+                "type": "geojson"
+            },
+            "coverage_reliability_report": {
+                "path": os.path.relpath(export_paths["coverage_reliability_report"], start="output"), 
+                "type": "csv"
+            }
         }
     }
     

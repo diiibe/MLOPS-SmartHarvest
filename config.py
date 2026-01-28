@@ -1,3 +1,10 @@
+# Cloud thresholds
+CLOUD_THRESH = 50 # Strict cloud threshold for NDVI
+
+# Policy Thresholds (Gate C)
+CONFIRM_COHERENCE_MIN = 0.6
+CONFIRM_PERSISTENCE_MIN = 0.5
+
 ROI_TEST = [
     [
         [12.829590050244093, 46.10537642826068],

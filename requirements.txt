@@ -9,3 +9,6 @@ scipy
 
 PyYAML
 seaborn
+fpdf2
+pypdf
+shapely
