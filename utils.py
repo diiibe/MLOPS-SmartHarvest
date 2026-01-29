@@ -355,82 +355,171 @@ def generate_metadata(source, collection, image_count, start_date, end_date, ban
 
     return metadata
 
+
 import pandas as pd
 import os
 import glob
+import json
 from functools import reduce
 
 def create_partitioned_dataset(input_path, output_path="dataset"):
     """
-    1. Groups files by their parent folder (e.g., sentinel_1, sentinel_2).
-    2. Concatenates (stacks) files within the same folder vertically.
-    3. Merges the resulting DataFrames from different folders horizontally.
-    4. Writes the result to a Hive-partitioned dataset.
+    1. Loads CSVs from subfolders (e.g. sentinel_1, srtm).
+    2. Separates TIME-SERIES data (S2, Landsat, S1) from STATIC fields (SRTM).
+    3. Adds a 'lat_lon_key' based on rounded coordinates for robust spatial joining.
+    4. Merges time-series data on ['date', 'lat_lon_key'].
+    5. Left-Joins static data onto the merged time-series dataframe.
+    6. Writes the result to a Hive-partitioned Parquet dataset.
     """
-    # 1. Find all CSV files
-    all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
     
+    # --- 1. Helper: Robust Coordinate Key ---
+    def add_location_key(df_in):
+        """Adds a 'lat_lon_key' string column rounded to 5 decimals (~1m precision)"""
+        # Parse .geo column which is a JSON string: {"type":"Point","coordinates":[lon,lat]}
+        # We need to extract coordinates safely.
+        
+        def extract_coords(geo_str):
+            try:
+                # If it's already a dict (some loaders auto-convert)
+                if isinstance(geo_str, dict):
+                    coords = geo_str.get('coordinates', [0, 0])
+                else:
+                    data = json.loads(geo_str.replace("'", '"')) # handle single quotes
+                    coords = data.get('coordinates', [0, 0])
+                
+                # Round to 5 decimals (approx 1.1m precision)
+                lon = round(coords[0], 5)
+                lat = round(coords[1], 5)
+                return f"{lat}_{lon}"
+            except:
+                return "0_0"
+
+        if '.geo' in df_in.columns:
+            df_in['lat_lon_key'] = df_in['.geo'].apply(extract_coords)
+        return df_in
+
+    # --- 2. Load Data ---
+    all_files = glob.glob(os.path.join(input_path, "**/*.csv"), recursive=True)
     if not all_files:
         print("No CSV files found.")
         return
 
-    # Dictionary to hold lists of DataFrames by their folder name
-    # structure: { 'sentinel_1': [df1, df2], 'sentinel_2': [df3, df4] }
-    files_by_source = {}
+    # Holders for dataframes
+    # Structure: { 'sentinel_1': [df1, df2], ... }
+    ts_files_by_source = {} 
+    static_files = []
 
     print("Reading and grouping files...")
     
     for file in all_files:
-        # Get the parent folder name to use as the "Source ID"
         parent_folder = os.path.basename(os.path.dirname(file))
         
         try:
             df = pd.read_csv(file)
             df.columns = df.columns.str.strip()
             
-            # Only process if it has a date (ignore SRTM/static files)
-            if 'date' in df.columns and '.geo' in df.columns:
+            # Add spatial key
+            df = add_location_key(df)
+            
+            # CLASSIFY: Time-Series vs Static
+            # Criteria: Contains 'date' column AND is not in 'srtm' folder (explicit check)
+            if 'date' in df.columns and 'srtm' not in parent_folder.lower():
+                # It's time-series
                 df['date'] = pd.to_datetime(df['date'])
                 
-                if parent_folder not in files_by_source:
-                    files_by_source[parent_folder] = []
-                files_by_source[parent_folder].append(df)
+                # Group by source folder
+                if parent_folder not in ts_files_by_source:
+                    ts_files_by_source[parent_folder] = []
+                ts_files_by_source[parent_folder].append(df)
+                
             else:
-                print(f"Skipping static file: {os.path.basename(file)}")
+                # It's static (SRTM, DEM, etc.)
+                print(f"Loaded STATIC file: {os.path.basename(file)} ({len(df)} rows)")
+                # If there are multiple static files, we probably want to concat them if they are tiles,
+                # or merge them if they are different variables. Ideally SRTM is one file per ROI.
+                static_files.append(df)
                 
         except Exception as e:
             print(f"Error reading {file}: {e}")
 
-    # 2. Concatenate files from the SAME source (Vertical Stack)
-    # This prevents the "Duplicate Columns" error
-    consolidated_dfs = []
+    # --- 3. Stack Time-Series (Vertical) ---
+    consolidated_ts_dfs = []
     
-    for source, df_list in files_by_source.items():
+    for source, df_list in ts_files_by_source.items():
         print(f"Stacking {len(df_list)} files for source: {source}")
-        # Stack rows (e.g. Jan + Dec)
-        stacked_df = pd.concat(df_list, ignore_index=True)
-        consolidated_dfs.append(stacked_df)
+        stacked = pd.concat(df_list, ignore_index=True)
+        # Drop duplicates if any (same date/loc/sensor)
+        stacked = stacked.drop_duplicates(subset=['date', 'lat_lon_key'])
+        consolidated_ts_dfs.append(stacked)
 
-    # 3. Merge different sources (Horizontal Join)
-    if consolidated_dfs:
-        print("Merging different sources (Outer Join)...")
-        final_df = reduce(
-            lambda left, right: pd.merge(
-                left, 
-                right, 
-                on=['date', '.geo'], 
-                how='outer'
-            ), 
-            consolidated_dfs
-        )
-    else:
-        print("No valid time-series data found.")
+    if not consolidated_ts_dfs:
+        print("No time-series data found.")
         return
 
-    # 4. Create Partitions and Write
+    # --- 4. Merge Time-Series (Horizontal) ---
+    # We join on DATE and LOCATION (lat_lon_key)
+    # Note: We DON'T join on .geo string because string formatting might differ.
+    
+    print("Merging different time-series sources (Outer Join)...")
+    
+    # We need to keep .geo from at least one source.
+    # The merge will carry .geo_x, .geo_y etc. We'll coalesce them later.
+    
+    merged_ts = reduce(
+        lambda left, right: pd.merge(
+            left, 
+            right, 
+            on=['date', 'lat_lon_key'], 
+            how='outer',
+            suffixes=('', '_drop')
+        ), 
+        consolidated_ts_dfs
+    )
+    
+    # Clean up duplicate columns from merge (like .geo_drop)
+    # We assume 'lat_lon_key' is the truth for location.
+    cols_to_drop = [c for c in merged_ts.columns if c.endswith('_drop')]
+    merged_ts = merged_ts.drop(columns=cols_to_drop)
+    
+    # Ensure .geo exists (fill from any source if missing)
+    # (The outer join keeps columns from left, but if a row only exists in right...)
+    # Actually 'suffixes' handles collision. If 'left' has .geo and 'right' has .geo, we get .geo and .geo_drop.
+    # We kept the left one. If left row was null (right-only row), .geo might be NaN?
+    # No, outer merge fills NaN. 
+    # Let's rely on lat_lon_key for now, .geo might be sparse if not carefully handled.
+    
+    # --- 5. Merge Static Data (Left Join) ---
+    if static_files:
+        print(f"Merging static data (SRTM)... Total static files: {len(static_files)}")
+        # Stack all static files
+        static_combined = pd.concat(static_files, ignore_index=True)
+        print(f"Static combined shape: {static_combined.shape}")
+        static_combined = static_combined.drop_duplicates(subset=['lat_lon_key'])
+        print(f"Static de-duplicated shape: {static_combined.shape}")
+        
+        # Columns to keep from static (exclude .geo if we have it, exclude system:index)
+        static_cols = [c for c in static_combined.columns if c not in ['system:index', '.geo', 'date', 'lat_lon_key']]
+        print(f"Static columns to join: {static_cols}")
+        # but keep lat_lon_key for joining
+        static_subset = static_combined[static_cols + ['lat_lon_key']]
+        
+        # Left Join
+        print(f"Shape before static join: {merged_ts.shape}")
+        final_df = pd.merge(merged_ts, static_subset, on='lat_lon_key', how='left')
+        print(f"Shape after static join: {final_df.shape}")
+        print(f"Final columns: {final_df.columns.tolist()}")
+    else:
+        print("No static files found to merge.")
+        final_df = merged_ts
+
+    # --- 6. Save ---
     print("Generating partitions and writing to disk...")
     final_df['year'] = final_df['date'].dt.year
     final_df['month'] = final_df['date'].dt.month
+    
+    # Drop the temporary key
+    if 'lat_lon_key' in final_df.columns:
+        final_df = final_df.drop(columns=['lat_lon_key'])
 
     final_df.to_parquet(
         output_path,
@@ -442,4 +531,4 @@ def create_partitioned_dataset(input_path, output_path="dataset"):
     print(f"Success! Data written to: {output_path}")
 
 # --- Usage ---
-# create_partitioned_dataset_grouped("raw_data/ROI_TEST")
+# create_partitioned_dataset("raw_data/ROI_TEST)

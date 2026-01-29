@@ -47,6 +47,7 @@ def get_landsat(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config
         return img.select(['LST']).sample(
             region=ee.Geometry.Polygon(ROI) if isinstance(ROI, list) else ROI,
             scale=config.SAMPLING_SCALE,
+            projection='EPSG:4326',
             geometries=True,
         ).map(lambda feat: feat.set('date', img.get('date_str')))
 

@@ -91,6 +91,7 @@ def get_st2(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
         sampled = img.select(indices).sample(
             region=roi_to_use,
             scale=config.SAMPLING_SCALE,
+            projection='EPSG:4326',
             geometries=True
         )
 

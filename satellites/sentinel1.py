@@ -21,6 +21,7 @@ def get_st1(ROI=config.ROI_TEST, start_date=config.T1_START, end_date=config.T2_
         return img.select(['VV', 'VH', 'RATIOVHVV']).sample(
             region=ee.Geometry.Polygon(ROI),
             scale=config.SAMPLING_SCALE,
+            projection='EPSG:4326',
             geometries=True, # Mantém a geometria
         ).map(lambda feat: feat.set('date', img.get('date_str'))) # Passa a data da imagem para cada ponto
 

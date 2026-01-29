@@ -34,6 +34,7 @@ def get_srtm(ROI=config.ROI_TEST, ROI_NAME="ROI_TEST"):
     sampled = terrain.sample(
         region=roi_geometry,
         scale=config.SAMPLING_SCALE,
+        projection='EPSG:4326',
         geometries=True
     )
 
