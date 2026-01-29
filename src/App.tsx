@@ -1,19 +1,29 @@
 import { useState } from 'react';
 import { Grape, Tag, MapPin, ChevronDown, Calendar, Info, Save, Zap } from 'lucide-react';
 import { useAnalysisFilters } from '@/hooks/useAnalysisFilters';
-import { MasterTimeline } from '@/components/MasterTimeline';
+import { VintageSelector } from '@/components/temporal/VintageSelector';
+import { PhenologySelector } from '@/components/temporal/PhenologySelector';
+import { VineyardMap } from '@/components/Map/VineyardMap';
 import { UnifiedDatePicker } from '@/components/UnifiedDatePicker';
 import { TimeFrameToggle } from '@/components/TimeFrameToggle';
 import { PolygonManager } from '@/components/PolygonManager';
 import { FiltersSkeleton } from '@/components/FiltersSkeleton';
 import { Button } from '@/components/ui/button';
+import { useDataExport } from '@/features/data-export/hooks/useDataExport';
+import { ToastProvider, useToast } from '@/components/ui/Toast';
+import { ExportProgressModal } from '@/components/modals/ExportProgressModal';
+import { mockAnalysisData } from '@/mock/analysisData';
 import '@/index.css';
 
-function App() {
+// Inner App Component to use hooks
+function SmartHarvestApp() {
   const [projectName, setProjectName] = useState('Nuovo Progetto');
   const filters = useAnalysisFilters();
+  const { addToast } = useToast();
 
-  const handleDateRangeChange = (range: any) => {
+  const { exportCSV, isExporting, progress } = useDataExport(mockAnalysisData, filters);
+
+  const handleDateRangeChange = (range: { from: Date; to: Date } | undefined) => {
     if (range) {
       filters.setDateRange(range);
     }
@@ -23,13 +33,23 @@ function App() {
     filters.setLoading(true);
     // Simulate loading
     setTimeout(() => {
-      alert(`Analisi avviata!\nProgetto: ${projectName}\nAnno: ${filters.currentYear}\nPeriodo: ${filters.dateRange.from?.toLocaleDateString()} - ${filters.dateRange.to?.toLocaleDateString()}\nGranularità: ${filters.timeFrame}`);
+      addToast('Analisi avviata con successo!', 'success');
       filters.setLoading(false);
     }, 2000);
   };
 
+  const handleExport = () => {
+    exportCSV({
+      fileName: `analysis_${filters.vintage}_${new Date().toISOString().split('T')[0]}.csv`,
+      onSuccess: () => addToast('Esportazione completata!', 'success'),
+      onError: (err) => addToast(`Errore esportazione: ${err.message}`, 'error')
+    });
+  };
+
   return (
     <div className="bg-[#121212] text-gray-200 h-screen flex overflow-hidden">
+      <ExportProgressModal isOpen={isExporting} progress={progress} />
+
       {/* Sidebar */}
       <div className="glass w-[400px] h-full flex flex-col z-[1000] shadow-2xl overflow-y-auto p-6 space-y-6">
 
@@ -88,19 +108,24 @@ function App() {
             <FiltersSkeleton />
           ) : (
             <div className="space-y-4">
-              <MasterTimeline
-                currentYear={filters.currentYear}
-                onYearChange={filters.handleYearChange}
+              <VintageSelector
+                vintage={filters.vintage}
+                onVintageChange={filters.setVintage}
+              />
+
+              <PhenologySelector
+                currentStage={filters.phenologicalStage}
+                onStageChange={filters.setPhenologicalStage}
               />
 
               <TimeFrameToggle
                 timeFrame={filters.timeFrame}
-                onTimeFrameChange={(value) => filters.setTimeFrame(value as any)}
+                onTimeFrameChange={(value: any) => filters.setTimeFrame(value)}
               />
 
               <UnifiedDatePicker
                 dateRange={filters.dateRange}
-                currentYear={filters.currentYear}
+                currentYear={filters.vintage}
                 onDateRangeChange={handleDateRangeChange}
               />
             </div>
@@ -115,7 +140,7 @@ function App() {
                 </div>
                 <div className="text-[11px] text-blue-100 leading-relaxed font-light">
                   <strong className="text-blue-300">Periodo Selezionato:</strong><br />
-                  📅 Anno: {filters.currentYear}<br />
+                  🍇 Vendemmia: {filters.vintage}<br />
                   📊 Granularità: {filters.timeFrame}<br />
                   📆 Range: {filters.dateRange.from.toLocaleDateString('it-IT')} → {filters.dateRange.to.toLocaleDateString('it-IT')}
                 </div>
@@ -146,6 +171,14 @@ function App() {
           >
             <Zap className="w-5 h-5" /> Inizia Analisi
           </Button>
+          <Button
+            onClick={handleExport}
+            disabled={isExporting}
+            variant="outline"
+            className="w-full py-4 text-md font-bold border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 flex items-center justify-center gap-2"
+          >
+            {isExporting ? 'Exporting...' : 'Esporta CSV (Beta)'}
+          </Button>
         </div>
 
         {filters.isLoading && (
@@ -160,23 +193,19 @@ function App() {
         )}
       </div>
 
-      {/* Map Placeholder */}
-      <div className="flex-1 relative bg-gray-900">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="p-4 bg-black/50 backdrop-blur-md rounded-2xl border border-white/10">
-              <MapPin className="w-12 h-12 text-blue-500 mx-auto mb-2" />
-              <p className="text-sm text-white/70 uppercase tracking-widest font-bold">
-                Leaflet Map Integration
-              </p>
-              <p className="text-xs text-white/50 mt-1">
-                Coming next: Interactive vineyard selection
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Interactive Map */}
+      <div className="flex-1 relative bg-gray-900 overflow-hidden">
+        <VineyardMap selectedPolygons={filters.selectedPolygons} />
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <SmartHarvestApp />
+    </ToastProvider>
   );
 }
 
