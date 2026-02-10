@@ -24,6 +24,7 @@ def extract_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
     if "lat" in df.columns and "lon" in df.columns:
         return df
     if ".geo" in df.columns:
+
         def parse_geo(val):
             try:
                 geo = json.loads(val) if isinstance(val, str) else val
@@ -33,6 +34,7 @@ def extract_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
             except Exception:
                 return None, None
             return None, None
+
         coords = df[".geo"].apply(parse_geo)
         df["lat"] = coords.apply(lambda x: x[0])
         df["lon"] = coords.apply(lambda x: x[1])
@@ -48,12 +50,27 @@ def infer_project_name(path: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="[EXPERIMENTAL] Export DBStream anomalies to GeoJSON (Alternative algorithm)")
-    parser.add_argument("--input", dest="input_path", default=None, help="CSV input path")
-    parser.add_argument("--zone", action="store_true", default=False, help="Use zone summary CSV")
-    parser.add_argument("--min-score", type=float, default=None, help="Minimum score filter")
-    parser.add_argument("--only-anomalies", action="store_true", default=False, help="Keep only anomalies (dbstream_anomaly==1)")
-    parser.add_argument("--output", dest="output_path", default=None, help="GeoJSON output path")
+    parser = argparse.ArgumentParser(
+        description="[EXPERIMENTAL] Export DBStream anomalies to GeoJSON (Alternative algorithm)"
+    )
+    parser.add_argument(
+        "--input", dest="input_path", default=None, help="CSV input path"
+    )
+    parser.add_argument(
+        "--zone", action="store_true", default=False, help="Use zone summary CSV"
+    )
+    parser.add_argument(
+        "--min-score", type=float, default=None, help="Minimum score filter"
+    )
+    parser.add_argument(
+        "--only-anomalies",
+        action="store_true",
+        default=False,
+        help="Keep only anomalies (dbstream_anomaly==1)",
+    )
+    parser.add_argument(
+        "--output", dest="output_path", default=None, help="GeoJSON output path"
+    )
     args = parser.parse_args()
 
     if args.zone:
@@ -93,7 +110,10 @@ def main():
         output_path = args.output_path
     else:
         suffix = "zone" if args.zone else "pixel"
-        output_path = os.path.join(os.path.dirname(input_path), f"dbstream_anomalies_{project}_{suffix}.geojson")
+        output_path = os.path.join(
+            os.path.dirname(input_path),
+            f"dbstream_anomalies_{project}_{suffix}.geojson",
+        )
 
     with open(output_path, "w") as f:
         json.dump(geojson, f)

@@ -19,24 +19,27 @@ def load_and_filter_s2(csv_path):
     df = pd.read_csv(csv_path)
 
     # Identify columns
-    date_col = 'date'
-    sat_col = 'satellite' if 'satellite' in df.columns else None
+    date_col = "date"
+    sat_col = "satellite" if "satellite" in df.columns else None
 
     # Coordinate columns
     coord_cols = []
-    if 'spatial_id' in df.columns:
-        coord_cols.append('spatial_id')
-    if 'lat' in df.columns and 'lon' in df.columns:
-        coord_cols.extend(['lat', 'lon'])
+    if "spatial_id" in df.columns:
+        coord_cols.append("spatial_id")
+    if "lat" in df.columns and "lon" in df.columns:
+        coord_cols.extend(["lat", "lon"])
 
     # Feature columns (numeric, not coords/metadata)
-    feature_cols = [c for c in df.select_dtypes(include=[np.number]).columns
-                    if c not in ['lat', 'lon'] and not c.startswith('.')]
+    feature_cols = [
+        c
+        for c in df.select_dtypes(include=[np.number]).columns
+        if c not in ["lat", "lon"] and not c.startswith(".")
+    ]
 
     # Filter for S2 (main timeline)
     if sat_col:
         # Keep rows that have S2 acquisition
-        s2_df = df[df[sat_col].str.contains('S2', na=False)].copy()
+        s2_df = df[df[sat_col].str.contains("S2", na=False)].copy()
     else:
         # No satellite column - use all data
         s2_df = df.copy()
@@ -48,20 +51,22 @@ def load_and_filter_s2(csv_path):
     s2_df = s2_df[s2_df[feature_cols].notna().any(axis=1)]
 
     columns = {
-        'date': date_col,
-        'satellite': sat_col,
-        'coords': coord_cols,
-        'features': feature_cols
+        "date": date_col,
+        "satellite": sat_col,
+        "coords": coord_cols,
+        "features": feature_cols,
     }
 
     print(f"[Data Loader] Loaded {len(s2_df):,} S2 observations")
-    print(f"[Data Loader] Date range: {s2_df[date_col].min()} to {s2_df[date_col].max()}")
+    print(
+        f"[Data Loader] Date range: {s2_df[date_col].min()} to {s2_df[date_col].max()}"
+    )
     print(f"[Data Loader] Features: {', '.join(feature_cols[:5])}...")
 
     return s2_df, columns
 
 
-def define_weeks(df, date_col='date'):
+def define_weeks(df, date_col="date"):
     """
     STEP 2: Define weekly timeline from S2 observations.
 
@@ -71,20 +76,21 @@ def define_weeks(df, date_col='date'):
     df = df.copy()
 
     # Assign week ID (ISO week: YYYY-Wxx)
-    df['week_id'] = df[date_col].dt.strftime('%Y-W%U')
-    df['week_start'] = df[date_col].dt.to_period('W').dt.start_time
+    df["week_id"] = df[date_col].dt.strftime("%Y-W%U")
+    df["week_start"] = df[date_col].dt.to_period("W").dt.start_time
 
     # Get unique weeks sorted
-    week_info = df.groupby('week_id').agg({
-        'week_start': 'first',
-        date_col: ['min', 'max', 'count']
-    }).reset_index()
+    week_info = (
+        df.groupby("week_id")
+        .agg({"week_start": "first", date_col: ["min", "max", "count"]})
+        .reset_index()
+    )
 
-    week_info.columns = ['week_id', 'week_start', 'date_min', 'date_max', 'obs_count']
-    week_info = week_info.sort_values('week_start')
+    week_info.columns = ["week_id", "week_start", "date_min", "date_max", "obs_count"]
+    week_info = week_info.sort_values("week_start")
 
     weeks = [
-        (row['week_id'], row['week_start'], row['date_max'], row['obs_count'])
+        (row["week_id"], row["week_start"], row["date_max"], row["obs_count"])
         for _, row in week_info.iterrows()
     ]
 
@@ -94,7 +100,7 @@ def define_weeks(df, date_col='date'):
     return weeks, df
 
 
-def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col='date'):
+def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col="date"):
     """
     STEP 3: Build single weekly frame (one row per pixel).
 
@@ -104,25 +110,31 @@ def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col='date'):
         frame: DataFrame with pixel + features for this week
     """
     # Filter to this week
-    week_df = df[df['week_id'] == week_id].copy()
+    week_df = df[df["week_id"] == week_id].copy()
 
     if len(week_df) == 0:
         return None
 
     # Group by pixel (spatial_id or lat/lon)
-    if 'spatial_id' in coord_cols:
-        group_col = 'spatial_id'
+    if "spatial_id" in coord_cols:
+        group_col = "spatial_id"
     else:
         # Create temp pixel id from lat/lon
-        week_df['pixel_id'] = week_df['lat'].round(6).astype(str) + '_' + week_df['lon'].round(6).astype(str)
-        group_col = 'pixel_id'
+        week_df["pixel_id"] = (
+            week_df["lat"].round(6).astype(str)
+            + "_"
+            + week_df["lon"].round(6).astype(str)
+        )
+        group_col = "pixel_id"
 
     # Take most recent observation per pixel
     week_df = week_df.sort_values(date_col, ascending=False)
     frame = week_df.groupby(group_col).first().reset_index()
 
     # Keep only coords + features
-    keep_cols = [group_col] + [c for c in coord_cols if c in frame.columns] + feature_cols
+    keep_cols = (
+        [group_col] + [c for c in coord_cols if c in frame.columns] + feature_cols
+    )
     frame = frame[[c for c in keep_cols if c in frame.columns]]
 
     # Drop pixels with all NaN features

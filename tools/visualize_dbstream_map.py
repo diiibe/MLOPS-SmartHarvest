@@ -13,6 +13,7 @@ def extract_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
     if "lat" in df.columns and "lon" in df.columns:
         return df
     if ".geo" in df.columns:
+
         def parse_geo(val):
             try:
                 geo = json.loads(val) if isinstance(val, str) else val
@@ -22,6 +23,7 @@ def extract_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
             except Exception:
                 return None, None
             return None, None
+
         coords = df[".geo"].apply(parse_geo)
         df["lat"] = coords.apply(lambda x: x[0])
         df["lon"] = coords.apply(lambda x: x[1])
@@ -40,9 +42,15 @@ def find_latest_anomalies() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Visualize DBStream anomalies on a map")
-    parser.add_argument("--input", dest="input_path", default=None, help="dbstream_anomalies_*.csv")
-    parser.add_argument("--output", dest="output_path", default=None, help="HTML output path")
+    parser = argparse.ArgumentParser(
+        description="Visualize DBStream anomalies on a map"
+    )
+    parser.add_argument(
+        "--input", dest="input_path", default=None, help="dbstream_anomalies_*.csv"
+    )
+    parser.add_argument(
+        "--output", dest="output_path", default=None, help="HTML output path"
+    )
     parser.add_argument("--only-anomalies", action="store_true", default=False)
     parser.add_argument("--sample-size", type=int, default=None)
     args = parser.parse_args()
@@ -68,7 +76,9 @@ def main():
 
     center_lat = df["lat"].mean()
     center_lon = df["lon"].mean()
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery")
+    m = folium.Map(
+        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
+    )
 
     score_col = "dbstream_score" if "dbstream_score" in df.columns else None
     if score_col:

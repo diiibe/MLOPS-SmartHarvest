@@ -37,8 +37,15 @@ def find_latest_features() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="[EXPERIMENTAL] Run DBStream anomaly detection on feature table (Alternative algorithm)")
-    parser.add_argument("--features", dest="features_path", default=None, help="Path to dbstream_features_*.csv")
+    parser = argparse.ArgumentParser(
+        description="[EXPERIMENTAL] Run DBStream anomaly detection on feature table (Alternative algorithm)"
+    )
+    parser.add_argument(
+        "--features",
+        dest="features_path",
+        default=None,
+        help="Path to dbstream_features_*.csv",
+    )
     parser.add_argument("--epsilon", type=float, default=1.5)
     parser.add_argument("--mu", type=float, default=5.0)
     parser.add_argument("--lambda", dest="lambda_", type=float, default=0.0)
@@ -46,7 +53,12 @@ def main():
     parser.add_argument("--shuffle", action="store_true", default=True)
     parser.add_argument("--no-shuffle", dest="shuffle", action="store_false")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--scale", action="store_true", default=False, help="Scale features if input is not scaled")
+    parser.add_argument(
+        "--scale",
+        action="store_true",
+        default=False,
+        help="Scale features if input is not scaled",
+    )
     args = parser.parse_args()
 
     features_path = args.features_path or find_latest_features()
@@ -61,13 +73,16 @@ def main():
     df = schema.normalize_columns(df)
     df.replace(-9999, np.nan, inplace=True)
 
-    feature_cols = [c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns]
+    feature_cols = [
+        c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns
+    ]
     if not feature_cols:
         raise ValueError("No DBStream features found in input")
 
     # Ensure lat/lon if available in .geo
     if "lat" not in df.columns or "lon" not in df.columns:
         if ".geo" in df.columns:
+
             def parse_geo(val):
                 try:
                     geo = json.loads(val) if isinstance(val, str) else val
@@ -77,6 +92,7 @@ def main():
                 except Exception:
                     return None, None
                 return None, None
+
             coords = df[".geo"].apply(parse_geo)
             df["lat"] = coords.apply(lambda x: x[0])
             df["lon"] = coords.apply(lambda x: x[1])
@@ -97,7 +113,9 @@ def main():
     timestamps = np.arange(X.shape[0])
 
     model = DBStream(epsilon=args.epsilon, mu=args.mu, lambda_=args.lambda_)
-    scores, labels, cluster_ids, dists = model.partial_fit_predict(X, timestamps, anomaly_threshold=args.threshold)
+    scores, labels, cluster_ids, dists = model.partial_fit_predict(
+        X, timestamps, anomaly_threshold=args.threshold
+    )
 
     df_out = df.copy()
     df_out["dbstream_score"] = scores
@@ -111,21 +129,31 @@ def main():
 
     # Zone-level summary by microcluster id
     weights = [mc.weight for mc in model.microclusters]
-    summary = df_out.groupby("dbstream_cluster").agg(
-        count=("dbstream_cluster", "count"),
-        anomaly_rate=("dbstream_anomaly", "mean"),
-        mean_score=("dbstream_score", "mean"),
-    ).reset_index()
+    summary = (
+        df_out.groupby("dbstream_cluster")
+        .agg(
+            count=("dbstream_cluster", "count"),
+            anomaly_rate=("dbstream_anomaly", "mean"),
+            mean_score=("dbstream_score", "mean"),
+        )
+        .reset_index()
+    )
 
     if "lat" in df_out.columns and "lon" in df_out.columns:
-        lat_lon = df_out.groupby("dbstream_cluster").agg(
-            mean_lat=("lat", "mean"),
-            mean_lon=("lon", "mean"),
-        ).reset_index()
+        lat_lon = (
+            df_out.groupby("dbstream_cluster")
+            .agg(
+                mean_lat=("lat", "mean"),
+                mean_lon=("lon", "mean"),
+            )
+            .reset_index()
+        )
         summary = summary.merge(lat_lon, on="dbstream_cluster", how="left")
 
     # Attach cluster weights
-    summary["cluster_weight"] = summary["dbstream_cluster"].apply(lambda i: weights[i] if i < len(weights) else np.nan)
+    summary["cluster_weight"] = summary["dbstream_cluster"].apply(
+        lambda i: weights[i] if i < len(weights) else np.nan
+    )
 
     zone_path = os.path.join(output_dir, f"dbstream_zone_summary_{project}.csv")
     summary.to_csv(zone_path, index=False)

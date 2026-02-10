@@ -22,7 +22,7 @@ def _parse_coords(geo_str):
     """Parse .geo GeoJSON string to [lon, lat]."""
     try:
         data = json.loads(geo_str) if isinstance(geo_str, str) else geo_str
-        return data['coordinates']  # [lon, lat]
+        return data["coordinates"]  # [lon, lat]
     except Exception:
         return [0, 0]
 
@@ -39,9 +39,9 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     Returns:
         str: Path to output HTML, or None on error
     """
-    week_dir = os.path.join(ml_dir, 'weekly', week_id)
-    cluster_csv = os.path.join(week_dir, f'cluster_map_{week_id}.csv')
-    outlier_csv = os.path.join(week_dir, f'outlier_map_{week_id}.csv')
+    week_dir = os.path.join(ml_dir, "weekly", week_id)
+    cluster_csv = os.path.join(week_dir, f"cluster_map_{week_id}.csv")
+    outlier_csv = os.path.join(week_dir, f"outlier_map_{week_id}.csv")
 
     if not os.path.exists(cluster_csv):
         print(f"[ML Map] Error: {cluster_csv} not found")
@@ -51,50 +51,55 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     df = pd.read_csv(cluster_csv)
 
     # Parse coordinates if needed
-    if 'lat' not in df.columns or 'lon' not in df.columns:
-        if '.geo' in df.columns:
-            df['coords'] = df['.geo'].apply(_parse_coords)
-            df['lon'] = df['coords'].apply(lambda x: x[0])
-            df['lat'] = df['coords'].apply(lambda x: x[1])
+    if "lat" not in df.columns or "lon" not in df.columns:
+        if ".geo" in df.columns:
+            df["coords"] = df[".geo"].apply(_parse_coords)
+            df["lon"] = df["coords"].apply(lambda x: x[0])
+            df["lat"] = df["coords"].apply(lambda x: x[1])
 
-    center_lat = df['lat'].mean()
-    center_lon = df['lon'].mean()
+    center_lat = df["lat"].mean()
+    center_lon = df["lon"].mean()
 
     # Create base map
     m = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=16,
-        tiles='Esri.WorldImagery'
+        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
     )
 
     # Determine anomalous clusters (outlier_score > 95th percentile)
-    outlier_threshold = df['outlier_score'].quantile(0.95)
+    outlier_threshold = df["outlier_score"].quantile(0.95)
 
     # Aggregate by cluster
     agg_dict = {
-        'outlier_score': 'mean',
-        'track_id': 'first',
-        'lat': 'mean',
-        'lon': 'mean'
+        "outlier_score": "mean",
+        "track_id": "first",
+        "lat": "mean",
+        "lon": "mean",
     }
 
     # Add cluster_status if available (backward compatibility)
-    if 'cluster_status' in df.columns:
-        agg_dict['cluster_status'] = 'first'
+    if "cluster_status" in df.columns:
+        agg_dict["cluster_status"] = "first"
 
-    cluster_agg = df[df['cluster_label'] != -1].groupby('cluster_label').agg(agg_dict).reset_index()
+    cluster_agg = (
+        df[df["cluster_label"] != -1]
+        .groupby("cluster_label")
+        .agg(agg_dict)
+        .reset_index()
+    )
 
     # Set default status if column doesn't exist
-    if 'cluster_status' not in cluster_agg.columns:
-        cluster_agg['cluster_status'] = 'unknown'
+    if "cluster_status" not in cluster_agg.columns:
+        cluster_agg["cluster_status"] = "unknown"
 
-    cluster_agg['pixel_count'] = df[df['cluster_label'] != -1].groupby('cluster_label').size().values
-    cluster_agg['is_anomalous'] = cluster_agg['outlier_score'] > outlier_threshold
+    cluster_agg["pixel_count"] = (
+        df[df["cluster_label"] != -1].groupby("cluster_label").size().values
+    )
+    cluster_agg["is_anomalous"] = cluster_agg["outlier_score"] > outlier_threshold
 
     # Layer 1: Normal Clusters
-    fg_normal = folium.FeatureGroup(name='Normal Clusters', show=True)
+    fg_normal = folium.FeatureGroup(name="Normal Clusters", show=True)
 
-    normal_clusters = cluster_agg[~cluster_agg['is_anomalous']]
+    normal_clusters = cluster_agg[~cluster_agg["is_anomalous"]]
 
     for _, cluster in normal_clusters.iterrows():
         _add_cluster_marker(fg_normal, cluster, week_id, is_anomalous=False)
@@ -102,9 +107,9 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     fg_normal.add_to(m)
 
     # Layer 2: Anomalous Clusters
-    fg_anomalous = folium.FeatureGroup(name='Anomalous Clusters', show=True)
+    fg_anomalous = folium.FeatureGroup(name="Anomalous Clusters", show=True)
 
-    anomalous_clusters = cluster_agg[cluster_agg['is_anomalous']]
+    anomalous_clusters = cluster_agg[cluster_agg["is_anomalous"]]
 
     for _, cluster in anomalous_clusters.iterrows():
         _add_cluster_marker(fg_anomalous, cluster, week_id, is_anomalous=True)
@@ -113,20 +118,20 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
 
     # Layer 3: Outlier Heatmap
     if os.path.exists(outlier_csv):
-        fg_heatmap = folium.FeatureGroup(name='Outlier Heatmap', show=False)
+        fg_heatmap = folium.FeatureGroup(name="Outlier Heatmap", show=False)
 
         outlier_df = pd.read_csv(outlier_csv)
 
-        if 'lat' not in outlier_df.columns or 'lon' not in outlier_df.columns:
-            if '.geo' in outlier_df.columns:
-                outlier_df['coords'] = outlier_df['.geo'].apply(_parse_coords)
-                outlier_df['lon'] = outlier_df['coords'].apply(lambda x: x[0])
-                outlier_df['lat'] = outlier_df['coords'].apply(lambda x: x[1])
+        if "lat" not in outlier_df.columns or "lon" not in outlier_df.columns:
+            if ".geo" in outlier_df.columns:
+                outlier_df["coords"] = outlier_df[".geo"].apply(_parse_coords)
+                outlier_df["lon"] = outlier_df["coords"].apply(lambda x: x[0])
+                outlier_df["lat"] = outlier_df["coords"].apply(lambda x: x[1])
 
         heat_data = [
-            [row['lat'], row['lon'], row['outlier_score']]
+            [row["lat"], row["lon"], row["outlier_score"]]
             for _, row in outlier_df.iterrows()
-            if not pd.isna(row['lat']) and not pd.isna(row['lon'])
+            if not pd.isna(row["lat"]) and not pd.isna(row["lon"])
         ]
 
         if heat_data:
@@ -135,13 +140,13 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
                 radius=15,
                 blur=25,
                 max_zoom=18,
-                gradient={0.0: 'blue', 0.5: 'yellow', 0.75: 'orange', 1.0: 'red'}
+                gradient={0.0: "blue", 0.5: "yellow", 0.75: "orange", 1.0: "red"},
             ).add_to(fg_heatmap)
 
         fg_heatmap.add_to(m)
 
     # Add layer control
-    folium.LayerControl(position='topleft', collapsed=False).add_to(m)
+    folium.LayerControl(position="topleft", collapsed=False).add_to(m)
 
     # Add legend
     legend_html = _create_legend(week_id, len(normal_clusters), len(anomalous_clusters))
@@ -183,24 +188,24 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
         week_id: Week ID string
         is_anomalous: Boolean
     """
-    cluster_label = cluster['cluster_label']
-    track_id = cluster['track_id']
-    status = cluster['cluster_status']
-    outlier_score = cluster['outlier_score']
-    pixel_count = cluster['pixel_count']
-    lat = cluster['lat']
-    lon = cluster['lon']
+    cluster_label = cluster["cluster_label"]
+    track_id = cluster["track_id"]
+    status = cluster["cluster_status"]
+    outlier_score = cluster["outlier_score"]
+    pixel_count = cluster["pixel_count"]
+    lat = cluster["lat"]
+    lon = cluster["lon"]
 
     # Color by status
     status_colors = {
-        'new': '#FFD700',       # Gold
-        'continued': '#1E90FF',  # DodgerBlue
-        'unknown': '#808080'     # Gray
+        "new": "#FFD700",  # Gold
+        "continued": "#1E90FF",  # DodgerBlue
+        "unknown": "#808080",  # Gray
     }
-    fill_color = status_colors.get(status, '#808080')
+    fill_color = status_colors.get(status, "#808080")
 
     # Border color by anomaly
-    border_color = '#FF4500' if is_anomalous else '#32CD32'  # OrangeRed : LimeGreen
+    border_color = "#FF4500" if is_anomalous else "#32CD32"  # OrangeRed : LimeGreen
 
     # Size by pixel count (logarithmic scale)
     marker_size = 8 + int(np.log1p(pixel_count) * 2)
@@ -231,7 +236,7 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
         fill_opacity=0.7,
         weight=2,
         popup=folium.Popup(popup_html, max_width=250),
-        tooltip=f"Cluster {cluster_label} (Track {track_id})"
+        tooltip=f"Cluster {cluster_label} (Track {track_id})",
     ).add_to(feature_group)
 
 
@@ -280,10 +285,10 @@ def _create_legend(week_id, normal_count, anomalous_count):
     """
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test
     create_ml_anomaly_map(
-        'output/MyProject/ml_weekly',
-        '2025-W45',
-        'output/MyProject/ml_weekly/ml_map_2025-W45.html'
+        "output/MyProject/ml_weekly",
+        "2025-W45",
+        "output/MyProject/ml_weekly/ml_map_2025-W45.html",
     )

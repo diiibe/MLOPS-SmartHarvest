@@ -13,3 +13,4 @@ statsmodels
 requests
 PyYAML
 hdbscan
+google-auth

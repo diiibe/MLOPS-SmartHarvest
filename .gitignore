@@ -38,3 +38,4 @@ rois/*.json
 venv/
 env/
 .venv/
+google_cred.json

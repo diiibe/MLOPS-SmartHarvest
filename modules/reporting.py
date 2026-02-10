@@ -24,30 +24,36 @@ def generate_acquisition_log(csv_path, acq_log_path, metadata_list=None):
         return None
 
     try:
-        df = pd.read_csv(csv_path, usecols=['date', 'satellite'])
+        df = pd.read_csv(csv_path, usecols=["date", "satellite"])
         # Group by date and collect unique satellites
         log_entries = {}
-        for date, group in df.groupby('date'):
-            sats = sorted(set(
-                sat.strip()
-                for row in group['satellite'].dropna()
-                for sat in str(row).split(',')
-                if sat.strip()
-            ))
+        for date, group in df.groupby("date"):
+            sats = sorted(
+                set(
+                    sat.strip()
+                    for row in group["satellite"].dropna()
+                    for sat in str(row).split(",")
+                    if sat.strip()
+                )
+            )
             log_entries[date] = sats
 
         lines = []
         for date in sorted(log_entries):
-            sats_str = ','.join(log_entries[date])
+            sats_str = ",".join(log_entries[date])
             lines.append(f"{date}: {sats_str}")
 
         if metadata_list:
-            s2_meta = next((m for m in metadata_list if m.get('source') == 'Sentinel-2'), None)
-            if s2_meta and 'discarded_images' in s2_meta:
-                 lines.append(f"\n# Discarded S2 images (clouds > {config.CLOUD_THRESHOLD_S2}%): {s2_meta['discarded_images']}")
+            s2_meta = next(
+                (m for m in metadata_list if m.get("source") == "Sentinel-2"), None
+            )
+            if s2_meta and "discarded_images" in s2_meta:
+                lines.append(
+                    f"\n# Discarded S2 images (clouds > {config.CLOUD_THRESHOLD_S2}%): {s2_meta['discarded_images']}"
+                )
 
-        with open(acq_log_path, 'w') as f:
-            f.write('\n'.join(lines) + '\n')
+        with open(acq_log_path, "w") as f:
+            f.write("\n".join(lines) + "\n")
 
         return acq_log_path, log_entries
     except Exception as e:
@@ -68,12 +74,12 @@ def _format_cloud_shadow_stats(metadata_list):
     output = ""
 
     for meta in metadata_list:
-        source = meta.get('source', 'Unknown')
+        source = meta.get("source", "Unknown")
 
         # Sentinel-2: cloud + shadow
-        if source == 'Sentinel-2':
-            cloud_cov = meta.get('cloud_coverage', {})
-            shadow_cov = meta.get('shadow_coverage', {})
+        if source == "Sentinel-2":
+            cloud_cov = meta.get("cloud_coverage", {})
+            shadow_cov = meta.get("shadow_coverage", {})
 
             output += f"**{source}**:\n"
             output += f"- Mean cloud coverage: {cloud_cov.get('mean', 0):.1f}%\n"
@@ -82,9 +88,9 @@ def _format_cloud_shadow_stats(metadata_list):
             output += f"- Max shadow coverage: {shadow_cov.get('max', 0):.1f}%\n\n"
 
         # Landsat: cloud + QA masked
-        elif source == 'Landsat 8/9':
-            cloud_cov = meta.get('cloud_coverage', {})
-            qa_masked = meta.get('qa_masked', {})
+        elif source == "Landsat 8/9":
+            cloud_cov = meta.get("cloud_coverage", {})
+            qa_masked = meta.get("qa_masked", {})
 
             output += f"**{source}**:\n"
             output += f"- Mean cloud coverage: {cloud_cov.get('mean', 0):.1f}%\n"
@@ -114,20 +120,20 @@ def _format_discarded_images(metadata_list):
     has_data = False
 
     for meta in metadata_list:
-        source = meta.get('source', 'Unknown')
+        source = meta.get("source", "Unknown")
 
         # Skip non-satellite sources
-        if source in ['ROI Stats', 'SRTM']:
+        if source in ["ROI Stats", "SRTM"]:
             continue
 
-        total = meta.get('total_images', 0)
-        retained = meta.get('image_count', 0)
-        discarded = meta.get('discarded_images', 0)
-        discard_rate = meta.get('discarded_pct', 0)
-        reason = meta.get('discard_reason', '-')
+        total = meta.get("total_images", 0)
+        retained = meta.get("image_count", 0)
+        discarded = meta.get("discarded_images", 0)
+        discard_rate = meta.get("discarded_pct", 0)
+        reason = meta.get("discard_reason", "-")
 
         # Abbreviate source names
-        source_abbrev = source.replace('Sentinel-', 'S').replace('Landsat 8/9', 'L8/9')
+        source_abbrev = source.replace("Sentinel-", "S").replace("Landsat 8/9", "L8/9")
 
         table += (
             f"| {source_abbrev} | {total} | {retained} | {discarded} | "
@@ -147,21 +153,24 @@ def _format_monitoring_log(output_dir):
     Format monitoring logs from CORE and ML pipelines as markdown.
     """
     sections = []
-    
+
     # Check for CORE monitoring
     core_path = os.path.join(output_dir, "monitoring_core.json")
     if os.path.exists(core_path):
         try:
             import json
-            with open(core_path, 'r') as f:
+
+            with open(core_path, "r") as f:
                 data = json.load(f)
-            
+
             section = "### Core Pipeline Performance\n\n"
             section += f"**Total Duration:** {data.get('duration_total_sec', 0):.2f} seconds\n\n"
             section += "| Step | Duration (s) | Metrics |\n"
             section += "| :--- | :--- | :--- |\n"
-            for step in data.get('steps', []):
-                metrics_str = ", ".join([f"{k}: {v}" for k, v in step.get('metrics', {}).items()])
+            for step in data.get("steps", []):
+                metrics_str = ", ".join(
+                    [f"{k}: {v}" for k, v in step.get("metrics", {}).items()]
+                )
                 section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"
             sections.append(section)
         except Exception:
@@ -172,17 +181,20 @@ def _format_monitoring_log(output_dir):
     if os.path.exists(ml_path):
         try:
             import json
-            with open(ml_path, 'r') as f:
+
+            with open(ml_path, "r") as f:
                 data = json.load(f)
-            
+
             section = "### ML Pipeline Performance\n\n"
             section += f"**Total Duration:** {data.get('duration_total_sec', 0):.2f} seconds\n\n"
             section += "| Step | Duration (s) | Metrics |\n"
             section += "| :--- | :--- | :--- |\n"
-            for step in data.get('steps', []):
-                metrics_val = step.get('metrics', {})
+            for step in data.get("steps", []):
+                metrics_val = step.get("metrics", {})
                 if isinstance(metrics_val, dict):
-                    metrics_str = ", ".join([f"{k}: {v}" for k, v in metrics_val.items()])
+                    metrics_str = ", ".join(
+                        [f"{k}: {v}" for k, v in metrics_val.items()]
+                    )
                 else:
                     metrics_str = str(metrics_val)
                 section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"
@@ -192,7 +204,7 @@ def _format_monitoring_log(output_dir):
 
     if not sections:
         return ""
-    
+
     return "\n## 8. Performance & Monitoring\n\n" + "\n".join(sections)
 
 
@@ -207,10 +219,10 @@ def _validate_dataset(csv_path, log_entries):
     try:
         df = pd.read_csv(csv_path)
         total_rows = len(df)
-        unique_dates = df['date'].nunique() if 'date' in df.columns else 0
+        unique_dates = df["date"].nunique() if "date" in df.columns else 0
 
         # Grid consistency: rows per date should be stable
-        rows_per_date = df.groupby('date').size()
+        rows_per_date = df.groupby("date").size()
         grid_ok = rows_per_date.std() < 1  # Allow ±0 variance (exact)
         grid_count = int(rows_per_date.median()) if len(rows_per_date) > 0 else 0
 
@@ -221,20 +233,25 @@ def _validate_dataset(csv_path, log_entries):
             sensor_analysis.append((date, sats))
 
         return {
-            'total_rows': total_rows,
-            'unique_dates': unique_dates,
-            'grid_ok': grid_ok,
-            'grid_count': grid_count,
-            'rows_per_date': rows_per_date.to_dict(),
-            'sensor_analysis': sensor_analysis,
+            "total_rows": total_rows,
+            "unique_dates": unique_dates,
+            "grid_ok": grid_ok,
+            "grid_count": grid_count,
+            "rows_per_date": rows_per_date.to_dict(),
+            "sensor_analysis": sensor_analysis,
         }
     except Exception as e:
         print(f"Warning: Validation failed: {e}")
         return {}
 
 
-def generate_report(metadata_list, csv_path=None, output_path='output/Report.md',
-                    acq_log_path=None, ml_dir=None):
+def generate_report(
+    metadata_list,
+    csv_path=None,
+    output_path="output/Report.md",
+    acq_log_path=None,
+    ml_dir=None,
+):
     """
     Generate acquisition log and a validation report.
 
@@ -260,7 +277,7 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
     validation = _validate_dataset(csv_path, log_entries) if csv_path else {}
 
     # 3. Extract metadata
-    roi_stats = next((m for m in metadata_list if m.get('source') == 'ROI Stats'), {})
+    roi_stats = next((m for m in metadata_list if m.get("source") == "ROI Stats"), {})
     area_info = ""
     time_info = ""
     if roi_stats:
@@ -282,9 +299,11 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
 
     # 5. Global Statistics section
     if validation:
-        grid_status = "OK (Stable at {} rows per date)".format(
-            validation['grid_count']
-        ) if validation['grid_ok'] else f"WARNING (Variable rows per date)"
+        grid_status = (
+            "OK (Stable at {} rows per date)".format(validation["grid_count"])
+            if validation["grid_ok"]
+            else f"WARNING (Variable rows per date)"
+        )
 
         report += f"""## 2. Dataset Statistics
 
@@ -299,14 +318,13 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
 
     report += "\n"
 
-
     # 6. Sensor Analysis
-    if validation.get('sensor_analysis'):
+    if validation.get("sensor_analysis"):
         report += "### Sensor Analysis\n\n"
         report += "| Date | Sensors |\n"
         report += "| :--- | :--- |\n"
-        for date, sats in validation['sensor_analysis']:
-            sats_str = ', '.join(sats) if sats else 'None'
+        for date, sats in validation["sensor_analysis"]:
+            sats_str = ", ".join(sats) if sats else "None"
             report += f"| {date} | {sats_str} |\n"
         report += "\n"
 
@@ -317,12 +335,12 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
 | :--- | :--- | :--- | :--- |
 """
     for item in metadata_list:
-        if item.get('source') == 'ROI Stats':
+        if item.get("source") == "ROI Stats":
             continue
-        source = item.get('source', 'Unknown')
-        count = item.get('image_count', 'N/A')
-        date_range = item.get('date_range', 'N/A')
-        bands = ', '.join(item.get('bands', [])) if item.get('bands') else 'N/A'
+        source = item.get("source", "Unknown")
+        count = item.get("image_count", "N/A")
+        date_range = item.get("date_range", "N/A")
+        bands = ", ".join(item.get("bands", [])) if item.get("bands") else "N/A"
         report += f"| **{source}** | {count} | {date_range} | {bands} |\n"
 
     # NEW SECTION 4: Cloud & Shadow Coverage
@@ -336,7 +354,12 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
     # NEW SECTION 6: ML Weekly Analysis (if available)
     if ml_dir and os.path.exists(ml_dir):
         try:
-            from ml.report_utils import generate_ml_summary, format_weekly_ml_table, format_top_anomalies
+            from ml.report_utils import (
+                generate_ml_summary,
+                format_weekly_ml_table,
+                format_top_anomalies,
+            )
+
             weekly_stats, top_anomalies = generate_ml_summary(ml_dir)
 
             if weekly_stats is not None and len(weekly_stats) > 0:
@@ -369,8 +392,7 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
     # 8. Performance Monitoring
     report += _format_monitoring_log(output_dir)
 
-
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(report)
 
     return output_path
