@@ -23,7 +23,7 @@ def _parse_coords(geo_str):
     """Parse .geo GeoJSON string to [lon, lat]."""
     try:
         data = json.loads(geo_str) if isinstance(geo_str, str) else geo_str
-        return data['coordinates']  # [lon, lat]
+        return data["coordinates"]  # [lon, lat]
     except Exception:
         return [0, 0]
 
@@ -33,8 +33,8 @@ def get_available_dates(csv_path):
     if not os.path.exists(csv_path):
         return []
     try:
-        df = pd.read_csv(csv_path, usecols=['date'])
-        return sorted(df['date'].dropna().unique().tolist())
+        df = pd.read_csv(csv_path, usecols=["date"])
+        return sorted(df["date"].dropna().unique().tolist())
     except Exception:
         return []
 
@@ -45,16 +45,18 @@ def _add_ml_cluster_layer(m, ml_dir, df):
     Shows clusters from latest processed week.
     """
     # Find latest week folder
-    weekly_dir = os.path.join(ml_dir, 'weekly')
+    weekly_dir = os.path.join(ml_dir, "weekly")
     if not os.path.exists(weekly_dir):
         return
 
-    week_folders = [f for f in os.listdir(weekly_dir) if f.startswith('20')]
+    week_folders = [f for f in os.listdir(weekly_dir) if f.startswith("20")]
     if not week_folders:
         return
 
     latest_week = sorted(week_folders)[-1]
-    cluster_csv = os.path.join(weekly_dir, latest_week, f'cluster_map_{latest_week}.csv')
+    cluster_csv = os.path.join(
+        weekly_dir, latest_week, f"cluster_map_{latest_week}.csv"
+    )
 
     if not os.path.exists(cluster_csv):
         return
@@ -63,36 +65,46 @@ def _add_ml_cluster_layer(m, ml_dir, df):
     cluster_df = pd.read_csv(cluster_csv)
 
     # Merge with main df to get coordinates if needed
-    if 'lat' not in cluster_df.columns or 'lon' not in cluster_df.columns:
-        if 'spatial_id' in cluster_df.columns and 'spatial_id' in df.columns:
+    if "lat" not in cluster_df.columns or "lon" not in cluster_df.columns:
+        if "spatial_id" in cluster_df.columns and "spatial_id" in df.columns:
             # Merge on spatial_id
-            coords_df = df[['spatial_id', 'lat', 'lon']].drop_duplicates('spatial_id')
-            cluster_df = cluster_df.merge(coords_df, on='spatial_id', how='left')
+            coords_df = df[["spatial_id", "lat", "lon"]].drop_duplicates("spatial_id")
+            cluster_df = cluster_df.merge(coords_df, on="spatial_id", how="left")
 
     # Create cluster layer
-    fg = folium.FeatureGroup(name=f'ML Clusters ({latest_week})', show=False)
+    fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=False)
 
     # Color palette for clusters
-    unique_clusters = cluster_df['cluster_label'].unique()
+    unique_clusters = cluster_df["cluster_label"].unique()
     unique_clusters = [c for c in unique_clusters if c != -1]  # Exclude noise
-    colors_palette = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
-                     '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b']
+    colors_palette = [
+        "#e74c3c",
+        "#3498db",
+        "#2ecc71",
+        "#f39c12",
+        "#9b59b6",
+        "#1abc9c",
+        "#e67e22",
+        "#34495e",
+        "#16a085",
+        "#c0392b",
+    ]
 
     cluster_colors = {}
     for i, c in enumerate(unique_clusters):
         cluster_colors[c] = colors_palette[i % len(colors_palette)]
-    cluster_colors[-1] = '#7f8c8d'  # Gray for noise
+    cluster_colors[-1] = "#7f8c8d"  # Gray for noise
 
     # Add markers
     for _, row in cluster_df.iterrows():
-        if pd.isna(row.get('lat')) or pd.isna(row.get('lon')):
+        if pd.isna(row.get("lat")) or pd.isna(row.get("lon")):
             continue
 
-        cluster_label = row['cluster_label']
-        track_id = row.get('track_id', -1)
-        outlier_score = row.get('outlier_score', 0)
+        cluster_label = row["cluster_label"]
+        track_id = row.get("track_id", -1)
+        outlier_score = row.get("outlier_score", 0)
 
-        color = cluster_colors.get(cluster_label, '#7f8c8d')
+        color = cluster_colors.get(cluster_label, "#7f8c8d")
 
         popup_text = (
             f"<b>ML Cluster</b><br>"
@@ -107,18 +119,20 @@ def _add_ml_cluster_layer(m, ml_dir, df):
         marker_size = 3 + int(outlier_score * 5)
 
         folium.CircleMarker(
-            location=[row['lat'], row['lon']],
+            location=[row["lat"], row["lon"]],
             radius=marker_size,
             color=color,
             fill=True,
             fill_color=color,
             fill_opacity=0.7,
             weight=1,
-            popup=folium.Popup(popup_text, max_width=220)
+            popup=folium.Popup(popup_text, max_width=220),
         ).add_to(fg)
 
     fg.add_to(m)
-    print(f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)")
+    print(
+        f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)"
+    )
 
 
 def create_verification_map(csv_path, output_file, selected_date=None):
@@ -141,15 +155,16 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     df = pd.read_csv(csv_path)
 
     # Parse coordinates for all rows
-    df['coords'] = df['.geo'].apply(_parse_coords)
-    df['lon'] = df['coords'].apply(lambda x: x[0])
-    df['lat'] = df['coords'].apply(lambda x: x[1])
+    df["coords"] = df[".geo"].apply(_parse_coords)
+    df["lon"] = df["coords"].apply(lambda x: x[0])
+    df["lat"] = df["coords"].apply(lambda x: x[1])
 
-    center_lat = df['lat'].mean()
-    center_lon = df['lon'].mean()
+    center_lat = df["lat"].mean()
+    center_lon = df["lon"].mean()
 
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=16,
-                   tiles='Esri.WorldImagery')
+    m = folium.Map(
+        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
+    )
 
     if selected_date:
         print(f"Adding layers for date: {selected_date}")
@@ -179,18 +194,22 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         # Filter data for this column
         if selected_date:
             # Use specified date for all columns
-            col_df = df[df['date'] == selected_date][['lat', 'lon', '.geo', 'date', col]].copy()
+            col_df = df[df["date"] == selected_date][
+                ["lat", "lon", ".geo", "date", col]
+            ].copy()
             display_date = selected_date
         else:
             # Use latest date with data for this column
             col_data_df = df[df[col].notna()].copy()
             if col_data_df.empty:
                 continue
-            display_date = col_data_df['date'].max()
-            col_df = col_data_df[col_data_df['date'] == display_date][['lat', 'lon', '.geo', 'date', col]].copy()
+            display_date = col_data_df["date"].max()
+            col_df = col_data_df[col_data_df["date"] == display_date][
+                ["lat", "lon", ".geo", "date", col]
+            ].copy()
 
         # Average if multiple points same location same day
-        col_df = col_df.groupby(['.geo', 'lat', 'lon'], as_index=False)[col].mean()
+        col_df = col_df.groupby([".geo", "lat", "lon"], as_index=False)[col].mean()
 
         col_data = col_df[col].dropna()
         if col_data.empty:
@@ -202,10 +221,10 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             continue
 
         label = schema.COLUMN_LABELS.get(col, col)
-        colors = schema.COLUMN_COLORS.get(col, ['red', 'yellow', 'green'])
+        colors = schema.COLUMN_COLORS.get(col, ["red", "yellow", "green"])
         colormap = cm.LinearColormap(colors=colors, vmin=vmin, vmax=vmax)
 
-        gradient_str = ', '.join(colors)
+        gradient_str = ", ".join(colors)
         legend_html += f"""
         <div style='margin-bottom:5px;'>
             <div style='font-weight:600;font-size:10px;color:#ddd;'>{label}</div>
@@ -220,7 +239,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         """
 
         # Default: show NDVI layer, hide others
-        show = (col == 'NDVI')
+        show = col == "NDVI"
         fg = folium.FeatureGroup(name=label, show=show)
 
         for _, row in col_df.iterrows():
@@ -235,13 +254,13 @@ def create_verification_map(csv_path, output_file, selected_date=None):
                 f"Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}"
             )
             folium.CircleMarker(
-                location=[row['lat'], row['lon']],
+                location=[row["lat"], row["lon"]],
                 radius=4,
                 color=color,
                 fill=True,
                 fill_color=color,
                 fill_opacity=0.85,
-                popup=folium.Popup(popup_text, max_width=220)
+                popup=folium.Popup(popup_text, max_width=220),
             ).add_to(fg)
 
         fg.add_to(m)
@@ -269,13 +288,14 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             legend.addTo({{ this._parent.get_name() }});
             {% endmacro %}
         """)
+
         def __init__(self, content):
             super().__init__()
-            self._name = 'CustomLegend'
+            self._name = "CustomLegend"
             self.content = content
 
     # Add ML Weekly Clustering Layer (if available)
-    ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
+    ml_dir = os.path.join(os.path.dirname(csv_path), "ml_weekly")
     if os.path.exists(ml_dir):
         try:
             _add_ml_cluster_layer(m, ml_dir, df)
@@ -283,7 +303,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             print(f"[Map] Could not add ML cluster layer: {e}")
 
     m.add_child(CustomLegend(legend_html))
-    folium.LayerControl(position='topleft', collapsed=False).add_to(m)
+    folium.LayerControl(position="topleft", collapsed=False).add_to(m)
 
     # Dark mode CSS for layer control
     dark_css = """
@@ -315,6 +335,6 @@ def create_verification_map(csv_path, output_file, selected_date=None):
 
 if __name__ == "__main__":
     create_verification_map(
-        'output/New_Vineyard/SmartHarvest_New_Vineyard.csv',
-        'output/New_Vineyard/Map_New_Vineyard.html'
+        "output/New_Vineyard/SmartHarvest_New_Vineyard.csv",
+        "output/New_Vineyard/Map_New_Vineyard.html",
     )

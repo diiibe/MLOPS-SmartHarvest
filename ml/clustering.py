@@ -35,7 +35,7 @@ def normalize_features(frame, feature_cols):
     # Create normalized frame
     frame_norm = frame.copy()
     for i, col in enumerate(feature_cols):
-        frame_norm[f'{col}_norm'] = X_scaled[:, i]
+        frame_norm[f"{col}_norm"] = X_scaled[:, i]
 
     return frame_norm, scaler, X_scaled
 
@@ -58,10 +58,7 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
 
     # Use MiniBatchKMeans for speed
     kmeans = MiniBatchKMeans(
-        n_clusters=target_micro,
-        random_state=42,
-        batch_size=1024,
-        max_iter=100
+        n_clusters=target_micro, random_state=42, batch_size=1024, max_iter=100
     )
 
     micro_labels = kmeans.fit_predict(X_scaled)
@@ -71,8 +68,12 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
     unique_labels, counts = np.unique(micro_labels, return_counts=True)
     micro_sizes = {label: count for label, count in zip(unique_labels, counts)}
 
-    print(f"[Microclustering] Created {len(unique_labels)} microclusters from {n_samples:,} pixels")
-    print(f"[Microclustering] Avg size: {n_samples / len(unique_labels):.1f} pixels/micro")
+    print(
+        f"[Microclustering] Created {len(unique_labels)} microclusters from {n_samples:,} pixels"
+    )
+    print(
+        f"[Microclustering] Avg size: {n_samples / len(unique_labels):.1f} pixels/micro"
+    )
 
     return micro_labels, micro_centroids, micro_sizes
 
@@ -92,8 +93,8 @@ def hdbscan_clustering(micro_centroids, micro_sizes, min_cluster_size=10):
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=adjusted_min_size,
         min_samples=5,
-        metric='euclidean',
-        cluster_selection_method='eom'  # Excess of Mass
+        metric="euclidean",
+        cluster_selection_method="eom",  # Excess of Mass
     )
 
     cluster_labels = clusterer.fit_predict(micro_centroids)

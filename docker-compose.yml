@@ -1,27 +1,12 @@
-version: '3.8'
-
 services:
-
-  # Servizio per ML Developer (Backend/API)
-  api-server:
-    build: .
-
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app
-      - ~/.config/earthengine:/root/.config/earthengine
-    ports:
-      - "8000:8000"
-
-  # Servizio per Flask App
   wine-app:
     build: .
-
-    command: python src/wine_app/app.py
+    working_dir: /app
     volumes:
       - .:/app
       - ~/.config/earthengine:/root/.config/earthengine
     ports:
-      - "5001:5000"
+      - "5000:5000"
     environment:
-      - PYTHONPATH=/app/src/wine_app
+      - PYTHONUNBUFFERED=1
+    command: flask --app app run --host 0.0.0.0 --port 5000 --debug

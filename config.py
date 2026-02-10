@@ -28,7 +28,7 @@ ROI_COORDS = [
         [12.829881018960151, 46.10979432579782],
         [12.829502759629804, 46.10822086864232],
         [12.829357275271803, 46.108039313003104],
-        [12.829502759629804, 46.10537642826068]
+        [12.829502759629804, 46.10537642826068],
     ]
 ]
 
@@ -36,20 +36,20 @@ ROI_COORDS = [
 ROI = None
 
 # Dynamic ROI Loading
-if os.path.exists('roi.json'):
+if os.path.exists("roi.json"):
     try:
-        with open('roi.json', 'r') as f:
+        with open("roi.json", "r") as f:
             roi_data = json.load(f)
-            if 'coordinates' in roi_data:
-                ROI_COORDS = roi_data['coordinates']
+            if "coordinates" in roi_data:
+                ROI_COORDS = roi_data["coordinates"]
                 print(f"Loaded custom ROI from roi.json")
     except Exception as e:
         print(f"Error loading roi.json: {e}. Using default coordinates.")
 
 
 # Analysis Range (Updated by main.py from the UI date - 90 days)
-START_DATE = '2025-06-01'
-END_DATE = '2025-09-01'
+START_DATE = "2025-06-01"
+END_DATE = "2025-09-01"
 
 # Resolution in meters (10m for S2 native, all data resampled to this)
 # NOTE: For very large vineyards (>50 ha), consider increasing to 20m to reduce data volume
@@ -58,7 +58,7 @@ END_DATE = '2025-09-01'
 TARGET_SCALE = 10
 
 # Cloud thresholds
-CLOUD_THRESHOLD_S2 = 50       # Sentinel-2 (Optical)
+CLOUD_THRESHOLD_S2 = 50  # Sentinel-2 (Optical)
 CLOUD_THRESHOLD_LANDSAT = 80  # Landsat (Thermal) - more permissive, data is scarcer
 
 # Download chunking (for large datasets that exceed GEE limits)

@@ -31,7 +31,9 @@ class MicroCluster:
 
 
 class DBStream:
-    def __init__(self, epsilon: float = 1.5, mu: float = 5.0, lambda_: float = 0.0) -> None:
+    def __init__(
+        self, epsilon: float = 1.5, mu: float = 5.0, lambda_: float = 0.0
+    ) -> None:
         self.epsilon = float(epsilon)
         self.mu = float(mu)
         self.lambda_ = float(lambda_)
@@ -45,7 +47,9 @@ class DBStream:
         idx = int(np.argmin(dists))
         return idx, float(dists[idx])
 
-    def partial_fit(self, X: np.ndarray, timestamps: Optional[np.ndarray] = None) -> None:
+    def partial_fit(
+        self, X: np.ndarray, timestamps: Optional[np.ndarray] = None
+    ) -> None:
         if timestamps is None:
             timestamps = np.arange(X.shape[0])
         for x, t in zip(X, timestamps):
@@ -53,7 +57,9 @@ class DBStream:
             if idx >= 0 and dist <= self.epsilon:
                 self.microclusters[idx].update(x, float(t), self.lambda_)
             else:
-                self.microclusters.append(MicroCluster(center=x.copy(), weight=1.0, last_update=float(t)))
+                self.microclusters.append(
+                    MicroCluster(center=x.copy(), weight=1.0, last_update=float(t))
+                )
 
     def score_point(self, x: np.ndarray, t: float) -> Tuple[float, int, float]:
         """Return (score, cluster_id, dist). Score in [0,1]."""
@@ -71,7 +77,12 @@ class DBStream:
         score = 0.5 * dist_ratio + 0.5 * (1.0 - density_ratio)
         return float(score), idx, dist
 
-    def partial_fit_predict(self, X: np.ndarray, timestamps: Optional[np.ndarray] = None, anomaly_threshold: float = 0.7):
+    def partial_fit_predict(
+        self,
+        X: np.ndarray,
+        timestamps: Optional[np.ndarray] = None,
+        anomaly_threshold: float = 0.7,
+    ):
         if timestamps is None:
             timestamps = np.arange(X.shape[0])
         scores = []
@@ -86,10 +97,17 @@ class DBStream:
                 self.microclusters[idx].update(x, float(t), self.lambda_)
                 assigned = idx
             else:
-                self.microclusters.append(MicroCluster(center=x.copy(), weight=1.0, last_update=float(t)))
+                self.microclusters.append(
+                    MicroCluster(center=x.copy(), weight=1.0, last_update=float(t))
+                )
                 assigned = len(self.microclusters) - 1
             scores.append(score)
             labels.append(is_anom)
             cluster_ids.append(assigned)
             dists.append(dist)
-        return np.array(scores), np.array(labels), np.array(cluster_ids), np.array(dists)
+        return (
+            np.array(scores),
+            np.array(labels),
+            np.array(cluster_ids),
+            np.array(dists),
+        )
