@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}SmartHarvest - New Project{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+{% endblock %}
+
+{% block body_class %}page-index{% endblock %}
+
+{% block content %}
+<div id="sidebar">
+    <h1>SmartHarvest Wine</h1>
+
+    <div class="status-message" id="statusMessage" role="status" aria-live="polite"></div>
+
+    <div class="form-group">
+        <label>Existing Projects</label>
+        <select id="existingProjects" onchange="loadExistingProject()">
+            <option value="">New Project</option>
+        </select>
+        <div class="inline-hint">Select to reuse data, or choose "New Project" to start fresh.</div>
+    </div>
+
+    <div class="form-group">
+        <label>Project Name</label>
+        <input type="text" id="projectName" placeholder="Enter project name" value="New Vineyard">
+    </div>
+
+    <div class="form-group">
+        <label>Saved Locations</label>
+        <select id="savedRois" onchange="loadRoi()">
+            <option value="">Select Vineyard</option>
+        </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+        <label>Time Range</label>
+        <select id="timeRange" onchange="updateTimeRangeHint()">
+            <option value="7">1 Week</option>
+            <option value="14">2 Weeks</option>
+            <option value="30">1 Month</option>
+            <option value="60">2 Months</option>
+            <option value="90" selected>3 Months (Default)</option>
+        </select>
+        <div class="inline-hint" id="timeRangeHint">Data will be collected for 3 months prior to analysis date.</div>
+    </div>
+
+    <div class="form-group" id="dateGroup">
+        <label>Analysis End Date</label>
+        <input type="date" id="analysisDate" title="Select the end date for analysis">
+        <div class="inline-hint">Most recent date to include in analysis.</div>
+    </div>
+
+    <div class="summary-card" aria-live="polite">
+        <div class="summary-title">ROI Summary</div>
+        <div class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Area</div>
+                <div class="summary-value" id="roiArea">N/A</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Status</div>
+                <div class="summary-value" id="roiStatus">No ROI</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn-secondary" onclick="saveCurrentRoi()">Save Location</button>
+    <button class="btn-success" id="runButton" onclick="startAnalysis()">Start Analysis</button>
+    <div class="inline-hint" id="runHint">Draw ROI and set parameters to start.</div>
+
+    <div id="progress-container">
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBar"></div>
+        </div>
+        <div class="progress-text" id="progressText" aria-live="polite">Initializing...</div>
+    </div>
+</div>
+
+<div id="map"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js" defer></script>
+<script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
+{% endblock %}

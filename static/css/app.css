@@ -1,0 +1,574 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a1a;
+    color: #e0e0e0;
+}
+
+/* Index page */
+.page-index {
+    display: flex;
+    height: 100vh;
+}
+
+.page-index #sidebar {
+    width: 340px;
+    background: #2d2d2d;
+    padding: 15px;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #404040;
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+.page-index #map {
+    flex-grow: 1;
+    height: 100%;
+}
+
+.page-index h1 {
+    color: #ffffff;
+    font-size: 20px;
+    margin-bottom: 15px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    text-align: center;
+}
+
+.page-index .form-group {
+    margin-bottom: 12px;
+}
+
+.page-index label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #b0b0b0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-index input[type="text"],
+.page-index input[type="date"],
+.page-index select {
+    width: 100%;
+    padding: 10px;
+    background: #404040;
+    border: 1px solid #555;
+    color: white;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.page-index input[type="text"]:focus,
+.page-index input[type="date"]:focus,
+.page-index select:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.page-index .divider {
+    height: 1px;
+    background: #404040;
+    margin: 12px 0;
+}
+
+.page-index button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.page-index .btn-primary {
+    background: #3498db;
+    color: white;
+    margin-top: 10px;
+}
+
+.page-index .btn-primary:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+}
+
+.page-index .btn-success {
+    background: #27ae60;
+    color: white;
+    margin-top: auto;
+    font-size: 15px;
+    padding: 12px;
+    box-shadow: none;
+}
+
+.page-index .btn-secondary {
+    background: #555;
+    color: white;
+    margin-top: 10px;
+}
+
+.page-index .btn-secondary:hover {
+    background: #666;
+}
+
+.page-index .instructions {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+}
+
+.page-index .instructions p {
+    margin: 5px 0;
+}
+
+.page-index .stepper {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin: 5px 0 12px;
+}
+
+.page-index .step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #252525;
+    border: 1px solid #3a3a3a;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: #9b9b9b;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.page-index .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: #333;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.page-index .step.is-active {
+    border-color: #3498db;
+    color: #e6f2ff;
+}
+
+.page-index .step.is-active .step-num {
+    background: #3498db;
+    color: #fff;
+}
+
+.page-index .step.is-done {
+    border-color: #27ae60;
+    color: #d8f5e3;
+}
+
+.page-index .step.is-done .step-num {
+    background: #27ae60;
+    color: #fff;
+}
+
+.page-index .status-message {
+    display: none;
+    margin: 8px 0 16px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    border: 1px solid transparent;
+}
+
+.page-index .status-message.is-error {
+    display: block;
+    color: #ffd9d9;
+    background: #3a1f1f;
+    border-color: #5b2a2a;
+}
+
+.page-index .status-message.is-info {
+    display: block;
+    color: #d7e9ff;
+    background: #1f2d3a;
+    border-color: #2c3f52;
+}
+
+.page-index .status-message.is-success {
+    display: block;
+    color: #d9f7e5;
+    background: #1f3a2b;
+    border-color: #2e5b43;
+}
+
+.page-index .label-small {
+    font-size: 11px;
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-index .label-t1 {
+    color: #3498db;
+}
+
+.page-index .label-t2 {
+    color: #e74c3c;
+}
+
+.page-index .field-row {
+    display: flex;
+    gap: 10px;
+}
+
+.page-index .field-col {
+    flex: 1;
+}
+
+.page-index .summary-card {
+    margin-top: 12px;
+    padding: 12px;
+    background: #262626;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+}
+
+.page-index .summary-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #b0b0b0;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.page-index .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.page-index .summary-label {
+    font-size: 11px;
+    color: #8f8f8f;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.page-index .summary-value {
+    font-size: 14px;
+    color: #f0f0f0;
+    font-weight: 600;
+}
+
+.page-index .inline-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #8b8b8b;
+}
+
+.page-index .btn-success:disabled {
+    background: #1f6b3d;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.page-index #progress-container {
+    display: none;
+    margin-top: 20px;
+}
+
+.page-index .progress-bar-bg {
+    width: 100%;
+    height: 10px;
+    background: #444;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.page-index .progress-bar-fill {
+    height: 100%;
+    background: #3498db;
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.page-index .progress-text {
+    text-align: center;
+    font-size: 12px;
+    color: #aaa;
+}
+
+@media (max-width: 768px) {
+    .page-index {
+        flex-direction: column-reverse;
+    }
+
+    .page-index #sidebar {
+        width: 100%;
+        height: 50%;
+        border-right: none;
+        border-top: 1px solid #404040;
+        box-sizing: border-box;
+        overflow-y: auto;
+    }
+
+    .page-index #map {
+        height: 50%;
+    }
+
+    .page-index .stepper {
+        grid-template-columns: 1fr;
+    }
+
+    .page-index .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dashboard page */
+.page-dashboard {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.page-dashboard #sidebar {
+    width: 280px;
+    background: #3a000e;
+    border-right: 1px solid #500015;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.page-dashboard #main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.page-dashboard .header {
+    padding: 25px;
+    background: #2b000a;
+    color: white;
+    border-bottom: 1px solid #500015;
+}
+
+.page-dashboard .header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.page-dashboard .header p {
+    margin: 5px 0 0;
+    opacity: 0.7;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.page-dashboard .content {
+    padding: 25px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.page-dashboard .card {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+.page-dashboard .card h3 {
+    margin-top: 0;
+    color: #fff;
+    border-bottom: 2px solid #f1c40f;
+    padding-bottom: 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-dashboard .stat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.page-dashboard .stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+.page-dashboard .stat-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.page-dashboard .stat-val {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.page-dashboard .stat-label {
+    font-size: 12px;
+    color: #aaa;
+}
+
+.page-dashboard .btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.page-dashboard .btn-download {
+    background: #27ae60;
+    color: white;
+}
+
+.page-dashboard .btn-download:hover {
+    background: #219150;
+}
+
+.page-dashboard .btn-new {
+    background: #444;
+    color: #ccc;
+    margin-top: auto;
+    border-top: 1px solid #555;
+    border-radius: 0;
+    padding: 20px;
+}
+
+.page-dashboard .btn-new:hover {
+    background: #555;
+    color: white;
+}
+
+.page-dashboard #map-container {
+    flex-grow: 1;
+    border: none;
+    width: 100%;
+    height: 100%;
+}
+
+.page-dashboard .tabs {
+    display: flex;
+    background: #3a000e;
+    border-bottom: 1px solid #500015;
+}
+
+.page-dashboard .tab {
+    padding: 15px 25px;
+    cursor: pointer;
+    background: #3a000e;
+    text-align: center;
+    font-weight: 600;
+    color: #aaa;
+    font-size: 14px;
+    transition: all 0.2s;
+    border-right: 1px solid #500015;
+}
+
+.page-dashboard .tab:hover {
+    background: #500015;
+    color: #fff;
+}
+
+.page-dashboard .tab.active {
+    color: #fff;
+    border-bottom: 3px solid #f1c40f;
+    background: #2b000a;
+}
+
+.page-dashboard #report-view {
+    display: none;
+    padding: 40px;
+    overflow-y: auto;
+    height: 100%;
+    background: #1a1a1a;
+    max-width: 800px;
+    margin: 0 auto;
+    color: #ddd;
+}
+
+.page-dashboard iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.page-dashboard #report-view h1 {
+    font-size: 24px;
+    color: #fff;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+.page-dashboard #report-view h2 {
+    font-size: 20px;
+    color: #3498db;
+    margin-top: 30px;
+}
+
+.page-dashboard #report-view table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+}
+
+.page-dashboard #report-view th,
+.page-dashboard #report-view td {
+    border: 1px solid #444;
+    padding: 10px;
+    text-align: left;
+}
+
+.page-dashboard #report-view th {
+    background: #333;
+    font-weight: 600;
+    color: #fff;
+}
+
+.page-dashboard #report-view tr:nth-child(even) {
+    background: #222;
+}

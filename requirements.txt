@@ -5,6 +5,10 @@ folium
 markdown
 plotly
 matplotlib
-scipy
-yaml
-seaborn
+fastapi
+uvicorn
+scikit-learn
+numpy
+statsmodels
+requests
+PyYAML
