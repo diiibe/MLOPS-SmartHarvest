@@ -20,8 +20,8 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python run_ml_weekly.py <project_name> [--force]")
         print("\nExample:")
-        print("  python run_ml_weekly.py Fntinel37")
-        print("  python run_ml_weekly.py Fntinel37 --force  # Reprocess all weeks")
+        print("  python run_ml_weekly.py MyProject")
+        print("  python run_ml_weekly.py MyProject --force  # Reprocess all weeks")
         sys.exit(1)
 
     project_name = sys.argv[1]

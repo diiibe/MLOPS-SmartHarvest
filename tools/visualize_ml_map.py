@@ -283,7 +283,7 @@ def _create_legend(week_id, normal_count, anomalous_count):
 if __name__ == '__main__':
     # Test
     create_ml_anomaly_map(
-        'output/Fntinel37/ml_weekly',
+        'output/MyProject/ml_weekly',
         '2025-W45',
-        'output/Fntinel37/ml_weekly/ml_map_2025-W45.html'
+        'output/MyProject/ml_weekly/ml_map_2025-W45.html'
     )

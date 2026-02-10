@@ -1,7 +1,8 @@
 import ee
 import config
 import os
-from modules import sentinel2, srtm, sentinel1, landsat_thermal, assembly, reporting
+from modules import sentinel2, srtm, sentinel1, landsat_thermal, assembly, reporting, monitoring
+from ml.pipeline import run_ml_pipeline
 
 
 def run_pipeline(roi_coords=None, project_name="default",
@@ -27,6 +28,8 @@ def run_pipeline(roi_coords=None, project_name="default",
     project_name_safe = project_name.replace(" ", "_")
     log(f"Initializing Pipeline for project: {project_name} ({project_name_safe})...")
 
+    monitor = monitoring.PipelineMonitor(project_name_safe, "CORE")
+    
     try:
         ee.Initialize()
 
@@ -59,44 +62,59 @@ def run_pipeline(roi_coords=None, project_name="default",
     try:
         # 1. Sentinel-2
         log("Processing Sentinel-2 (Master Layer)...")
+        monitor.start_step("Sentinel-2")
         s2_col, master_crs, s2_meta = sentinel2.get_sentinel2_data()
+        monitor.stop_step("Sentinel-2", {"image_count": s2_meta.get('image_count', 0)})
         all_metadata.append(s2_meta)
         log(f"  -> {s2_meta['image_count']} S2 images found.")
 
         # 2. SRTM (static topo)
         log("Processing SRTM (Topography)...")
+        monitor.start_step("SRTM")
         srtm_img, srtm_meta = srtm.get_srtm_data(master_crs)
+        monitor.stop_step("SRTM")
         all_metadata.append(srtm_meta)
 
         # 3. Sentinel-1
         log("Processing Sentinel-1 (Radar)...")
+        monitor.start_step("Sentinel-1")
         s1_col, s1_meta = sentinel1.get_sentinel1_data(master_crs)
+        monitor.stop_step("Sentinel-1", {"image_count": s1_meta.get('image_count', 0)})
         all_metadata.append(s1_meta)
         log(f"  -> {s1_meta['image_count']} S1 images found.")
 
         # 4. Landsat Thermal
         log("Processing Landsat Thermal...")
+        monitor.start_step("Landsat")
         l8_col, l8_meta = landsat_thermal.get_landsat_thermal(master_crs)
+        monitor.stop_step("Landsat", {"image_count": l8_meta.get('image_count', 0)})
         all_metadata.append(l8_meta)
         log(f"  -> {l8_meta['image_count']} Landsat images found.")
 
         # 5. Create temporal FeatureCollections (GEE-side sampling)
         log("Creating temporal sample collections...")
+        monitor.start_step("Assembly-Sampling")
         s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(
             s2_col, s1_col, l8_col, srtm_img
         )
+        monitor.stop_step("Assembly-Sampling")
 
         # 6. Download each satellite's data separately
         log("Downloading satellite data (separate per sensor)...")
+        monitor.start_step("Download")
         csv_paths = assembly.download_satellite_data(
             s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_name_safe
         )
+        monitor.stop_step("Download")
 
         # 7. Merge into final temporal CSV
+        log("Merging temporal CSV...")
+        monitor.start_step("Merge")
         final_csv_name = f'SmartHarvest_{project_name_safe}.csv'
         final_csv_path = os.path.join(output_dir, final_csv_name)
 
         merged_path = assembly.build_temporal_csv(csv_paths, final_csv_path)
+        monitor.stop_step("Merge")
 
         if merged_path:
             log(f"[OK] Temporal dataset assembled: {merged_path}")
@@ -106,6 +124,7 @@ def run_pipeline(roi_coords=None, project_name="default",
         # 8. Generate map
         if merged_path and os.path.exists(merged_path):
             log("Generating verification map...")
+            monitor.start_step("Map")
             try:
                 from tools import visualize_data_map
                 map_filename = f'Map_{project_name_safe}.html'
@@ -114,6 +133,21 @@ def run_pipeline(roi_coords=None, project_name="default",
                 log(f"[OK] Map saved to: {map_path}")
             except Exception as e:
                 log(f"Warning: Map generation failed: {e}")
+            monitor.stop_step("Map")
+
+        # 9. Run ML Anomaly Detection (Integrated)
+        if merged_path and os.path.exists(merged_path):
+            log("Running ML Anomaly Detection...")
+            monitor.start_step("ML-Analysis")
+            try:
+                ml_result = run_ml_pipeline(merged_path, output_dir)
+                if ml_result.get('success'):
+                    log(f"[OK] ML Analysis complete for {ml_result['latest_week']}")
+                else:
+                    log(f"Warning: ML Analysis failed: {ml_result.get('error')}")
+            except Exception as e:
+                log(f"Warning: ML Analysis error: {e}")
+            monitor.stop_step("ML-Analysis")
 
         # 10. Generate acquisition log and report
         log("Generating Acquisition Log and Report...")
@@ -130,6 +164,7 @@ def run_pipeline(roi_coords=None, project_name="default",
         acq_log_path = os.path.join(output_dir, 'acquisition_log.txt')
         ml_dir = os.path.join(output_dir, 'ml_weekly')
 
+        monitor.start_step("Report")
         saved_report_path = reporting.generate_report(
             all_metadata,
             csv_path=merged_path,
@@ -137,6 +172,7 @@ def run_pipeline(roi_coords=None, project_name="default",
             acq_log_path=acq_log_path,
             ml_dir=ml_dir if os.path.exists(ml_dir) else None
         )
+        monitor.stop_step("Report")
         log(f"[OK] Report saved to: {saved_report_path}")
 
         # 11. Save metadata JSON
@@ -148,6 +184,7 @@ def run_pipeline(roi_coords=None, project_name="default",
 
         # 12. Validate pipeline output
         log("Running validation checks...")
+        monitor.start_step("Validation")
         try:
             from tools.validate_pipeline import PipelineValidator
             validator = PipelineValidator(project_name_safe)
@@ -156,6 +193,10 @@ def run_pipeline(roi_coords=None, project_name="default",
                 log("⚠️  Validation found issues - check output above")
         except Exception as e:
             log(f"Warning: Validation check failed: {e}")
+        monitor.stop_step("Validation")
+
+        # Save Monitoring Log
+        monitor.save(output_dir)
 
         return {
             'csv_path': merged_path or final_csv_path,

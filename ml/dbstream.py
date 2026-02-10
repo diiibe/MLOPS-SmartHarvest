@@ -1,4 +1,7 @@
-"""Simple in-house DBStream implementation for batch/stream anomaly detection."""
+"""
+EXPERIMENTAL: In-house DBStream implementation for batch/stream anomaly detection.
+This is an alternative algorithm and is NOT used in the primary production pipeline (HDBSCAN).
+"""
 
 from dataclasses import dataclass
 from typing import List, Optional, Tuple

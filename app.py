@@ -11,6 +11,13 @@ app = Flask(__name__)
 os.makedirs('output', exist_ok=True)
 
 
+def _get_project_safe_name(project_name):
+    """Ensure project name is safe for file paths (no spaces)."""
+    if not project_name:
+        return "default"
+    return project_name.replace(' ', '_')
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -100,7 +107,7 @@ def reuse_project():
         if not project_name:
             return jsonify({'success': False, 'error': 'Missing project name'})
 
-        project_name_safe = project_name.replace(' ', '_')
+        project_name_safe = _get_project_safe_name(project_name)
         output_dir = os.path.join('output', project_name_safe)
         csv_path = os.path.join(output_dir, f'SmartHarvest_{project_name_safe}.csv')
 
@@ -207,10 +214,11 @@ def run_analysis():
 
 @app.route('/dashboard/<project_name>')
 def dashboard(project_name):
-    output_dir = os.path.join('output', project_name)
-    csv_path = os.path.join(output_dir, f'SmartHarvest_{project_name}.csv')
-    report_path = os.path.join(output_dir, f'Report_{project_name}.md')
-    metadata_path = os.path.join(output_dir, f'metadata_{project_name}.json')
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
+    csv_path = os.path.join(output_dir, f'SmartHarvest_{project_name_safe}.csv')
+    report_path = os.path.join(output_dir, f'Report_{project_name_safe}.md')
+    metadata_path = os.path.join(output_dir, f'metadata_{project_name_safe}.json')
 
     # Read Metadata Stats
     stats = []
@@ -279,7 +287,7 @@ def dashboard(project_name):
     available_dates = visualize_data_map.get_available_dates(csv_path) if os.path.exists(csv_path) else []
 
     # Read Time Series Data
-    ts_path = os.path.join(output_dir, f'timeseries_{project_name}.json')
+    ts_path = os.path.join(output_dir, f'timeseries_{project_name_safe}.json')
     ts_data = {}
     if os.path.exists(ts_path):
         with open(ts_path, 'r') as f:
@@ -292,7 +300,7 @@ def dashboard(project_name):
             report_html = markdown.markdown(f.read(), extensions=['tables'])
 
     return render_template('dashboard.html',
-                           project_name=project_name,
+                           project_name=project_name_safe,
                            stats=stats,
                            report_html=report_html,
                            ts_data=ts_data,
@@ -305,9 +313,10 @@ def get_map(project_name):
     """
     Serve the map HTML. Generates it if it doesn't exist.
     """
-    output_dir = os.path.join('output', project_name)
-    csv_path = os.path.join(output_dir, f'SmartHarvest_{project_name}.csv')
-    map_filename = f'Map_{project_name}.html'
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
+    csv_path = os.path.join(output_dir, f'SmartHarvest_{project_name_safe}.csv')
+    map_filename = f'Map_{project_name_safe}.html'
     map_path = os.path.join(output_dir, map_filename)
 
     # Generate map if it doesn't exist but CSV does
@@ -328,15 +337,17 @@ def get_map(project_name):
 
 @app.route('/download/<project_name>')
 def download_csv(project_name):
-    output_dir = os.path.join('output', project_name)
-    csv_filename = f'SmartHarvest_{project_name}.csv'
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
+    csv_filename = f'SmartHarvest_{project_name_safe}.csv'
     return send_from_directory(output_dir, csv_filename, as_attachment=True)
 
 
 @app.route('/download_report/<project_name>')
 def download_report(project_name):
-    output_dir = os.path.join('output', project_name)
-    report_filename = f'Report_{project_name}.md'
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
+    report_filename = f'Report_{project_name_safe}.md'
     if os.path.exists(os.path.join(output_dir, report_filename)):
         return send_from_directory(output_dir, report_filename, as_attachment=True)
     else:
@@ -353,7 +364,8 @@ def ml_map(project_name):
     """
     from tools import visualize_ml_map
 
-    output_dir = os.path.join('output', project_name)
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
     ml_dir = os.path.join(output_dir, 'ml_weekly')
 
     if not os.path.exists(ml_dir):
@@ -395,7 +407,8 @@ def ml_weeks_api(project_name):
     """
     Return list of available weeks with metadata.
     """
-    output_dir = os.path.join('output', project_name)
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
     ml_dir = os.path.join(output_dir, 'ml_weekly')
     weekly_dir = os.path.join(ml_dir, 'weekly')
 
@@ -440,7 +453,8 @@ def ml_cluster_detail(project_name, week_id, cluster_label):
     """
     Return detailed info for a specific cluster (for sidebar).
     """
-    output_dir = os.path.join('output', project_name)
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join('output', project_name_safe)
     ml_dir = os.path.join(output_dir, 'ml_weekly')
     cluster_csv = os.path.join(ml_dir, 'weekly', week_id, f'cluster_map_{week_id}.csv')
 

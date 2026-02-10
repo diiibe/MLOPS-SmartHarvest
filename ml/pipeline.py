@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime
 
 from . import data_loader, clustering, tracking, output
+from modules import monitoring
 
 
 def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
@@ -26,14 +27,13 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
     print("SMARTHARVEST ML KERNEL - WEEKLY CLUSTERING & TRACKING")
     print("="*70 + "\n")
 
-    # Create output directories
-    ml_dir = os.path.join(output_base_dir, 'ml_weekly')
-    state_file = os.path.join(ml_dir, 'tracking_state.json')
-    os.makedirs(ml_dir, exist_ok=True)
+    monitor = monitoring.PipelineMonitor(os.path.basename(output_base_dir), "ML")
 
     # STEP 1: Load and filter data
     print("\n[STEP 1] Loading CSV and filtering S2 data...")
+    monitor.start_step("Data-Loading")
     df, columns = data_loader.load_and_filter_s2(csv_path)
+    monitor.stop_step("Data-Loading", {"rows": len(df)})
 
     if len(df) == 0:
         print("[ERROR] No S2 data found in CSV!")
@@ -41,7 +41,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
 
     # STEP 2: Define weekly timeline
     print("\n[STEP 2] Defining weekly timeline...")
+    monitor.start_step("Timeline-Definition")
     weeks, df = data_loader.define_weeks(df, columns['date'])
+    monitor.stop_step("Timeline-Definition", {"weeks_count": len(weeks)})
 
     if len(weeks) == 0:
         print("[ERROR] No weeks found in data!")
@@ -81,6 +83,7 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
         try:
             # STEP 3: Build weekly frame
             print(f"\n[STEP 3] Building weekly frame...")
+            monitor.start_step(f"Week-{week_id}")
             frame = data_loader.build_weekly_frame(
                 df, week_id, columns['coords'], columns['features'], columns['date']
             )
@@ -138,6 +141,12 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                 week_id, track_ids, tracking_info, next_track_id, state_file
             )
 
+            monitor.stop_step(f"Week-{week_id}", {
+                "pixels": len(frame),
+                "clusters": len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0),
+                "anomalies": len(anomaly_summary)
+            })
+
             # Store results
             results_summary.append({
                 'week_id': week_id,
@@ -175,6 +184,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
     summary_path = os.path.join(ml_dir, 'processing_summary.csv')
     summary_df.to_csv(summary_path, index=False)
     print(f"\nSummary saved to: {summary_path}")
+
+    # Save Monitor
+    monitor.save(ml_dir)
 
     # Return latest week result for integration
     if results_summary:

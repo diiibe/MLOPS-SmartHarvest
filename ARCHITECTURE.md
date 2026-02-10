@@ -130,12 +130,12 @@ SmartHarvest MLOps/
 │   ├── charts.py                 # Plotly dashboard charts
 │   ├── validate_pipeline.py      # Data quality checks
 │   ├── analyze_temporal_data.py  # Statistical analysis
-│   └── [dbstream tools...]       # Clustering utilities
+│   └── [ml tools...]           # Clustering utilities
 │
 ├── 🤖 ML PIPELINE (ml/)
 │   ├── pipeline.py         # ML orchestration
 │   ├── data_loader.py      # CSV preprocessing
-│   ├── clustering.py       # DBSTREAM clustering
+│   ├── clustering.py       # HDBSCAN clustering
 │   ├── tracking.py         # Temporal cluster tracking
 │   ├── output.py           # Result export
 │   └── report_utils.py     # ML report sections
@@ -249,9 +249,10 @@ START
   │     ├── Group data by ISO week (YYYY-Wxx)
   │     └── Create weekly feature tables
   │
-  ├─► 3. DBSTREAM CLUSTERING (per week)
+  ├─► 3. HDBSCAN CLUSTERING (per week)
   │     ├── Normalize features (NDVI, NDWI, VH, VV, LST, Slope)
-  │     ├── Run DBSTREAM (density-based clustering)
+  │     ├── Microclustering (MiniBatchKMeans)
+  │     ├── Run HDBSCAN (density-based clustering)
   │     ├── Calculate outlier scores
   │     └── Assign cluster labels
   │
@@ -467,14 +468,15 @@ success = validator.run_validation()
 ---
 
 #### `ml/clustering.py`
-**Purpose**: DBSTREAM density-based clustering.
+**Purpose**: HDBSCAN density-based clustering with microclustering.
 
-**Class**: `DBSTREAMClustering(radius=0.1, min_weight=1.0)`
+**Function**: `hdbscan_clustering(micro_centroids, micro_sizes, min_cluster_size=10)`
 
 **Methods**:
 ```python
-fit_predict(X) -> labels  # Cluster normalized features
-get_outlier_scores() -> scores  # Per-point anomaly scores
+normalize_features(frame, feature_cols)  # Normalize inputs
+microclustering(X_scaled, frame)         # Reduce dimensionality
+hdbscan_clustering(...)                  # Run HDBSCAN on microclusters
 ```
 
 ---
@@ -933,7 +935,7 @@ with open('cache_s2.json', 'w') as f:
 - [Google Earth Engine Docs](https://developers.google.com/earth-engine)
 - [Sentinel-2 User Guide](https://sentinel.esa.int/web/sentinel/user-guides/sentinel-2-msi)
 - [Sentinel-1 User Guide](https://sentinel.esa.int/web/sentinel/user-guides/sentinel-1-sar)
-- [DBSTREAM Paper](https://dl.acm.org/doi/10.1145/2063576.2063737)
+- [HDBSCAN Paper](https://jlmelville.github.io/hdbscan/hdbscan.pdf)
 
 ---
 

@@ -8,6 +8,7 @@ data/
 
 # Output directory (generated data - do not version control)
 output/
+docs/
 
 # Generated ROI files (user-specific configurations)
 roi.json

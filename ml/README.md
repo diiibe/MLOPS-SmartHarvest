@@ -26,7 +26,7 @@ python run_ml_weekly.py <project_name>
 python run_ml_weekly.py <project_name> --force
 
 # Example
-python run_ml_weekly.py Fntinel37
+python run_ml_weekly.py MyProject
 ```
 
 ### Python API
@@ -120,13 +120,13 @@ pip install pandas numpy scikit-learn hdbscan matplotlib
 ### Check Processing Summary
 
 ```bash
-cat output/Fntinel37/ml_weekly/processing_summary.csv
+cat output/MyProject/ml_weekly/processing_summary.csv
 ```
 
 ### View Cluster Map
 
 ```bash
-open output/Fntinel37/ml_weekly/weekly/2025-W45/cluster_image_2025-W45.png
+open output/MyProject/ml_weekly/weekly/2025-W45/cluster_image_2025-W45.png
 ```
 
 ### Load Cluster Data
@@ -134,7 +134,7 @@ open output/Fntinel37/ml_weekly/weekly/2025-W45/cluster_image_2025-W45.png
 ```python
 import pandas as pd
 
-df = pd.read_csv('output/Fntinel37/ml_weekly/weekly/2025-W45/cluster_map_2025-W45.csv')
+df = pd.read_csv('output/MyProject/ml_weekly/weekly/2025-W45/cluster_map_2025-W45.csv')
 print(df.groupby('cluster_label').size())
 ```
 

@@ -142,6 +142,60 @@ def _format_discarded_images(metadata_list):
     return table
 
 
+def _format_monitoring_log(output_dir):
+    """
+    Format monitoring logs from CORE and ML pipelines as markdown.
+    """
+    sections = []
+    
+    # Check for CORE monitoring
+    core_path = os.path.join(output_dir, "monitoring_core.json")
+    if os.path.exists(core_path):
+        try:
+            import json
+            with open(core_path, 'r') as f:
+                data = json.load(f)
+            
+            section = "### Core Pipeline Performance\n\n"
+            section += f"**Total Duration:** {data.get('duration_total_sec', 0):.2f} seconds\n\n"
+            section += "| Step | Duration (s) | Metrics |\n"
+            section += "| :--- | :--- | :--- |\n"
+            for step in data.get('steps', []):
+                metrics_str = ", ".join([f"{k}: {v}" for k, v in step.get('metrics', {}).items()])
+                section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"
+            sections.append(section)
+        except Exception:
+            pass
+
+    # Check for ML monitoring
+    ml_path = os.path.join(output_dir, "ml_weekly", "monitoring_ml.json")
+    if os.path.exists(ml_path):
+        try:
+            import json
+            with open(ml_path, 'r') as f:
+                data = json.load(f)
+            
+            section = "### ML Pipeline Performance\n\n"
+            section += f"**Total Duration:** {data.get('duration_total_sec', 0):.2f} seconds\n\n"
+            section += "| Step | Duration (s) | Metrics |\n"
+            section += "| :--- | :--- | :--- |\n"
+            for step in data.get('steps', []):
+                metrics_val = step.get('metrics', {})
+                if isinstance(metrics_val, dict):
+                    metrics_str = ", ".join([f"{k}: {v}" for k, v in metrics_val.items()])
+                else:
+                    metrics_str = str(metrics_val)
+                section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"
+            sections.append(section)
+        except Exception:
+            pass
+
+    if not sections:
+        return ""
+    
+    return "\n## 8. Performance & Monitoring\n\n" + "\n".join(sections)
+
+
 def _validate_dataset(csv_path, log_entries):
     """
     Validate the dataset for grid consistency and sensor presence.
@@ -311,6 +365,10 @@ def generate_report(metadata_list, csv_path=None, output_path='output/Report.md'
 | LST | Landsat 8/9 | Land Surface Temperature (°C) |
 | Slope | SRTM | Terrain Slope (degrees) |
 """
+
+    # 8. Performance Monitoring
+    report += _format_monitoring_log(output_dir)
+
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(report)

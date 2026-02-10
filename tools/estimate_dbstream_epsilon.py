@@ -57,7 +57,7 @@ def elbow_knee(y: np.ndarray) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Estimate DBStream epsilon using k-distance curve")
+    parser = argparse.ArgumentParser(description="[EXPERIMENTAL] Estimate DBStream epsilon using k-distance curve (Alternative algorithm)")
     parser.add_argument("--input", dest="input_path", default=None, help="dbstream_features_*.csv or SmartHarvest_*.csv")
     parser.add_argument("--k", type=int, default=5, help="k for k-distance (min 2)")
     parser.add_argument("--sample-fraction", type=float, default=0.3)

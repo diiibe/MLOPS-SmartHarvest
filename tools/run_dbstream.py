@@ -37,7 +37,7 @@ def find_latest_features() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run DBStream anomaly detection on feature table")
+    parser = argparse.ArgumentParser(description="[EXPERIMENTAL] Run DBStream anomaly detection on feature table (Alternative algorithm)")
     parser.add_argument("--features", dest="features_path", default=None, help="Path to dbstream_features_*.csv")
     parser.add_argument("--epsilon", type=float, default=1.5)
     parser.add_argument("--mu", type=float, default=5.0)
