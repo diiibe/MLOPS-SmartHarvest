@@ -39,12 +39,7 @@ class TestGateCConservativePolicy(unittest.TestCase):
         os.chdir(self._original_cwd)
         self.temp_dir.cleanup()
 
-    @patch("main.get_st1")
-    @patch("main.get_st2")
-    @patch("main.get_landsat")
-    @patch("main.get_srtm")
-    @patch("main.get_missing_partitions")
-    def test_invariant_check(self, mock_missing, mock_srtm, mock_landsat, mock_st2, mock_st1):
+    def test_invariant_check(self, mock_srtm, mock_landsat, mock_st2, mock_st1):
         """
         Verify that NO Confirmed anomaly violates the policy thresholds.
         """
@@ -53,8 +48,6 @@ class TestGateCConservativePolicy(unittest.TestCase):
         # 1. Setup Mock
         from datetime import datetime
 
-        start_date = datetime(2025, 6, 1)
-        mock_missing.return_value = [start_date]
 
         # 2. RUN PIPELINE
         try:

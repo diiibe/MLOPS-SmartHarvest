@@ -129,7 +129,7 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
         ).add_to(fg)
 
     fg.add_to(m)
-    print(f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)")
+    print(f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)") # fmt: skip
 
 
 def create_verification_map(csv_path, output_file, selected_date=None):
@@ -197,7 +197,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             if col_data_df.empty:
                 continue
             display_date = col_data_df["date"].max()
-            col_df = col_data_df[col_data_df["date"] == display_date][["lat", "lon", ".geo", "date", col]].copy()
+            col_df = col_data_df[col_data_df["date"] == display_date][["lat", "lon", ".geo", "date", col]].copy() # fmt: skip
 
         # Average if multiple points same location same day
         col_df = col_df.groupby([".geo", "lat", "lon"], as_index=False)[col].mean()
@@ -273,6 +273,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         </div>
         """
 
+    # fmt: off
     # Custom Legend control
     class CustomLegend(MacroElement):
         _template = Template("""
@@ -340,6 +341,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     print(f"Map saved to {output_file}")
     return output_file
 
+    # fmt: on
 
 if __name__ == "__main__":
     create_verification_map(

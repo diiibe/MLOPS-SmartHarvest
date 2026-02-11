@@ -12,28 +12,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python 3.9 (same as tests job)
+    
+    - name: Set up Python 3.9
       uses: actions/setup-python@v4
       with:
         python-version: "3.9"
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-lint-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-lint-
+    
     - name: Install Lint Dependencies
       run: |
         python -m pip install --upgrade pip
         pip install black flake8 mypy
+    
     - name: Check Formatting (Black)
       run: |
         # BLOCKS build if formatting is incorrect
         black . --check
+    
     - name: Check Syntax (Flake8 Errors)
       run: |
         # BLOCKS build on syntax errors
         # Config loaded from setup.cfg
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    
     - name: Check Style (Flake8 Warnings)
       run: |
         # REPORTS only (exit-zero)
         # Config loaded from setup.cfg
         flake8 . --count --exit-zero --statistics
+    
     - name: Check Typing (Mypy)
       run: |
         # REPORTS only (non-blocking)
@@ -52,17 +66,27 @@ jobs:
       with:
         python-version: "3.9"
 
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-test-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-test-
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pytest
+        pip install pytest pytest-cov pytest-xdist
 
-    - name: Run Validation & E2E Tests
+    - name: Run Unit Tests
       run: |
-        # Run validation tests + E2E logic test + pure unit tests
-        # -v for verbose output
-        python -m pytest tests/test_config_validation.py tests/test_schema_contracts.py tests/test_e2e_pipeline.py tests/test_business_rules.py tests/test_schema_validators.py -v
+        python -m pytest tests/test_business_rules.py tests/test_config_validation.py tests/test_schema_validators.py -v --cov=modules --cov-report=term
+
+    - name: Run Integration Tests
+      run: |
+        python -m pytest tests/test_schema_contracts.py tests/test_integration_layers.py -v
 
   docker-build:
     name: Verify Docker Build
@@ -72,10 +96,11 @@ jobs:
       
       - name: Build Docker Image
         run: docker build . --file Dockerfile --tag ci-build:${{ github.sha }}
+
   smoke-gate:
     name: Gate A - Smoke Execution
     runs-on: ubuntu-latest
-    needs: [lint] # Can run parallel with full tests, but must pass for merge
+    needs: [lint]
     steps:
       - uses: actions/checkout@v3
       
@@ -84,11 +109,18 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-smoke-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-smoke-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install pytest specifically
           pip install pytest
 
       - name: Run Smoke Test [BLOCKING]
@@ -96,23 +128,19 @@ jobs:
           CI_ARTIFACTS_DIR: ${{ github.workspace }}/ci_artifacts
         run: |
           mkdir -p ${{ github.workspace }}/ci_artifacts
-          # Fails if main.py doesn't produce run bundle (manifest + config snapshot)
           python -m pytest tests/test_e2e_pipeline.py -v
 
       - name: Upload Run Bundle
-        if: always() # Uploads even if test fails (for debugging)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gate-a-smoke-bundle
           path: ci_artifacts/gate_a_output/
-
+          retention-days: 7
 
   output-gate:
     name: Gate B - Output Completeness
     runs-on: ubuntu-latest
-    # Parallel execution: No 'needs' dependency strictly required on 'lint' for logic, 
-    # but efficient to fail fast if lint fails.
-    # User requested separate job.
     steps:
       - uses: actions/checkout@v3
       
@@ -121,11 +149,19 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gate-b-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-gate-b-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest fpdf2
+          pip install pytest fpdf2 pandas
 
       - name: Run Gate B (Contract Check)
         run: |
@@ -142,11 +178,19 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gate-c-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-gate-c-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest fpdf2
+          pip install pytest pandas
 
       - name: Run Gate C (Invariant Check)
         run: |
@@ -163,12 +207,19 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-gate-d-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-gate-d-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Ensure pypdf/shapely are installed if not in requirements (redundancy safe)
-          pip install pytest fpdf2 pypdf shapely
+          pip install pytest fpdf2 pypdf shapely pandas
 
       - name: Run Gate D (Deep Validation)
         run: |
