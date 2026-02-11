@@ -104,9 +104,7 @@ class PipelineValidator:
 
             if discarded > 0:
                 discarded_pct = (discarded / total_rows) * 100
-                self.passed.append(
-                    f"ℹ Discarded images (cloud/QA-filtered): {discarded:,} rows ({discarded_pct:.1f}%)"
-                )
+                self.passed.append(f"ℹ Discarded images (cloud/QA-filtered): {discarded:,} rows ({discarded_pct:.1f}%)")
 
         # S2 variables
         s2_vars = ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"]
@@ -141,9 +139,7 @@ class PipelineValidator:
             if pct == 0:
                 self.errors.append(f"✗ LST: NO DATA (0%) - Check Landsat availability")
             elif pct < 3:
-                self.warnings.append(
-                    f"⚠ LST: VERY LOW ({pct:.1f}%) - Landsat has fewer passes"
-                )
+                self.warnings.append(f"⚠ LST: VERY LOW ({pct:.1f}%) - Landsat has fewer passes")
             else:
                 self.passed.append(f"✓ LST: {pct:.1f}% coverage")
 
@@ -165,9 +161,7 @@ class PipelineValidator:
         both_dates = df[(df["NDVI"].notna()) & (df["VH"].notna())]["date"].unique()
 
         if len(both_dates) == 0:
-            self.warnings.append(
-                "⚠ No dates with both S2 and S1 data to check alignment"
-            )
+            self.warnings.append("⚠ No dates with both S2 and S1 data to check alignment")
             return
 
         # Check first such date
@@ -183,9 +177,7 @@ class PipelineValidator:
         misalignment_pct = (total_misaligned / len(day_df)) * 100
 
         # Calculate S2 coverage (to detect cloud masking)
-        s2_coverage = (
-            (len(both) + len(s2_only)) / len(day_df) * 100 if len(day_df) > 0 else 0
-        )
+        s2_coverage = (len(both) + len(s2_only)) / len(day_df) * 100 if len(day_df) > 0 else 0
 
         if misalignment_pct > 5:
             # Check if this is due to S2 cloud masking (S1 only, no S2 only)
@@ -205,13 +197,10 @@ class PipelineValidator:
                 )
         elif misalignment_pct > 0:
             self.warnings.append(
-                f"⚠ Minor data gaps on {test_date}: {misalignment_pct:.1f}% "
-                f"(S2 coverage: {s2_coverage:.1f}%)"
+                f"⚠ Minor data gaps on {test_date}: {misalignment_pct:.1f}% " f"(S2 coverage: {s2_coverage:.1f}%)"
             )
         else:
-            self.passed.append(
-                f"✓ Perfect S2/S1 alignment on {test_date} (100% coverage)"
-            )
+            self.passed.append(f"✓ Perfect S2/S1 alignment on {test_date} (100% coverage)")
 
     def validate_temporal_consistency(self, df):
         """Check temporal data consistency."""
@@ -255,10 +244,7 @@ class PipelineValidator:
         if existing_data_cols:
             empty_rows = (~df[existing_data_cols].notna().any(axis=1)).sum()
             if empty_rows > 0:
-                self.warnings.append(
-                    f"⚠ {empty_rows} rows with all NaN data "
-                    f"(cloud-masked or QA-filtered images)"
-                )
+                self.warnings.append(f"⚠ {empty_rows} rows with all NaN data " f"(cloud-masked or QA-filtered images)")
             else:
                 self.passed.append("✓ No empty rows (all dates have valid data)")
 
@@ -273,9 +259,7 @@ class PipelineValidator:
                 found.append(tmp.replace("_tmp_", ""))
 
         if len(found) == 4:
-            self.passed.append(
-                f"✓ All satellite downloads complete: {', '.join(found)}"
-            )
+            self.passed.append(f"✓ All satellite downloads complete: {', '.join(found)}")
         else:
             missing = [s for s in ["S2", "S1", "L8", "SRTM"] if s not in found]
             self.warnings.append(f"⚠ Missing download files: {', '.join(missing)}")

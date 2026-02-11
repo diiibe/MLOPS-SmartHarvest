@@ -57,9 +57,7 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
     target_micro = min(max_microclusters, max(100, n_samples // 30))
 
     # Use MiniBatchKMeans for speed
-    kmeans = MiniBatchKMeans(
-        n_clusters=target_micro, random_state=42, batch_size=1024, max_iter=100
-    )
+    kmeans = MiniBatchKMeans(n_clusters=target_micro, random_state=42, batch_size=1024, max_iter=100)
 
     micro_labels = kmeans.fit_predict(X_scaled)
     micro_centroids = kmeans.cluster_centers_
@@ -68,12 +66,8 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
     unique_labels, counts = np.unique(micro_labels, return_counts=True)
     micro_sizes = {label: count for label, count in zip(unique_labels, counts)}
 
-    print(
-        f"[Microclustering] Created {len(unique_labels)} microclusters from {n_samples:,} pixels"
-    )
-    print(
-        f"[Microclustering] Avg size: {n_samples / len(unique_labels):.1f} pixels/micro"
-    )
+    print(f"[Microclustering] Created {len(unique_labels)} microclusters from {n_samples:,} pixels")
+    print(f"[Microclustering] Avg size: {n_samples / len(unique_labels):.1f} pixels/micro")
 
     return micro_labels, micro_centroids, micro_sizes
 
