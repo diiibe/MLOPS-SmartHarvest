@@ -101,8 +101,21 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
 
     normal_clusters = cluster_agg[~cluster_agg["is_anomalous"]]
 
-    for _, cluster in normal_clusters.iterrows():
-        _add_cluster_marker(fg_normal, cluster, week_id, is_anomalous=False)
+    if heat_data:
+        HeatMap(
+            heat_data,
+            radius=15,
+            blur=20,
+            min_opacity=0.3,
+            gradient={
+                0.0: 'blue',    # Normal
+                0.3: 'cyan',
+                0.5: 'lime',    # Medium
+                0.7: 'yellow',
+                0.85: 'orange',
+                1.0: 'red'      # Anomalous
+            }
+        ).add_to(fg_heatmap)
 
     fg_normal.add_to(m)
 
@@ -149,7 +162,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     folium.LayerControl(position="topleft", collapsed=False).add_to(m)
 
     # Add legend
-    legend_html = _create_legend(week_id, len(normal_clusters), len(anomalous_clusters))
+    legend_html = _create_legend(week_id)
     m.get_root().html.add_child(folium.Element(legend_html))
 
     # Dark mode CSS
@@ -240,14 +253,14 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
     ).add_to(feature_group)
 
 
-def _create_legend(week_id, normal_count, anomalous_count):
+def _create_legend(week_id):
     """Create legend HTML."""
     return f"""
     <div id="ml-legend" style="
         position: fixed;
         top: 10px;
         right: 10px;
-        width: 220px;
+        width: 180px;
         background-color: rgba(25,25,25,0.92);
         color: #eee;
         padding: 12px;
@@ -258,28 +271,19 @@ def _create_legend(week_id, normal_count, anomalous_count):
         z-index: 1000;
     ">
         <h4 style="margin: 0 0 10px 0; font-size: 13px; border-bottom: 1px solid #555; padding-bottom: 5px;">
-            ML Clustering — {week_id}
+            Anomaly Heatmap
         </h4>
-
         <div style="margin-bottom: 8px;">
-            <b>Cluster Status:</b><br>
-            <div style="margin-left: 10px; margin-top: 4px;">
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #FFD700; border: 2px solid #fff; border-radius: 50%;"></span> NEW<br>
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #1E90FF; border: 2px solid #fff; border-radius: 50%;"></span> CONTINUED
+            <b>Intensity Legend:</b><br>
+            <div style="margin-top: 5px; height: 12px; width: 100%; background: linear-gradient(to right, blue, cyan, lime, yellow, orange, red); border-radius: 2px;"></div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 9px; color: #aaa;">
+                <span>Normal</span>
+                <span>Anomalous</span>
             </div>
         </div>
-
-        <div style="margin-bottom: 8px;">
-            <b>Cluster Type:</b><br>
-            <div style="margin-left: 10px; margin-top: 4px;">
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #aaa; border: 2px solid #32CD32; border-radius: 50%;"></span> Normal ({normal_count})<br>
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #aaa; border: 2px solid #FF4500; border-radius: 50%;"></span> Anomalous ({anomalous_count})
-            </div>
-        </div>
-
         <div style="font-size: 9px; color: #888; margin-top: 10px; border-top: 1px solid #555; padding-top: 5px;">
-            Size = Pixel count<br>
-            Click marker for details
+            Week: {week_id}<br>
+            Hotspots (Red) indicate high stress or vigor anomalies.
         </div>
     </div>
     """

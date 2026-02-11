@@ -188,6 +188,20 @@ def run_pipeline(
                 log(f"Warning: ML Analysis error: {e}")
             monitor.stop_step("ML-Analysis")
 
+        # 9. Generate map
+        if merged_path and os.path.exists(merged_path):
+            log("Generating verification map...")
+            monitor.start_step("Map")
+            try:
+                from tools import visualize_data_map
+                map_filename = f'Map_{project_name_safe}.html'
+                map_path = os.path.join(output_dir, map_filename)
+                visualize_data_map.create_verification_map(merged_path, map_path)
+                log(f"[OK] Map saved to: {map_path}")
+            except Exception as e:
+                log(f"Warning: Map generation failed: {e}")
+            monitor.stop_step("Map")
+
         # 10. Generate acquisition log and report
         log("Generating Acquisition Log and Report...")
         area_stats = {

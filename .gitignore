@@ -10,9 +10,6 @@ data/
 output/
 docs/
 
-# Generated ROI files (user-specific configurations)
-roi.json
-rois/*.json
 
 # Documentation PDFs (can be large)
 *.pdf

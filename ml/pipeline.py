@@ -49,6 +49,10 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
         print("[ERROR] No weeks found in data!")
         return {"success": False, "error": "No weeks"}
 
+    # Define ML output directory and state file
+    ml_dir = os.path.join(output_base_dir, 'ml_weekly')
+    state_file = os.path.join(ml_dir, 'tracking_state.json')
+
     # Load previous state (for tracking)
     prev_state = output.load_tracking_state(state_file) if not force_reprocess else None
     processed_weeks = (

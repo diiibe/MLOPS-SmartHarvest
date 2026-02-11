@@ -11,7 +11,7 @@ Automated weekly clustering and anomaly detection for Sentinel-2 Earth Observati
 - **HDBSCAN Clustering**: Density-based clustering for robust pattern detection
 - **Temporal Tracking**: Links clusters across weeks (birth, continuation, death)
 - **Anomaly Detection**: Identifies outlier clusters based on HDBSCAN scores
-- **Visual Outputs**: Cluster maps and outlier heatmaps per week
+- **Visual Outputs**: Interactive outlier heatmaps and persistent cluster mapping
 - **Incremental Updates**: Only processes new/updated weeks
 
 ## Usage
@@ -76,11 +76,11 @@ output/<project>/ml_weekly/
 
 ## Map Integration
 
-The latest week's clusters are automatically displayed on the dashboard map as a layer:
-- **Layer Name**: "ML Clusters (YYYY-Wxx)"
-- **Colors**: Different color per cluster
-- **Size**: Larger markers = higher outlier score (more anomalous)
-- **Popup**: Shows cluster label, track ID, outlier score, coordinates
+The latest week's anomalies are automatically displayed on the dashboard map as an integrated layer:
+- **Layer Name**: "ML Anomalies (YYYY-Wxx)"
+- **Visualization**: Weighted **Heatmap** (Blue → Cyan → Green → Yellow → Red)
+- **Intensity**: Heatmap density is weighted by `outlier_score` (Red hotspots indicate anomalies)
+- **Availability**: High-resolution heatmap integrated directly into the Interactive Map
 
 To toggle the layer, use the layer control in the top-left of the map.
 
