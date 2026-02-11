@@ -1,8 +1,11 @@
 # SmartHarvest - Vineyard Monitoring & Zonation Pipeline
 
+
 A modular MLOps pipeline for precision viticulture, combining Google Earth Engine (GEE) satellite data acquisition with advanced ML-based anomaly detection and temporal tracking.
 
-## 🚀 Key Features
+
+## Key Features
+
 
 *   **Multi-Source Data Fusion**: Integrates Sentinel-2 (Optical), Sentinel-1 (Radar), Landsat (Thermal), and SRTM (Topo).
 *   **Weekly ML Analysis**: Automatic weekly clustering using **HDBSCAN** with microclustering (MiniBatchKMeans).
@@ -11,7 +14,9 @@ A modular MLOps pipeline for precision viticulture, combining Google Earth Engin
 *   **Zonation Integration**: ML anomaly heatmaps are integrated as a layer in the main interactive map for cross-sensor correlation.
 *   **Automated Monitoring**: Built-in instrumentation for pipeline performance and data quality metrics.
 
-## 📁 Project Structure
+
+## Project Structure
+
 
 ```
 MLOPS-SmartHarvest/
@@ -45,19 +50,52 @@ MLOPS-SmartHarvest/
 └── output/                 # Project-specific output directories
 ```
 
-## 🛠️ Installation & Setup
 
-### 1. Requirements
+## Installation & Setup
+
+
+### 1. Environment Setup
+It is recommended to use a virtual environment to manage dependencies.
+
+
+#### macOS/Linux
+```bash
+# Create virtual environment
+python3 -m venv .venv
+
+
+# Activate virtual environment
+source .venv/bin/activate
+```
+
+
+#### Windows
+```bash
+# Create virtual environment
+python -m venv .venv
+
+
+# Activate virtual environment
+.venv\Scripts\activate
+```
+
+
+### 2. Install Requirements
+Ensure your virtual environment is activated, then install the dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. GEE Authentication
+
+### 3. GEE Authentication
+With the virtual environment activated, authenticate with Google Earth Engine:
 ```bash
 earthengine authenticate
 ```
 
-## 📈 Usage
+
+## Usage
+
 
 ### Web Interface (Recommended)
 Launch the interactive dashboard to manage projects and view maps:
@@ -66,8 +104,10 @@ python app.py
 ```
 Open `http://localhost:5000` to draw your ROI and start the analysis.
 
+
 > [!NOTE]
 > **Project Names**: Spaces in project names are automatically converted to underscores (e.g., "Mio Campo" becomes "Mio_Campo") for file system compatibility, but are restored in the UI for readability.
+
 
 ### Command Line
 Run the core pipeline for a project (uses settings in `config.py` by default):
@@ -79,14 +119,17 @@ Or run the ML analysis separately on existing data (requires project name):
 python run_ml_weekly.py --project MyVineyard
 ```
 
-## 📈 Monitoring & Quality Control
+
+## Monitoring & Quality Control
+
 
 The pipeline now generates detailed performance logs in the project output directory:
 - `monitoring_core.json`: Execution times and sensor counts for data acquisition.
 - `ml_weekly/monitoring_ml.json`: Performance metrics for clustering, tracking, and anomaly detection.
 - Dashboard views provide real-time status during execution.
 
-## 📊 Documentation
+
+## Documentation
 For in-depth technical details, see:
 *   **[ARCHITECTURE.md](ARCHITECTURE.md)**: System design, module reference, and algorithm details.
 *   **[ml/README.md](ml/README.md)**: Deep dive into the clustering and tracking kernel.
