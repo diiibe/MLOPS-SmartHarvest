@@ -31,9 +31,7 @@ def load_and_filter_s2(csv_path):
 
     # Feature columns (numeric, not coords/metadata)
     feature_cols = [
-        c
-        for c in df.select_dtypes(include=[np.number]).columns
-        if c not in ["lat", "lon"] and not c.startswith(".")
+        c for c in df.select_dtypes(include=[np.number]).columns if c not in ["lat", "lon"] and not c.startswith(".")
     ]
 
     # Filter for S2 (main timeline)
@@ -58,9 +56,7 @@ def load_and_filter_s2(csv_path):
     }
 
     print(f"[Data Loader] Loaded {len(s2_df):,} S2 observations")
-    print(
-        f"[Data Loader] Date range: {s2_df[date_col].min()} to {s2_df[date_col].max()}"
-    )
+    print(f"[Data Loader] Date range: {s2_df[date_col].min()} to {s2_df[date_col].max()}")
     print(f"[Data Loader] Features: {', '.join(feature_cols[:5])}...")
 
     return s2_df, columns
@@ -80,19 +76,12 @@ def define_weeks(df, date_col="date"):
     df["week_start"] = df[date_col].dt.to_period("W").dt.start_time
 
     # Get unique weeks sorted
-    week_info = (
-        df.groupby("week_id")
-        .agg({"week_start": "first", date_col: ["min", "max", "count"]})
-        .reset_index()
-    )
+    week_info = df.groupby("week_id").agg({"week_start": "first", date_col: ["min", "max", "count"]}).reset_index()
 
     week_info.columns = ["week_id", "week_start", "date_min", "date_max", "obs_count"]
     week_info = week_info.sort_values("week_start")
 
-    weeks = [
-        (row["week_id"], row["week_start"], row["date_max"], row["obs_count"])
-        for _, row in week_info.iterrows()
-    ]
+    weeks = [(row["week_id"], row["week_start"], row["date_max"], row["obs_count"]) for _, row in week_info.iterrows()]
 
     print(f"[Weekly Timeline] Found {len(weeks)} weeks")
     print(f"[Weekly Timeline] Latest week: {weeks[-1][0]} ({weeks[-1][3]} obs)")
@@ -120,11 +109,7 @@ def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col="date"):
         group_col = "spatial_id"
     else:
         # Create temp pixel id from lat/lon
-        week_df["pixel_id"] = (
-            week_df["lat"].round(6).astype(str)
-            + "_"
-            + week_df["lon"].round(6).astype(str)
-        )
+        week_df["pixel_id"] = week_df["lat"].round(6).astype(str) + "_" + week_df["lon"].round(6).astype(str)
         group_col = "pixel_id"
 
     # Take most recent observation per pixel
@@ -132,9 +117,7 @@ def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col="date"):
     frame = week_df.groupby(group_col).first().reset_index()
 
     # Keep only coords + features
-    keep_cols = (
-        [group_col] + [c for c in coord_cols if c in frame.columns] + feature_cols
-    )
+    keep_cols = [group_col] + [c for c in coord_cols if c in frame.columns] + feature_cols
     frame = frame[[c for c in keep_cols if c in frame.columns]]
 
     # Drop pixels with all NaN features

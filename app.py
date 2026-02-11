@@ -82,14 +82,9 @@ def list_projects():
                                 meta_list = json.load(f)
                                 # Extract relevant info
                                 for item in meta_list:
-                                    if (
-                                        "source" in item
-                                        and item["source"] == "ROI Stats"
-                                    ):
+                                    if "source" in item and item["source"] == "ROI Stats":
                                         metadata["area_ha"] = item.get("area_ha", 0)
-                                        metadata["analysis_range"] = item.get(
-                                            "analysis_range", "N/A"
-                                        )
+                                        metadata["analysis_range"] = item.get("analysis_range", "N/A")
                         except Exception:
                             pass
 
@@ -97,15 +92,11 @@ def list_projects():
                     try:
                         df = pd.read_csv(csv_path)
                         metadata["rows"] = len(df)
-                        metadata["dates"] = (
-                            df["date"].nunique() if "date" in df.columns else 0
-                        )
+                        metadata["dates"] = df["date"].nunique() if "date" in df.columns else 0
                     except Exception:
                         pass
 
-                    projects.append(
-                        {"name": folder, "csv_exists": True, "metadata": metadata}
-                    )
+                    projects.append({"name": folder, "csv_exists": True, "metadata": metadata})
     return jsonify(projects)
 
 
@@ -124,9 +115,7 @@ def reuse_project():
         csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
 
         if not os.path.exists(csv_path):
-            return jsonify(
-                {"success": False, "error": f"Project CSV not found: {csv_path}"}
-            )
+            return jsonify({"success": False, "error": f"Project CSV not found: {csv_path}"})
 
         analysis_progress[project_name_safe] = {
             "status": "Regenerating outputs...",
@@ -142,11 +131,7 @@ def reuse_project():
             print(f"Warning: Map generation failed: {e}")
 
         # Get available dates
-        available_dates = (
-            visualize_data_map.get_available_dates(csv_path)
-            if os.path.exists(csv_path)
-            else []
-        )
+        available_dates = visualize_data_map.get_available_dates(csv_path) if os.path.exists(csv_path) else []
 
         analysis_progress[project_name_safe] = {"status": "Complete", "percent": 100}
 
@@ -172,9 +157,7 @@ analysis_progress = {}
 
 @app.route("/progress/<project_name>")
 def get_progress(project_name):
-    return jsonify(
-        analysis_progress.get(project_name, {"status": "idle", "percent": 0})
-    )
+    return jsonify(analysis_progress.get(project_name, {"status": "idle", "percent": 0}))
 
 
 @app.route("/run_analysis", methods=["POST"])
@@ -306,9 +289,7 @@ def dashboard(project_name):
             df = pd.read_csv(csv_path)
             stats.append({"label": "Total Rows", "value": str(len(df))})
             if "date" in df.columns:
-                stats.append(
-                    {"label": "Unique Dates", "value": str(df["date"].nunique())}
-                )
+                stats.append({"label": "Unique Dates", "value": str(df["date"].nunique())})
                 stats.append(
                     {
                         "label": "Date Range",
@@ -339,11 +320,7 @@ def dashboard(project_name):
             print(f"Error generating charts: {e}")
 
     # Available dates for date selector
-    available_dates = (
-        visualize_data_map.get_available_dates(csv_path)
-        if os.path.exists(csv_path)
-        else []
-    )
+    available_dates = visualize_data_map.get_available_dates(csv_path) if os.path.exists(csv_path) else []
 
     # Read Time Series Data
     ts_path = os.path.join(output_dir, f"timeseries_{project_name_safe}.json")
@@ -505,9 +482,7 @@ def ml_weeks_api(project_name):
 
         try:
             df = pd.read_csv(cluster_csv)
-            total_clusters = len(
-                df[df["cluster_label"] != -1]["cluster_label"].unique()
-            )
+            total_clusters = len(df[df["cluster_label"] != -1]["cluster_label"].unique())
 
             anomalies_count = 0
             if os.path.exists(anomaly_csv):

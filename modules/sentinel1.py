@@ -15,11 +15,7 @@ def get_sentinel1_data(master_crs):
     """
 
     # 1. Query & Filter
-    s1_raw = (
-        ee.ImageCollection("COPERNICUS/S1_GRD")
-        .filterBounds(config.ROI)
-        .filterDate(config.START_DATE, config.END_DATE)
-    )
+    s1_raw = ee.ImageCollection("COPERNICUS/S1_GRD").filterBounds(config.ROI).filterDate(config.START_DATE, config.END_DATE)
 
     total_count = s1_raw.size().getInfo()
 
@@ -53,17 +49,13 @@ def get_sentinel1_data(master_crs):
     def process_image(image):
         # BoxCar despeckling 5x5
         # Note: focal_mean().copyProperties() returns ee.Element, so cast back to ee.Image
-        despeckled = ee.Image(
-            image.focal_mean(radius=2.5, units="pixels", iterations=1)
-        ).set("system:time_start", image.date().millis())
+        despeckled = ee.Image(image.focal_mean(radius=2.5, units="pixels", iterations=1)).set(
+            "system:time_start", image.date().millis()
+        )
         vh = despeckled.select("VH")
         vv = despeckled.select("VV")
         ratio = vh.subtract(vv).rename("Ratio")
-        return (
-            despeckled.select(["VH", "VV"])
-            .addBands(ratio)
-            .reproject(crs=master_crs, scale=config.TARGET_SCALE)
-        )
+        return despeckled.select(["VH", "VV"]).addBands(ratio).reproject(crs=master_crs, scale=config.TARGET_SCALE)
 
     collection = s1_full.map(process_image)
 
@@ -73,9 +65,7 @@ def get_sentinel1_data(master_crs):
         "image_count": count,
         "total_images": total_count,
         "discarded_images": discarded_count,
-        "discarded_pct": (
-            (discarded_count / total_count * 100) if total_count > 0 else 0
-        ),
+        "discarded_pct": ((discarded_count / total_count * 100) if total_count > 0 else 0),
         "discard_reason": "Polarization/Mode/Orbit filters (VV+VH, IW, ASCENDING)",
         "date_range": f"{config.START_DATE} to {config.END_DATE}",
         "bands": ["VH", "VV", "Ratio"],

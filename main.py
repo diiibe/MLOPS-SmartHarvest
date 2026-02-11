@@ -28,9 +28,7 @@ def create_conn_ee():
         )
         ee.Initialize(credentials=credentials)
     else:
-        print(
-            "Service account file not found. Falling back to browser-based authentication."
-        )
+        print("Service account file not found. Falling back to browser-based authentication.")
         ee.Authenticate()
         ee.Initialize()
 
@@ -130,17 +128,13 @@ def run_pipeline(
         # 5. Create temporal FeatureCollections (GEE-side sampling)
         log("Creating temporal sample collections...")
         monitor.start_step("Assembly-Sampling")
-        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(
-            s2_col, s1_col, l8_col, srtm_img
-        )
+        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(s2_col, s1_col, l8_col, srtm_img)
         monitor.stop_step("Assembly-Sampling")
 
         # 6. Download each satellite's data separately
         log("Downloading satellite data (separate per sensor)...")
         monitor.start_step("Download")
-        csv_paths = assembly.download_satellite_data(
-            s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_name_safe
-        )
+        csv_paths = assembly.download_satellite_data(s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_name_safe)
         monitor.stop_step("Download")
 
         # 7. Merge into final temporal CSV
@@ -155,9 +149,7 @@ def run_pipeline(
         if merged_path:
             log(f"[OK] Temporal dataset assembled: {merged_path}")
         else:
-            log(
-                "Warning: Could not assemble full temporal dataset. Some satellite data may be missing."
-            )
+            log("Warning: Could not assemble full temporal dataset. Some satellite data may be missing.")
 
         # 8. Generate map
         if merged_path and os.path.exists(merged_path):
@@ -194,7 +186,8 @@ def run_pipeline(
             monitor.start_step("Map")
             try:
                 from tools import visualize_data_map
-                map_filename = f'Map_{project_name_safe}.html'
+
+                map_filename = f"Map_{project_name_safe}.html"
                 map_path = os.path.join(output_dir, map_filename)
                 visualize_data_map.create_verification_map(merged_path, map_path)
                 log(f"[OK] Map saved to: {map_path}")

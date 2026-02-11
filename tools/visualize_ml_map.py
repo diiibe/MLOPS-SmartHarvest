@@ -61,9 +61,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     center_lon = df["lon"].mean()
 
     # Create base map
-    m = folium.Map(
-        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
-    )
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery")
 
     # Determine anomalous clusters (outlier_score > 95th percentile)
     outlier_threshold = df["outlier_score"].quantile(0.95)
@@ -80,20 +78,13 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     if "cluster_status" in df.columns:
         agg_dict["cluster_status"] = "first"
 
-    cluster_agg = (
-        df[df["cluster_label"] != -1]
-        .groupby("cluster_label")
-        .agg(agg_dict)
-        .reset_index()
-    )
+    cluster_agg = df[df["cluster_label"] != -1].groupby("cluster_label").agg(agg_dict).reset_index()
 
     # Set default status if column doesn't exist
     if "cluster_status" not in cluster_agg.columns:
         cluster_agg["cluster_status"] = "unknown"
 
-    cluster_agg["pixel_count"] = (
-        df[df["cluster_label"] != -1].groupby("cluster_label").size().values
-    )
+    cluster_agg["pixel_count"] = df[df["cluster_label"] != -1].groupby("cluster_label").size().values
     cluster_agg["is_anomalous"] = cluster_agg["outlier_score"] > outlier_threshold
 
     # Layer 1: Normal Clusters
@@ -101,21 +92,8 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
 
     normal_clusters = cluster_agg[~cluster_agg["is_anomalous"]]
 
-    if heat_data:
-        HeatMap(
-            heat_data,
-            radius=15,
-            blur=20,
-            min_opacity=0.3,
-            gradient={
-                0.0: 'blue',    # Normal
-                0.3: 'cyan',
-                0.5: 'lime',    # Medium
-                0.7: 'yellow',
-                0.85: 'orange',
-                1.0: 'red'      # Anomalous
-            }
-        ).add_to(fg_heatmap)
+    for _, cluster in normal_clusters.iterrows():
+        _add_cluster_marker(fg_normal, cluster, week_id, is_anomalous=False)
 
     fg_normal.add_to(m)
 

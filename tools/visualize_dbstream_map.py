@@ -42,15 +42,9 @@ def find_latest_anomalies() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Visualize DBStream anomalies on a map"
-    )
-    parser.add_argument(
-        "--input", dest="input_path", default=None, help="dbstream_anomalies_*.csv"
-    )
-    parser.add_argument(
-        "--output", dest="output_path", default=None, help="HTML output path"
-    )
+    parser = argparse.ArgumentParser(description="Visualize DBStream anomalies on a map")
+    parser.add_argument("--input", dest="input_path", default=None, help="dbstream_anomalies_*.csv")
+    parser.add_argument("--output", dest="output_path", default=None, help="HTML output path")
     parser.add_argument("--only-anomalies", action="store_true", default=False)
     parser.add_argument("--sample-size", type=int, default=None)
     args = parser.parse_args()
@@ -76,9 +70,7 @@ def main():
 
     center_lat = df["lat"].mean()
     center_lon = df["lon"].mean()
-    m = folium.Map(
-        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
-    )
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery")
 
     score_col = "dbstream_score" if "dbstream_score" in df.columns else None
     if score_col:
@@ -93,7 +85,9 @@ def main():
     for _, row in df.iterrows():
         score = float(row[score_col]) if score_col else 0.0
         color = colormap(score)
-        popup = f"Score: {score:.3f}<br>Cluster: {row.get('dbstream_cluster', '')}<br>Anomaly: {row.get('dbstream_anomaly', '')}"
+        popup = (
+            f"Score: {score:.3f}<br>Cluster: {row.get('dbstream_cluster', '')}<br>Anomaly: {row.get('dbstream_anomaly', '')}"
+        )
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
             radius=4,

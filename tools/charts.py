@@ -89,9 +89,7 @@ def create_histograms(df):
 
     from plotly.subplots import make_subplots
 
-    fig = make_subplots(
-        rows=n_rows, cols=n_cols, subplot_titles=valid_cols, vertical_spacing=0.1
-    )
+    fig = make_subplots(rows=n_rows, cols=n_cols, subplot_titles=valid_cols, vertical_spacing=0.1)
 
     error_list = []
 
@@ -100,9 +98,7 @@ def create_histograms(df):
         col_idx = (i % n_cols) + 1
 
         try:
-            fig.add_trace(
-                go.Histogram(x=df[col], name=col, nbinsx=30), row=row, col=col_idx
-            )
+            fig.add_trace(go.Histogram(x=df[col], name=col, nbinsx=30), row=row, col=col_idx)
         except Exception as e:
             error_list.append(f"Error plotting {col}: {str(e)}")
             # Add annotation instead
@@ -141,9 +137,7 @@ def create_correlation_matrix(df):
     # Select numeric columns
     numeric_df = df.select_dtypes(include=["float64", "int64"])
     # Drop geo columns
-    cols = [
-        c for c in numeric_df.columns if c not in ["lat", "lon", ".geo", "spatial_id"]
-    ]
+    cols = [c for c in numeric_df.columns if c not in ["lat", "lon", ".geo", "spatial_id"]]
 
     if len(cols) < 2:
         return None
@@ -160,7 +154,5 @@ def create_correlation_matrix(df):
         title="Feature Correlation Matrix",
     )
 
-    fig.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#ccc"
-    )
+    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#ccc")
     return pio.to_html(fig, full_html=False, include_plotlyjs=False)
