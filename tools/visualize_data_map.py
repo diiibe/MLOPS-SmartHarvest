@@ -55,7 +55,9 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
         return
 
     latest_week = sorted(week_folders)[-1]
-    cluster_csv = os.path.join(weekly_dir, latest_week, f"cluster_map_{latest_week}.csv")
+    cluster_csv = os.path.join(
+        weekly_dir, latest_week, f"cluster_map_{latest_week}.csv"
+    )
 
     if not os.path.exists(cluster_csv):
         return
@@ -129,7 +131,9 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
         ).add_to(fg)
 
     fg.add_to(m)
-    print(f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)") # fmt: skip
+    print(
+        f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)"
+    )
 
 
 def create_verification_map(csv_path, output_file, selected_date=None):
@@ -159,7 +163,9 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     center_lat = df["lat"].mean()
     center_lon = df["lon"].mean()
 
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery")
+    m = folium.Map(
+        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
+    )
 
     if selected_date:
         print(f"Adding layers for date: {selected_date}")
@@ -189,7 +195,9 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         # Filter data for this column
         if selected_date:
             # Use specified date for all columns
-            col_df = df[df["date"] == selected_date][["lat", "lon", ".geo", "date", col]].copy()
+            col_df = df[df["date"] == selected_date][
+                ["lat", "lon", ".geo", "date", col]
+            ].copy()
             display_date = selected_date
         else:
             # Use latest date with data for this column
@@ -197,7 +205,9 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             if col_data_df.empty:
                 continue
             display_date = col_data_df["date"].max()
-            col_df = col_data_df[col_data_df["date"] == display_date][["lat", "lon", ".geo", "date", col]].copy() # fmt: skip
+            col_df = col_data_df[col_data_df["date"] == display_date][
+                ["lat", "lon", ".geo", "date", col]
+            ].copy()
 
         # Average if multiple points same location same day
         col_df = col_df.groupby([".geo", "lat", "lon"], as_index=False)[col].mean()
@@ -257,7 +267,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         fg.add_to(m)
 
     # Add ML anomaly scale to legend if ML dir exists
-    ml_dir = os.path.join(os.path.dirname(csv_path), "ml_weekly")
+    ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
     if os.path.exists(ml_dir):
         legend_html += """
         <div style='margin-top:10px; padding-top:10px; border-top:1px solid #444;'>
@@ -273,7 +283,6 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         </div>
         """
 
-    # fmt: off
     # Custom Legend control
     class CustomLegend(MacroElement):
         _template = Template("""
@@ -340,8 +349,6 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     m.save(output_file)
     print(f"Map saved to {output_file}")
     return output_file
-
-    # fmt: on
 
 
 if __name__ == "__main__":

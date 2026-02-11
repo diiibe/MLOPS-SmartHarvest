@@ -83,13 +83,19 @@ def create_temporal_samples(s2_col, s1_col, l8_col, srtm_img):
             )
 
             # Add temporal metadata
-            return sampled.map(lambda f: f.set("date", img.date().format("YYYY-MM-dd"), "satellite", sat_code))
+            return sampled.map(
+                lambda f: f.set(
+                    "date", img.date().format("YYYY-MM-dd"), "satellite", sat_code
+                )
+            )
 
         return collection.map(sample_image).flatten()
 
     # Sample all satellites at SAME reference points
     print("Sampling S2 at fixed grid...")
-    s2_fc = sample_collection_at_fixed_grid(s2_col, ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"], "S2")
+    s2_fc = sample_collection_at_fixed_grid(
+        s2_col, ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"], "S2"
+    )
 
     print("Sampling S1 at fixed grid...")
     s1_fc = sample_collection_at_fixed_grid(s1_col, ["VH", "VV", "Ratio"], "S1")
@@ -138,7 +144,9 @@ def _download_fc_as_df(fc, label, timeout=300, max_retries=3):
             if max_retries == 1:
                 print(f"[{label}] Downloading (timeout: {timeout}s)...")
             else:
-                print(f"[{label}] Attempt {attempt}/{max_retries} (timeout: {timeout}s)...")
+                print(
+                    f"[{label}] Attempt {attempt}/{max_retries} (timeout: {timeout}s)..."
+                )
 
             response = requests.get(url, timeout=timeout)
 
@@ -199,7 +207,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
         else:
             chunk_days = 15  # S1/L8 can handle larger chunks
 
-    print(f"[{label}] Attempting chunked download (splitting by {chunk_days}-day intervals)...")
+    print(
+        f"[{label}] Attempting chunked download (splitting by {chunk_days}-day intervals)..."
+    )
 
     try:
         # Get unique dates from the collection
@@ -209,7 +219,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
             print(f"[{label}] No dates found in collection.")
             return None
 
-        print(f"[{label}] Found {len(dates_array)} unique dates: {dates_array[0]} to {dates_array[-1]}")
+        print(
+            f"[{label}] Found {len(dates_array)} unique dates: {dates_array[0]} to {dates_array[-1]}"
+        )
 
         # Create date chunks
         start_date = datetime.strptime(dates_array[0], "%Y-%m-%d")
@@ -219,7 +231,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
         current = start_date
         while current <= end_date:
             chunk_end = min(current + timedelta(days=chunk_days - 1), end_date)
-            chunks.append((current.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d")))
+            chunks.append(
+                (current.strftime("%Y-%m-%d"), chunk_end.strftime("%Y-%m-%d"))
+            )
             current = chunk_end + timedelta(days=1)
 
         print(f"[{label}] Splitting into {len(chunks)} chunks...")
@@ -235,7 +249,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
                 )
             )
 
-            print(f"[{label}] Chunk {i+1}/{len(chunks)}: {chunk_start} to {chunk_end}...")
+            print(
+                f"[{label}] Chunk {i+1}/{len(chunks)}: {chunk_start} to {chunk_end}..."
+            )
             # Chunks get 3 retry attempts (network/GEE glitches)
             df = _download_fc_as_df(chunk_fc, f"{label}-chunk{i+1}", max_retries=3)
 
@@ -247,7 +263,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
 
         if dfs:
             merged = pd.concat(dfs, ignore_index=True)
-            print(f"[{label}] Chunked download complete: {len(merged)} total rows from {len(dfs)} chunks.")
+            print(
+                f"[{label}] Chunked download complete: {len(merged)} total rows from {len(dfs)} chunks."
+            )
             return merged
         else:
             print(f"[{label}] All chunks failed.")
@@ -260,7 +278,9 @@ def _download_fc_chunked(fc, label, chunk_days=None):
 
 def _start_drive_export(fc, description):
     """Start a Google Drive export task and return the task object."""
-    task = ee.batch.Export.table.toDrive(collection=fc, description=description, fileFormat="CSV")
+    task = ee.batch.Export.table.toDrive(
+        collection=fc, description=description, fileFormat="CSV"
+    )
     task.start()
     return task
 
@@ -270,7 +290,9 @@ def _estimate_fc_size(fc, label):
     try:
         size = fc.size().getInfo()
         if size > 100000:
-            print(f"⚠️  [{label}] Large dataset: ~{size:,} rows. Download may be slow or require chunking.")
+            print(
+                f"⚠️  [{label}] Large dataset: ~{size:,} rows. Download may be slow or require chunking."
+            )
         elif size > 50000:
             print(f"[{label}] Dataset size: ~{size:,} rows. May require chunking.")
         else:
@@ -281,7 +303,9 @@ def _estimate_fc_size(fc, label):
         return None
 
 
-def download_satellite_data(s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_name_safe):
+def download_satellite_data(
+    s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_name_safe
+):
     """
     Download all satellite FCs with automatic retry strategies:
     1. Try direct download via getDownloadURL
@@ -341,7 +365,9 @@ def download_satellite_data(s2_fc, s1_fc, l8_fc, srtm_fc, output_dir, project_na
         print(f"  2. Wait for tasks to complete (status: COMPLETED)")
         print(f"  3. Download CSVs from your Google Drive")
         print(f"  4. Rename and place them in: {output_dir}")
-        print(f"     File names: _tmp_S2_{project_name_safe}.csv, _tmp_S1_{project_name_safe}.csv, etc.")
+        print(
+            f"     File names: _tmp_S2_{project_name_safe}.csv, _tmp_S1_{project_name_safe}.csv, etc."
+        )
         print(f"  5. Re-run the analysis to merge the data")
         print("=" * 70 + "\n")
 
@@ -403,7 +429,9 @@ def build_temporal_csv(csv_paths, output_path):
         if "lat" in df.columns and "lon" in df.columns:
             df["lat_rounded"] = df["lat"].round(6)
             df["lon_rounded"] = df["lon"].round(6)
-            df["spatial_id"] = df["lat_rounded"].astype(str) + "_" + df["lon_rounded"].astype(str)
+            df["spatial_id"] = (
+                df["lat_rounded"].astype(str) + "_" + df["lon_rounded"].astype(str)
+            )
             # Keep rounded as main lat/lon
             df["lat"] = df["lat_rounded"]
             df["lon"] = df["lon_rounded"]
@@ -455,7 +483,11 @@ def build_temporal_csv(csv_paths, output_path):
             print(f"  Columns: {list(df.columns)}")
 
             # Ensure required columns exist
-            required_cols = ["date", "spatial_id"] if "spatial_id" in df.columns else ["date", ".geo"]
+            required_cols = (
+                ["date", "spatial_id"]
+                if "spatial_id" in df.columns
+                else ["date", ".geo"]
+            )
             if not all(c in df.columns for c in required_cols):
                 print(f"  ✗ Missing required columns {required_cols}. Skipping.")
                 continue
@@ -463,11 +495,15 @@ def build_temporal_csv(csv_paths, output_path):
                 df["satellite"] = label
 
             # Check data columns
-            available_data_cols = [c for c in sat_columns.get(label, []) if c in df.columns]
+            available_data_cols = [
+                c for c in sat_columns.get(label, []) if c in df.columns
+            ]
             print(f"  Data columns: {available_data_cols}")
             for col in available_data_cols:
                 non_null = df[col].notna().sum()
-                print(f"    {col}: {non_null} non-null values ({non_null/len(df)*100:.1f}%)")
+                print(
+                    f"    {col}: {non_null} non-null values ({non_null/len(df)*100:.1f}%)"
+                )
 
             # Keep only relevant columns
             if "spatial_id" in df.columns:
@@ -499,11 +535,17 @@ def build_temporal_csv(csv_paths, output_path):
                 print(f"  {sat}: {unique_ids} unique spatial_ids")
 
         # Check overlap
-        s2_ids = set(all_dynamic[all_dynamic["satellite"] == "S2"]["spatial_id"].unique())
-        l8_ids = set(all_dynamic[all_dynamic["satellite"] == "L8"]["spatial_id"].unique())
+        s2_ids = set(
+            all_dynamic[all_dynamic["satellite"] == "S2"]["spatial_id"].unique()
+        )
+        l8_ids = set(
+            all_dynamic[all_dynamic["satellite"] == "L8"]["spatial_id"].unique()
+        )
         if s2_ids and l8_ids:
             overlap = len(s2_ids.intersection(l8_ids))
-            print(f"  S2/L8 spatial_id overlap: {overlap}/{len(s2_ids)} ({overlap/len(s2_ids)*100:.1f}%)")
+            print(
+                f"  S2/L8 spatial_id overlap: {overlap}/{len(s2_ids)} ({overlap/len(s2_ids)*100:.1f}%)"
+            )
             if overlap < len(s2_ids) * 0.9:  # Less than 90% overlap
                 print(f"  ⚠️  WARNING: Poor spatial alignment between S2 and L8!")
 
@@ -574,7 +616,9 @@ def build_temporal_csv(csv_paths, output_path):
     # Debug: check LST in result
     if "LST" in result_df.columns:
         lst_count = result_df["LST"].notna().sum()
-        print(f"\n[MERGE] After merge: LST has {lst_count} non-null values ({lst_count/len(result_df)*100:.1f}%)")
+        print(
+            f"\n[MERGE] After merge: LST has {lst_count} non-null values ({lst_count/len(result_df)*100:.1f}%)"
+        )
     else:
         print(f"\n[MERGE] ✗ LST column missing after merge!")
 
@@ -600,7 +644,9 @@ def build_temporal_csv(csv_paths, output_path):
 
     if rows_before > rows_after:
         empty_rows = rows_before - rows_after
-        print(f"\n[FILTER] Removed {empty_rows} empty rows (cloud-masked/QA-filtered images)")
+        print(
+            f"\n[FILTER] Removed {empty_rows} empty rows (cloud-masked/QA-filtered images)"
+        )
         print(f"         Remaining: {rows_after} rows with valid data")
 
     # --- Add Slope from SRTM (static, same for every date) ---
@@ -666,6 +712,9 @@ def build_temporal_csv(csv_paths, output_path):
     result_df.reset_index(drop=True, inplace=True)
 
     result_df.to_csv(output_path, index=False)
-    print(f"[OK] Temporal CSV saved: {output_path} ({len(result_df)} rows, " f"{result_df['date'].nunique()} unique dates)")
+    print(
+        f"[OK] Temporal CSV saved: {output_path} ({len(result_df)} rows, "
+        f"{result_df['date'].nunique()} unique dates)"
+    )
 
     return output_path

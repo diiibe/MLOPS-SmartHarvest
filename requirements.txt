@@ -14,12 +14,3 @@ requests
 PyYAML
 hdbscan
 google-auth
-
-# Testing dependencies
-pytest
-pytest-cov
-pytest-xdist
-pytest-mock
-fpdf2
-pypdf
-shapely

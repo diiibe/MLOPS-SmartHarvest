@@ -4,10 +4,6 @@ FROM python:3.10-slim
 # Imposta la cartella di lavoro nel container
 WORKDIR /app
 
-# Capture Git Commit Hash for Traceability
-ARG GIT_COMMIT=unknown
-ENV GIT_COMMIT_HASH=${GIT_COMMIT}
-
 # Installa dipendenze di sistema (necessarie per alcune lib scientifiche)
 RUN apt-get update && apt-get install -y \
     build-essential \

@@ -22,10 +22,16 @@ def find_latest_features() -> str:
         # fallback to SmartHarvest CSVs
         for root, _, files in os.walk("output"):
             for f in files:
-                if f.startswith("SmartHarvest_") and f.endswith(".csv") and "ready_for_kmeans" not in f:
+                if (
+                    f.startswith("SmartHarvest_")
+                    and f.endswith(".csv")
+                    and "ready_for_kmeans" not in f
+                ):
                     candidates.append(os.path.join(root, f))
     if not candidates:
-        raise FileNotFoundError("No dbstream_features_*.csv or SmartHarvest_*.csv found under output/")
+        raise FileNotFoundError(
+            "No dbstream_features_*.csv or SmartHarvest_*.csv found under output/"
+        )
     # prefer scaled
     scaled = [p for p in candidates if p.endswith("_scaled.csv")]
     return max(scaled or candidates, key=os.path.getmtime)
@@ -87,7 +93,9 @@ def main():
     df = schema.normalize_columns(df)
     df.replace(-9999, np.nan, inplace=True)
 
-    feature_cols = [c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns]
+    feature_cols = [
+        c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns
+    ]
     if not feature_cols:
         raise ValueError("No DBStream features found in input")
 

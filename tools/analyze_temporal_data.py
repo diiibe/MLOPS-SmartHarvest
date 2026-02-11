@@ -15,7 +15,11 @@ def analyze_temporal_data():
         candidates = []
         for root, _, files in os.walk("output"):
             for f in files:
-                if f.startswith("SmartHarvest_") and f.endswith(".csv") and "ready_for_kmeans" not in f:
+                if (
+                    f.startswith("SmartHarvest_")
+                    and f.endswith(".csv")
+                    and "ready_for_kmeans" not in f
+                ):
                     candidates.append(os.path.join(root, f))
         if candidates:
             csv_path = max(candidates, key=os.path.getmtime)
@@ -57,7 +61,9 @@ def analyze_temporal_data():
             f"- **NDVI Delta Mean:** {ndvi_delta_mean:.4f} (Expected: close to 0 or slightly negative for senescence)"
         )
         if abs(ndvi_delta_mean) > 0.5:
-            report_lines.append("  - ⚠️ **Warning:** NDVI Delta mean is unusually high/low.")
+            report_lines.append(
+                "  - ⚠️ **Warning:** NDVI Delta mean is unusually high/low."
+            )
         else:
             report_lines.append("  - ✅ Plausible range.")
     else:
@@ -66,14 +72,18 @@ def analyze_temporal_data():
     # VH Drop
     if "VH_Drop" in df.columns:
         vh_drop_mean = df["VH_Drop"].mean()
-        report_lines.append(f"- **VH Drop Mean:** {vh_drop_mean:.4f} dB (Positive = Structure Loss/Drying)")
+        report_lines.append(
+            f"- **VH Drop Mean:** {vh_drop_mean:.4f} dB (Positive = Structure Loss/Drying)"
+        )
     else:
         report_lines.append("- **VH Drop Mean:** N/A (column missing)")
 
     # Insolation
     if "Insolation" in df.columns:
         insolation_mean = df["Insolation"].mean()
-        report_lines.append(f"- **Insolation Mean:** {insolation_mean:.4f} (Slope * cos(Aspect))")
+        report_lines.append(
+            f"- **Insolation Mean:** {insolation_mean:.4f} (Slope * cos(Aspect))"
+        )
     else:
         report_lines.append("- **Insolation Mean:** N/A (column missing)")
 
@@ -83,7 +93,9 @@ def analyze_temporal_data():
         lst_mean = df[lst_col].mean()
         report_lines.append(f"- **{lst_col} Mean:** {lst_mean:.2f} °C")
         if lst_mean < 0 or lst_mean > 50:
-            report_lines.append("  - ⚠️ **Warning:** LST mean is out of expected range (0-50°C).")
+            report_lines.append(
+                "  - ⚠️ **Warning:** LST mean is out of expected range (0-50°C)."
+            )
         else:
             report_lines.append("  - ✅ Plausible range.")
     else:

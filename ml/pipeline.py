@@ -50,12 +50,14 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
         return {"success": False, "error": "No weeks"}
 
     # Define ML output directory and state file
-    ml_dir = os.path.join(output_base_dir, "ml_weekly")
-    state_file = os.path.join(ml_dir, "tracking_state.json")
+    ml_dir = os.path.join(output_base_dir, 'ml_weekly')
+    state_file = os.path.join(ml_dir, 'tracking_state.json')
 
     # Load previous state (for tracking)
     prev_state = output.load_tracking_state(state_file) if not force_reprocess else None
-    processed_weeks = output.get_processed_weeks(ml_dir) if not force_reprocess else set()
+    processed_weeks = (
+        output.get_processed_weeks(ml_dir) if not force_reprocess else set()
+    )
 
     # Determine which weeks to process
     # Always reprocess current week (last week in timeline)
@@ -64,7 +66,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
         if force_reprocess or week_id not in processed_weeks or week_id == weeks[-1][0]:
             weeks_to_process.append((week_id, week_start, week_end, obs_count))
 
-    print(f"\n[Pipeline] Processing {len(weeks_to_process)} weeks (of {len(weeks)} total)")
+    print(
+        f"\n[Pipeline] Processing {len(weeks_to_process)} weeks (of {len(weeks)} total)"
+    )
 
     # Initialize tracking
     prev_frame = None
@@ -88,7 +92,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
             # STEP 3: Build weekly frame
             print(f"\n[STEP 3] Building weekly frame...")
             monitor.start_step(f"Week-{week_id}")
-            frame = data_loader.build_weekly_frame(df, week_id, columns["coords"], columns["features"], columns["date"])
+            frame = data_loader.build_weekly_frame(
+                df, week_id, columns["coords"], columns["features"], columns["date"]
+            )
 
             if frame is None or len(frame) < 10:
                 print(f"[WARNING] Skipping {week_id} - insufficient data")
@@ -96,15 +102,21 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
 
             # STEP 4: Normalize features
             print(f"\n[STEP 4] Normalizing features...")
-            frame_norm, scaler, X_scaled = clustering.normalize_features(frame, columns["features"])
+            frame_norm, scaler, X_scaled = clustering.normalize_features(
+                frame, columns["features"]
+            )
 
             # STEP 5: Microclustering
             print(f"\n[STEP 5] Microclustering...")
-            micro_labels, micro_centroids, micro_sizes = clustering.microclustering(X_scaled, frame)
+            micro_labels, micro_centroids, micro_sizes = clustering.microclustering(
+                X_scaled, frame
+            )
 
             # STEP 6: HDBSCAN on microclusters
             print(f"\n[STEP 6] Running HDBSCAN...")
-            cluster_labels_micro, outlier_scores_micro, clusterer = clustering.hdbscan_clustering(micro_centroids, micro_sizes)
+            cluster_labels_micro, outlier_scores_micro, clusterer = (
+                clustering.hdbscan_clustering(micro_centroids, micro_sizes)
+            )
 
             # Propagate to pixels
             cluster_labels, outlier_scores = clustering.propagate_to_pixels(
@@ -124,7 +136,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
 
             # STEP 9: Anomaly detection
             print(f"\n[STEP 9] Detecting anomalies...")
-            anomalies, anomaly_summary = tracking.detect_anomalies(frame, cluster_labels, outlier_scores, track_ids)
+            anomalies, anomaly_summary = tracking.detect_anomalies(
+                frame, cluster_labels, outlier_scores, track_ids
+            )
 
             # STEP 7: Save outputs
             print(f"\n[STEP 7] Saving weekly outputs...")
@@ -141,17 +155,22 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
 
             # Save anomalies
             if len(anomaly_summary) > 0:
-                anomaly_path = os.path.join(output_paths["week_dir"], f"anomalies_{week_id}.csv")
+                anomaly_path = os.path.join(
+                    output_paths["week_dir"], f"anomalies_{week_id}.csv"
+                )
                 anomaly_summary.to_csv(anomaly_path, index=False)
 
             # Save tracking state
-            output.save_tracking_state(week_id, track_ids, tracking_info, next_track_id, state_file)
+            output.save_tracking_state(
+                week_id, track_ids, tracking_info, next_track_id, state_file
+            )
 
             monitor.stop_step(
                 f"Week-{week_id}",
                 {
                     "pixels": len(frame),
-                    "clusters": len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0),
+                    "clusters": len(set(cluster_labels))
+                    - (1 if -1 in cluster_labels else 0),
                     "anomalies": len(anomaly_summary),
                 },
             )
@@ -161,7 +180,8 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                 {
                     "week_id": week_id,
                     "pixels": len(frame),
-                    "clusters": len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0),
+                    "clusters": len(set(cluster_labels))
+                    - (1 if -1 in cluster_labels else 0),
                     "noise_pixels": (cluster_labels == -1).sum(),
                     "anomalies": len(anomaly_summary),
                     "tracking": tracking_info,
@@ -203,7 +223,9 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
     # Return latest week result for integration
     if results_summary:
         latest = results_summary[-1]
-        latest_cluster_csv = os.path.join(latest["output_dir"], f"cluster_map_{latest['week_id']}.csv")
+        latest_cluster_csv = os.path.join(
+            latest["output_dir"], f"cluster_map_{latest['week_id']}.csv"
+        )
 
         return {
             "success": True,
