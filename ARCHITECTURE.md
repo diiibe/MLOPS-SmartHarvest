@@ -219,6 +219,7 @@ START
   │     ├── Create Folium map
   │     ├── Add satellite imagery basemap
   │     ├── Plot points colored by variables
+  │     ├── Add **ML Anomaly Heatmap** layer (weighted by outlier_score)
   │     ├── Add date selector
   │     └── Save: Map_<project>.html
   │

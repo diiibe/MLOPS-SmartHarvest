@@ -53,12 +53,9 @@ class MLTimeline {
         iframe.src = `/ml_map/${this.projectName}?week=${week.week_id}`;
 
         const label = document.getElementById('ml-week-label');
-        label.textContent = `${week.week_id} (${week.clusters_count} clusters)`;
+        label.textContent = `${week.week_id}`;
 
         console.log(`[ML Timeline] Showing week ${week.week_id}`);
-
-        // Clear sidebar
-        this.clearSidebar();
     }
 
     setupEventListeners() {
@@ -90,13 +87,6 @@ class MLTimeline {
                 this.updateMap();
             }
         });
-
-        // Listen for cluster clicks (from map iframe)
-        window.addEventListener('message', (event) => {
-            if (event.data && event.data.type === 'cluster_click') {
-                this.showClusterDetails(event.data.cluster_label);
-            }
-        });
     }
 
     togglePlay() {
@@ -112,76 +102,6 @@ class MLTimeline {
             }, 2000);  // 2 seconds per week
         } else {
             clearInterval(this.playInterval);
-        }
-    }
-
-    async showClusterDetails(clusterLabel) {
-        const week = this.weeks[this.currentWeekIndex];
-        const sidebar = document.getElementById('ml-cluster-info');
-
-        sidebar.innerHTML = '<p style="color: #888;">Loading cluster details...</p>';
-
-        try {
-            const response = await fetch(`/api/ml_cluster/${this.projectName}/${week.week_id}/${clusterLabel}`);
-            const data = await response.json();
-
-            if (data.error) {
-                sidebar.innerHTML = `<p style="color: #e74c3c;">Error: ${data.error}</p>`;
-                return;
-            }
-
-            // Build sidebar HTML
-            let html = `
-                <div style="margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #3498db;">Cluster ${data.cluster_label}</h4>
-                    <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
-                        <b>Track ID:</b> ${data.track_id}<br>
-                        <b>Status:</b> <span style="background-color: ${this.getStatusColor(data.status)}; padding: 2px 6px; border-radius: 3px; color: black; font-weight: bold;">${data.status.toUpperCase()}</span><br>
-                        <b>Pixel Count:</b> ${data.pixel_count}<br>
-                        <b>Outlier Score:</b> ${data.outlier_score_mean.toFixed(3)}
-                    </div>
-                </div>
-            `;
-
-            // Feature values
-            if (data.features && Object.keys(data.features).length > 0) {
-                html += '<div style="margin-bottom: 15px; border-top: 1px solid #555; padding-top: 10px;">';
-                html += '<h5 style="margin: 0 0 8px 0; color: #f39c12;">Feature Values</h5>';
-                html += '<div style="font-size: 11px; color: #aaa; line-height: 1.6;">';
-
-                for (const [feature, value] of Object.entries(data.features)) {
-                    if (!isNaN(value)) {
-                        html += `<b>${feature}:</b> ${value.toFixed(4)}<br>`;
-                    }
-                }
-
-                html += '</div></div>';
-            }
-
-            // Tracking history
-            if (data.history && data.history.length > 0) {
-                html += '<div style="border-top: 1px solid #555; padding-top: 10px;">';
-                html += '<h5 style="margin: 0 0 8px 0; color: #2ecc71;">Tracking History</h5>';
-                html += '<div style="font-size: 11px; color: #aaa;">';
-
-                data.history.forEach(h => {
-                    const isCurrent = h.week_id === week.week_id;
-                    const style = isCurrent ? 'font-weight: bold; color: #3498db;' : '';
-                    html += `
-                        <div style="margin-bottom: 5px; ${style}">
-                            ${isCurrent ? '➤ ' : ''}${h.week_id}: ${h.pixel_count} px, Score ${h.outlier_score.toFixed(3)}
-                        </div>
-                    `;
-                });
-
-                html += '</div></div>';
-            }
-
-            sidebar.innerHTML = html;
-
-        } catch (error) {
-            console.error('[ML Timeline] Error fetching cluster details:', error);
-            sidebar.innerHTML = '<p style="color: #e74c3c;">Failed to load cluster details.</p>';
         }
     }
 

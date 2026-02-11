@@ -91,60 +91,38 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     cluster_agg['pixel_count'] = df[df['cluster_label'] != -1].groupby('cluster_label').size().values
     cluster_agg['is_anomalous'] = cluster_agg['outlier_score'] > outlier_threshold
 
-    # Layer 1: Normal Clusters
-    fg_normal = folium.FeatureGroup(name='Normal Clusters', show=True)
+    # Layer 1: Anomaly Heatmap (weighted by outlier score)
+    fg_heatmap = folium.FeatureGroup(name='Anomaly Heatmap', show=True)
 
-    normal_clusters = cluster_agg[~cluster_agg['is_anomalous']]
+    heat_data = [
+        [row['lat'], row['lon'], row['outlier_score']]
+        for _, row in df.iterrows()
+        if not pd.isna(row['lat']) and not pd.isna(row['lon'])
+    ]
 
-    for _, cluster in normal_clusters.iterrows():
-        _add_cluster_marker(fg_normal, cluster, week_id, is_anomalous=False)
+    if heat_data:
+        HeatMap(
+            heat_data,
+            radius=15,
+            blur=20,
+            min_opacity=0.3,
+            gradient={
+                0.0: 'blue',    # Normal
+                0.3: 'cyan',
+                0.5: 'lime',    # Medium
+                0.7: 'yellow',
+                0.85: 'orange',
+                1.0: 'red'      # Anomalous
+            }
+        ).add_to(fg_heatmap)
 
-    fg_normal.add_to(m)
-
-    # Layer 2: Anomalous Clusters
-    fg_anomalous = folium.FeatureGroup(name='Anomalous Clusters', show=True)
-
-    anomalous_clusters = cluster_agg[cluster_agg['is_anomalous']]
-
-    for _, cluster in anomalous_clusters.iterrows():
-        _add_cluster_marker(fg_anomalous, cluster, week_id, is_anomalous=True)
-
-    fg_anomalous.add_to(m)
-
-    # Layer 3: Outlier Heatmap
-    if os.path.exists(outlier_csv):
-        fg_heatmap = folium.FeatureGroup(name='Outlier Heatmap', show=False)
-
-        outlier_df = pd.read_csv(outlier_csv)
-
-        if 'lat' not in outlier_df.columns or 'lon' not in outlier_df.columns:
-            if '.geo' in outlier_df.columns:
-                outlier_df['coords'] = outlier_df['.geo'].apply(_parse_coords)
-                outlier_df['lon'] = outlier_df['coords'].apply(lambda x: x[0])
-                outlier_df['lat'] = outlier_df['coords'].apply(lambda x: x[1])
-
-        heat_data = [
-            [row['lat'], row['lon'], row['outlier_score']]
-            for _, row in outlier_df.iterrows()
-            if not pd.isna(row['lat']) and not pd.isna(row['lon'])
-        ]
-
-        if heat_data:
-            HeatMap(
-                heat_data,
-                radius=15,
-                blur=25,
-                max_zoom=18,
-                gradient={0.0: 'blue', 0.5: 'yellow', 0.75: 'orange', 1.0: 'red'}
-            ).add_to(fg_heatmap)
-
-        fg_heatmap.add_to(m)
+    fg_heatmap.add_to(m)
 
     # Add layer control
     folium.LayerControl(position='topleft', collapsed=False).add_to(m)
 
     # Add legend
-    legend_html = _create_legend(week_id, len(normal_clusters), len(anomalous_clusters))
+    legend_html = _create_legend(week_id)
     m.get_root().html.add_child(folium.Element(legend_html))
 
     # Dark mode CSS
@@ -173,76 +151,17 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     return output_file
 
 
-def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
-    """
-    Add cluster marker to map.
-
-    Args:
-        feature_group: Folium FeatureGroup
-        cluster: Row from cluster_agg DataFrame
-        week_id: Week ID string
-        is_anomalous: Boolean
-    """
-    cluster_label = cluster['cluster_label']
-    track_id = cluster['track_id']
-    status = cluster['cluster_status']
-    outlier_score = cluster['outlier_score']
-    pixel_count = cluster['pixel_count']
-    lat = cluster['lat']
-    lon = cluster['lon']
-
-    # Color by status
-    status_colors = {
-        'new': '#FFD700',       # Gold
-        'continued': '#1E90FF',  # DodgerBlue
-        'unknown': '#808080'     # Gray
-    }
-    fill_color = status_colors.get(status, '#808080')
-
-    # Border color by anomaly
-    border_color = '#FF4500' if is_anomalous else '#32CD32'  # OrangeRed : LimeGreen
-
-    # Size by pixel count (logarithmic scale)
-    marker_size = 8 + int(np.log1p(pixel_count) * 2)
-
-    # Popup HTML
-    popup_html = f"""
-    <div style="font-family: Arial; font-size: 12px; min-width: 200px;">
-        <b style="font-size: 14px;">Cluster {cluster_label}</b><br>
-        <hr style="margin: 5px 0;">
-        <b>Week:</b> {week_id}<br>
-        <b>Track ID:</b> {track_id}<br>
-        <b>Status:</b> <span style="background-color: {fill_color}; padding: 2px 6px; border-radius: 3px; color: black; font-weight: bold;">{status.upper()}</span><br>
-        <b>Anomalous:</b> {'Yes' if is_anomalous else 'No'}<br>
-        <b>Outlier Score:</b> {outlier_score:.3f}<br>
-        <b>Pixel Count:</b> {pixel_count}<br>
-        <b>Location:</b> {lat:.5f}°N, {lon:.5f}°E<br>
-        <hr style="margin: 5px 0;">
-        <small style="color: #888;">Click for details in sidebar</small>
-    </div>
-    """
-
-    folium.CircleMarker(
-        location=[lat, lon],
-        radius=marker_size,
-        color=border_color,
-        fill=True,
-        fill_color=fill_color,
-        fill_opacity=0.7,
-        weight=2,
-        popup=folium.Popup(popup_html, max_width=250),
-        tooltip=f"Cluster {cluster_label} (Track {track_id})"
-    ).add_to(feature_group)
+    pass
 
 
-def _create_legend(week_id, normal_count, anomalous_count):
+def _create_legend(week_id):
     """Create legend HTML."""
     return f"""
     <div id="ml-legend" style="
         position: fixed;
         top: 10px;
         right: 10px;
-        width: 220px;
+        width: 180px;
         background-color: rgba(25,25,25,0.92);
         color: #eee;
         padding: 12px;
@@ -253,28 +172,19 @@ def _create_legend(week_id, normal_count, anomalous_count):
         z-index: 1000;
     ">
         <h4 style="margin: 0 0 10px 0; font-size: 13px; border-bottom: 1px solid #555; padding-bottom: 5px;">
-            ML Clustering — {week_id}
+            Anomaly Heatmap
         </h4>
-
         <div style="margin-bottom: 8px;">
-            <b>Cluster Status:</b><br>
-            <div style="margin-left: 10px; margin-top: 4px;">
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #FFD700; border: 2px solid #fff; border-radius: 50%;"></span> NEW<br>
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #1E90FF; border: 2px solid #fff; border-radius: 50%;"></span> CONTINUED
+            <b>Intensity Legend:</b><br>
+            <div style="margin-top: 5px; height: 12px; width: 100%; background: linear-gradient(to right, blue, cyan, lime, yellow, orange, red); border-radius: 2px;"></div>
+            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 9px; color: #aaa;">
+                <span>Normal</span>
+                <span>Anomalous</span>
             </div>
         </div>
-
-        <div style="margin-bottom: 8px;">
-            <b>Cluster Type:</b><br>
-            <div style="margin-left: 10px; margin-top: 4px;">
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #aaa; border: 2px solid #32CD32; border-radius: 50%;"></span> Normal ({normal_count})<br>
-                <span style="display: inline-block; width: 12px; height: 12px; background-color: #aaa; border: 2px solid #FF4500; border-radius: 50%;"></span> Anomalous ({anomalous_count})
-            </div>
-        </div>
-
         <div style="font-size: 9px; color: #888; margin-top: 10px; border-top: 1px solid #555; padding-top: 5px;">
-            Size = Pixel count<br>
-            Click marker for details
+            Week: {week_id}<br>
+            Hotspots (Red) indicate high stress or vigor anomalies.
         </div>
     </div>
     """

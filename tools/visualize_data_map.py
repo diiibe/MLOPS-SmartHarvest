@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from branca.element import MacroElement
 from jinja2 import Template
+from folium.plugins import HeatMap
 
 import schema
 
@@ -39,10 +40,10 @@ def get_available_dates(csv_path):
         return []
 
 
-def _add_ml_cluster_layer(m, ml_dir, df):
+def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
     """
-    Add ML weekly clustering layer to map.
-    Shows clusters from latest processed week.
+    Add ML anomaly heatmap layer to map.
+    Shows weighted heatmap from latest processed week.
     """
     # Find latest week folder
     weekly_dir = os.path.join(ml_dir, 'weekly')
@@ -69,56 +70,34 @@ def _add_ml_cluster_layer(m, ml_dir, df):
             coords_df = df[['spatial_id', 'lat', 'lon']].drop_duplicates('spatial_id')
             cluster_df = cluster_df.merge(coords_df, on='spatial_id', how='left')
 
-    # Create cluster layer
-    fg = folium.FeatureGroup(name=f'ML Clusters ({latest_week})', show=False)
+    # Create heatmap layer
+    fg = folium.FeatureGroup(name=f'ML Anomalies ({latest_week})', show=False)
 
-    # Color palette for clusters
-    unique_clusters = cluster_df['cluster_label'].unique()
-    unique_clusters = [c for c in unique_clusters if c != -1]  # Exclude noise
-    colors_palette = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
-                     '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b']
+    heat_data = [
+        [row['lat'], row['lon'], row['outlier_score']]
+        for _, row in cluster_df.iterrows()
+        if not pd.isna(row.get('lat')) and not pd.isna(row.get('lon'))
+    ]
 
-    cluster_colors = {}
-    for i, c in enumerate(unique_clusters):
-        cluster_colors[c] = colors_palette[i % len(colors_palette)]
-    cluster_colors[-1] = '#7f8c8d'  # Gray for noise
-
-    # Add markers
-    for _, row in cluster_df.iterrows():
-        if pd.isna(row.get('lat')) or pd.isna(row.get('lon')):
-            continue
-
-        cluster_label = row['cluster_label']
-        track_id = row.get('track_id', -1)
-        outlier_score = row.get('outlier_score', 0)
-
-        color = cluster_colors.get(cluster_label, '#7f8c8d')
-
-        popup_text = (
-            f"<b>ML Cluster</b><br>"
-            f"Week: {latest_week}<br>"
-            f"Cluster: {cluster_label}<br>"
-            f"Track ID: {track_id}<br>"
-            f"Outlier Score: {outlier_score:.3f}<br>"
-            f"Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}"
-        )
-
-        # Size based on outlier score (larger = more anomalous)
-        marker_size = 3 + int(outlier_score * 5)
-
-        folium.CircleMarker(
-            location=[row['lat'], row['lon']],
-            radius=marker_size,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.7,
-            weight=1,
-            popup=folium.Popup(popup_text, max_width=220)
+    if heat_data:
+        HeatMap(
+            heat_data,
+            radius=15,
+            blur=20,
+            min_opacity=0.3,
+            gradient={
+                0.0: 'blue',
+                0.3: 'cyan',
+                0.5: 'lime',
+                0.7: 'yellow',
+                0.85: 'orange',
+                1.0: 'red'
+            }
         ).add_to(fg)
 
     fg.add_to(m)
-    print(f"[Map] Added ML cluster layer: {latest_week} ({len(cluster_df)} pixels, {len(unique_clusters)} clusters)")
+    print(f"[Map] Added Anomaly Heatmap layer: {latest_week} ({len(cluster_df)} pixels)")
+    return latest_week
 
 
 def create_verification_map(csv_path, output_file, selected_date=None):
@@ -246,6 +225,23 @@ def create_verification_map(csv_path, output_file, selected_date=None):
 
         fg.add_to(m)
 
+    # Add ML anomaly scale to legend if ML dir exists
+    ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
+    if os.path.exists(ml_dir):
+        legend_html += """
+        <div style='margin-top:10px; padding-top:10px; border-top:1px solid #444;'>
+            <div style='font-weight:600;font-size:10px;color:#f39c12;'>ANOMALY DETECTION</div>
+            <div style='display:flex;align-items:center;margin-top:4px;'>
+                <span style='font-size:8px;color:#aaa;width:30px;'>Normal</span>
+                <div style='flex-grow:1;height:6px;
+                    background:linear-gradient(to right, blue, cyan, lime, yellow, orange, red);
+                    border-radius:2px;margin:0 4px;border:1px solid #555;'></div>
+                <span style='font-size:8px;color:#aaa;width:45px;text-align:right;'>Anomalous</span>
+            </div>
+            <div style='font-size:8px;color:#888;margin-top:2px;'>Latest weekly analysis hotspots</div>
+        </div>
+        """
+
     # Custom Legend control
     class CustomLegend(MacroElement):
         _template = Template("""
@@ -274,13 +270,12 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             self._name = 'CustomLegend'
             self.content = content
 
-    # Add ML Weekly Clustering Layer (if available)
-    ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
+    # Add ML Anomaly Heatmap Layer (if available)
     if os.path.exists(ml_dir):
         try:
-            _add_ml_cluster_layer(m, ml_dir, df)
+            _add_ml_anomaly_heatmap_layer(m, ml_dir, df)
         except Exception as e:
-            print(f"[Map] Could not add ML cluster layer: {e}")
+            print(f"[Map] Could not add ML anomaly layer: {e}")
 
     m.add_child(CustomLegend(legend_html))
     folium.LayerControl(position='topleft', collapsed=False).add_to(m)

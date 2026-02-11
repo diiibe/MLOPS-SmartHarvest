@@ -16,16 +16,22 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ml.pipeline import run_ml_pipeline
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python run_ml_weekly.py <project_name> [--force]")
-        print("\nExample:")
-        print("  python run_ml_weekly.py MyProject")
-        print("  python run_ml_weekly.py MyProject --force  # Reprocess all weeks")
-        sys.exit(1)
+import argparse
 
-    project_name = sys.argv[1]
-    force_reprocess = '--force' in sys.argv
+def main():
+    parser = argparse.ArgumentParser(description="SmartHarvest ML Weekly Analysis")
+    parser.add_argument("project_pos", nargs="?", help="Project name")
+    parser.add_argument("--project", dest="project_flag", help="Project name (alternative flag)")
+    parser.add_argument("--force", action="store_true", help="Reprocess all weeks")
+
+    args = parser.parse_args()
+    project_name = args.project_flag or args.project_pos
+    
+    if not project_name:
+        parser.print_help()
+        sys.exit(1)
+    
+    force_reprocess = args.force
 
     # Paths
     output_dir = os.path.join('output', project_name)

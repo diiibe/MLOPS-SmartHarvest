@@ -67,25 +67,17 @@
 
     <!-- ML Anomaly Detection View -->
     <div id="ml-anomalies-view" style="display: none;">
-        <div class="ml-dashboard-container">
-            <div class="ml-map-section">
-                <iframe id="ml-map-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+        <div class="ml-map-section">
+            <iframe id="ml-map-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
 
-                <!-- Timeline Controls -->
-                <div class="timeline-controls">
-                    <button id="ml-play-btn" class="timeline-btn" title="Play/Pause">▶</button>
-                    <button id="ml-prev-btn" class="timeline-btn" title="Previous Week">◀</button>
-                    <button id="ml-next-btn" class="timeline-btn" title="Next Week">▶</button>
-                    <input type="range" id="ml-week-slider" min="0" max="0" value="0" style="flex-grow: 1;">
-                    <span id="ml-week-label" style="min-width: 100px; text-align: center; color: #eee; font-weight: bold;">Loading...</span>
-                </div>
-            </div>
-
-            <div class="ml-sidebar">
-                <h3 style="margin-top: 0; color: #3498db; border-bottom: 1px solid #555; padding-bottom: 10px;">Cluster Details</h3>
-                <div id="ml-cluster-info">
-                    <p style="color: #888; font-size: 13px;">Click on a cluster marker to see details...</p>
-                </div>
+            <!-- Timeline Controls -->
+            <div class="timeline-controls">
+                <button id="ml-play-btn" class="timeline-btn" title="Play/Pause">▶</button>
+                <button id="ml-prev-btn" class="timeline-btn" title="Previous Week">◀</button>
+                <button id="ml-next-btn" class="timeline-btn" title="Next Week">▶</button>
+                <input type="range" id="ml-week-slider" min="0" max="0" value="0" style="flex-grow: 1;">
+                <span id="ml-week-label"
+                    style="min-width: 100px; text-align: center; color: #eee; font-weight: bold;">Loading...</span>
             </div>
         </div>
     </div>

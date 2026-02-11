@@ -43,7 +43,8 @@ def get_sentinel2_data():
             bestEffort=True
         )
 
-        shadow_fraction = ee.Number(stats.get('SCL', 0)).multiply(100)
+        shadow_val = stats.get('SCL')
+        shadow_fraction = ee.Number(ee.Algorithms.If(shadow_val, ee.Number(shadow_val).multiply(100), 0))
         return image.set('shadow_coverage', shadow_fraction)
 
     s2_with_shadow = s2_raw.map(compute_shadow_coverage)

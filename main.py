@@ -121,21 +121,7 @@ def run_pipeline(roi_coords=None, project_name="default",
         else:
             log("Warning: Could not assemble full temporal dataset. Some satellite data may be missing.")
 
-        # 8. Generate map
-        if merged_path and os.path.exists(merged_path):
-            log("Generating verification map...")
-            monitor.start_step("Map")
-            try:
-                from tools import visualize_data_map
-                map_filename = f'Map_{project_name_safe}.html'
-                map_path = os.path.join(output_dir, map_filename)
-                visualize_data_map.create_verification_map(merged_path, map_path)
-                log(f"[OK] Map saved to: {map_path}")
-            except Exception as e:
-                log(f"Warning: Map generation failed: {e}")
-            monitor.stop_step("Map")
-
-        # 9. Run ML Anomaly Detection (Integrated)
+        # 8. Run ML Anomaly Detection (Integrated)
         if merged_path and os.path.exists(merged_path):
             log("Running ML Anomaly Detection...")
             monitor.start_step("ML-Analysis")
@@ -148,6 +134,20 @@ def run_pipeline(roi_coords=None, project_name="default",
             except Exception as e:
                 log(f"Warning: ML Analysis error: {e}")
             monitor.stop_step("ML-Analysis")
+
+        # 9. Generate map
+        if merged_path and os.path.exists(merged_path):
+            log("Generating verification map...")
+            monitor.start_step("Map")
+            try:
+                from tools import visualize_data_map
+                map_filename = f'Map_{project_name_safe}.html'
+                map_path = os.path.join(output_dir, map_filename)
+                visualize_data_map.create_verification_map(merged_path, map_path)
+                log(f"[OK] Map saved to: {map_path}")
+            except Exception as e:
+                log(f"Warning: Map generation failed: {e}")
+            monitor.stop_step("Map")
 
         # 10. Generate acquisition log and report
         log("Generating Acquisition Log and Report...")

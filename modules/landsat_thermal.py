@@ -51,7 +51,8 @@ def get_landsat_thermal(master_crs):
                 bestEffort=True
             )
 
-            masked_fraction = ee.Number(stats.get('QA_PIXEL', 0)).multiply(100)
+            qa_val = stats.get('QA_PIXEL')
+            masked_fraction = ee.Number(ee.Algorithms.If(qa_val, ee.Number(qa_val).multiply(100), 0))
             return image.set('qa_masked_fraction', masked_fraction)
 
         landsat_with_qa = landsat_raw.map(compute_qa_masked_fraction) if total_count > 0 else landsat_raw
