@@ -91,9 +91,7 @@ class TestDataProcessingLayer:
         l8_col, l8_meta = landsat_thermal.get_landsat_thermal(master_crs)
         srtm_img, srtm_meta = srtm.get_srtm_data(master_crs)
 
-        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(
-            s2_col, s1_col, l8_col, srtm_img
-        )
+        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(s2_col, s1_col, l8_col, srtm_img)
 
         # All should be EE objects (FeatureCollections in real implementation)
         for fc in [s2_fc, s1_fc, l8_fc, srtm_fc]:
@@ -118,15 +116,11 @@ class TestDataExportLayer:
         srtm_img, srtm_meta = srtm.get_srtm_data(master_crs)
 
         # Create samples
-        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(
-            s2_col, s1_col, l8_col, srtm_img
-        )
+        s2_fc, s1_fc, l8_fc, srtm_fc = assembly.create_temporal_samples(s2_col, s1_col, l8_col, srtm_img)
 
         # Download (mocked)
         try:
-            csv_paths = assembly.download_satellite_data(
-                s2_fc, s1_fc, l8_fc, srtm_fc, temp_output_dir, "test_project"
-            )
+            csv_paths = assembly.download_satellite_data(s2_fc, s1_fc, l8_fc, srtm_fc, temp_output_dir, "test_project")
 
             # Should return dictionary with paths
             assert isinstance(csv_paths, dict), "Should return dictionary of paths"

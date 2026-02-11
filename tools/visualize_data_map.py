@@ -343,6 +343,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
 
     # fmt: on
 
+
 if __name__ == "__main__":
     create_verification_map(
         "output/New_Vineyard/SmartHarvest_New_Vineyard.csv",

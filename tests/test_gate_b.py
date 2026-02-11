@@ -54,7 +54,6 @@ class TestGateBOutputCompleteness(unittest.TestCase):
         # 1. Setup Mock (Simulate minimal successful data flow)
         from datetime import datetime
 
-
         # 2. RUN PIPELINE
         try:
             main.run_pipeline()
