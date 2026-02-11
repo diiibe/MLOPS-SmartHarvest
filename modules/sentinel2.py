@@ -50,13 +50,18 @@ def get_sentinel2_data():
     s2_with_shadow = s2_raw.map(compute_shadow_coverage)
     shadow_stats = s2_with_shadow.aggregate_stats("shadow_coverage").getInfo()
 
-    s2_full = s2_raw.filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", config.CLOUD_THRESHOLD_S2))
+    s2_full = s2_raw.filter(
+        ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", config.CLOUD_THRESHOLD_S2)
+    )
 
     count = s2_full.size().getInfo()
     discarded_count = total_count - count
 
     if count == 0:
-        raise Exception("Sentinel-2 Collection is empty after filtering. " "Check dates or cloud threshold.")
+        raise Exception(
+            "Sentinel-2 Collection is empty after filtering. "
+            "Check dates or cloud threshold."
+        )
 
     # 2. Cloud Masking (SCL-based)
     def mask_s2_clouds(image):
@@ -72,7 +77,11 @@ def get_sentinel2_data():
         b4_proj = image.select("B4").projection()
 
         def get_band(b_name):
-            return image.select(b_name).resample("bicubic").reproject(crs=b4_proj, scale=10)
+            return (
+                image.select(b_name)
+                .resample("bicubic")
+                .reproject(crs=b4_proj, scale=10)
+            )
 
         green = get_band("B3")
         red = get_band("B4")
@@ -98,7 +107,15 @@ def get_sentinel2_data():
         ireci = re3.subtract(red).divide(re1.divide(re2)).rename("IRECI")
 
         # S2REP = 705 + 35 * ((Red + RE3)/2 - RE1) / (RE2 - RE1)
-        s2rep = red.add(re3).divide(2).subtract(re1).divide(re2.subtract(re1)).multiply(35).add(705).rename("S2REP")
+        s2rep = (
+            red.add(re3)
+            .divide(2)
+            .subtract(re1)
+            .divide(re2.subtract(re1))
+            .multiply(35)
+            .add(705)
+            .rename("S2REP")
+        )
 
         return image.addBands([ndvi, ndwi, mndwi, ndre, ireci, s2rep])
 
@@ -118,7 +135,9 @@ def get_sentinel2_data():
         "image_count": count,
         "total_images": total_count,
         "discarded_images": discarded_count,
-        "discarded_pct": ((discarded_count / total_count * 100) if total_count > 0 else 0),
+        "discarded_pct": (
+            (discarded_count / total_count * 100) if total_count > 0 else 0
+        ),
         "discard_reason": f"Cloud threshold (>{config.CLOUD_THRESHOLD_S2}%)",
         "date_range": f"{config.START_DATE} to {config.END_DATE}",
         "bands": index_bands,

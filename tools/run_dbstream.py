@@ -73,7 +73,9 @@ def main():
     df = schema.normalize_columns(df)
     df.replace(-9999, np.nan, inplace=True)
 
-    feature_cols = [c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns]
+    feature_cols = [
+        c for c in getattr(config, "DBSTREAM_FEATURES", []) if c in df.columns
+    ]
     if not feature_cols:
         raise ValueError("No DBStream features found in input")
 
@@ -111,7 +113,9 @@ def main():
     timestamps = np.arange(X.shape[0])
 
     model = DBStream(epsilon=args.epsilon, mu=args.mu, lambda_=args.lambda_)
-    scores, labels, cluster_ids, dists = model.partial_fit_predict(X, timestamps, anomaly_threshold=args.threshold)
+    scores, labels, cluster_ids, dists = model.partial_fit_predict(
+        X, timestamps, anomaly_threshold=args.threshold
+    )
 
     df_out = df.copy()
     df_out["dbstream_score"] = scores
@@ -147,7 +151,9 @@ def main():
         summary = summary.merge(lat_lon, on="dbstream_cluster", how="left")
 
     # Attach cluster weights
-    summary["cluster_weight"] = summary["dbstream_cluster"].apply(lambda i: weights[i] if i < len(weights) else np.nan)
+    summary["cluster_weight"] = summary["dbstream_cluster"].apply(
+        lambda i: weights[i] if i < len(weights) else np.nan
+    )
 
     zone_path = os.path.join(output_dir, f"dbstream_zone_summary_{project}.csv")
     summary.to_csv(zone_path, index=False)

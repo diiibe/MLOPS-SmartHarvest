@@ -33,7 +33,11 @@ def get_landsat_thermal(master_crs):
 
         # Calculate cloud coverage statistics BEFORE filtering
         print("[Landsat] Calculating cloud coverage statistics...")
-        cloud_stats = landsat_raw.aggregate_stats("CLOUD_COVER").getInfo() if total_count > 0 else {}
+        cloud_stats = (
+            landsat_raw.aggregate_stats("CLOUD_COVER").getInfo()
+            if total_count > 0
+            else {}
+        )
 
         # Calculate QA mask statistics
         print("[Landsat] Calculating QA mask statistics...")
@@ -55,8 +59,16 @@ def get_landsat_thermal(master_crs):
             masked_fraction = ee.Number(stats.get("QA_PIXEL", 0)).multiply(100)
             return image.set("qa_masked_fraction", masked_fraction)
 
-        landsat_with_qa = landsat_raw.map(compute_qa_masked_fraction) if total_count > 0 else landsat_raw
-        qa_stats = landsat_with_qa.aggregate_stats("qa_masked_fraction").getInfo() if total_count > 0 else {}
+        landsat_with_qa = (
+            landsat_raw.map(compute_qa_masked_fraction)
+            if total_count > 0
+            else landsat_raw
+        )
+        qa_stats = (
+            landsat_with_qa.aggregate_stats("qa_masked_fraction").getInfo()
+            if total_count > 0
+            else {}
+        )
 
         # Apply cloud filter
         l9 = l9_raw.filter(ee.Filter.lt("CLOUD_COVER", config.CLOUD_THRESHOLD_LANDSAT))
@@ -109,7 +121,9 @@ def get_landsat_thermal(master_crs):
             "image_count": count,
             "total_images": total_count,
             "discarded_images": discarded_count,
-            "discarded_pct": ((discarded_count / total_count * 100) if total_count > 0 else 0),
+            "discarded_pct": (
+                (discarded_count / total_count * 100) if total_count > 0 else 0
+            ),
             "discard_reason": f"Cloud threshold (>{config.CLOUD_THRESHOLD_LANDSAT}%)",
             "date_range": f"{config.START_DATE} to {config.END_DATE}",
             "bands": ["LST"],
@@ -130,7 +144,9 @@ def get_landsat_thermal(master_crs):
         return collection, metadata
 
     except Exception as e:
-        print(f"Warning: Error processing Landsat thermal data ({e}). Using empty collection.")
+        print(
+            f"Warning: Error processing Landsat thermal data ({e}). Using empty collection."
+        )
         empty = ee.ImageCollection(
             [
                 ee.Image.constant(-9999)

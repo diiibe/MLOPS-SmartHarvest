@@ -44,7 +44,9 @@ def save_weekly_outputs(
     # Add cluster status (new/continued/lost)
     if tracking_info and "cluster_status" in tracking_info:
         cluster_status_map = tracking_info["cluster_status"]
-        result_frame["cluster_status"] = [cluster_status_map.get(c, "unknown") for c in cluster_labels]
+        result_frame["cluster_status"] = [
+            cluster_status_map.get(c, "unknown") for c in cluster_labels
+        ]
     else:
         result_frame["cluster_status"] = "unknown"
 
@@ -54,7 +56,9 @@ def save_weekly_outputs(
 
     # Outlier table (only high scores)
     outlier_csv = os.path.join(week_dir, f"outlier_map_{week_id}.csv")
-    outlier_frame = result_frame[result_frame["outlier_score"] > np.percentile(outlier_scores, 90)]
+    outlier_frame = result_frame[
+        result_frame["outlier_score"] > np.percentile(outlier_scores, 90)
+    ]
     outlier_frame.to_csv(outlier_csv, index=False)
 
     # Try to create images if we have lat/lon

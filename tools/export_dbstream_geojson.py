@@ -50,17 +50,27 @@ def infer_project_name(path: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="[EXPERIMENTAL] Export DBStream anomalies to GeoJSON (Alternative algorithm)")
-    parser.add_argument("--input", dest="input_path", default=None, help="CSV input path")
-    parser.add_argument("--zone", action="store_true", default=False, help="Use zone summary CSV")
-    parser.add_argument("--min-score", type=float, default=None, help="Minimum score filter")
+    parser = argparse.ArgumentParser(
+        description="[EXPERIMENTAL] Export DBStream anomalies to GeoJSON (Alternative algorithm)"
+    )
+    parser.add_argument(
+        "--input", dest="input_path", default=None, help="CSV input path"
+    )
+    parser.add_argument(
+        "--zone", action="store_true", default=False, help="Use zone summary CSV"
+    )
+    parser.add_argument(
+        "--min-score", type=float, default=None, help="Minimum score filter"
+    )
     parser.add_argument(
         "--only-anomalies",
         action="store_true",
         default=False,
         help="Keep only anomalies (dbstream_anomaly==1)",
     )
-    parser.add_argument("--output", dest="output_path", default=None, help="GeoJSON output path")
+    parser.add_argument(
+        "--output", dest="output_path", default=None, help="GeoJSON output path"
+    )
     args = parser.parse_args()
 
     if args.zone:

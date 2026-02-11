@@ -29,7 +29,12 @@ def generate_acquisition_log(csv_path, acq_log_path, metadata_list=None):
         log_entries = {}
         for date, group in df.groupby("date"):
             sats = sorted(
-                set(sat.strip() for row in group["satellite"].dropna() for sat in str(row).split(",") if sat.strip())
+                set(
+                    sat.strip()
+                    for row in group["satellite"].dropna()
+                    for sat in str(row).split(",")
+                    if sat.strip()
+                )
             )
             log_entries[date] = sats
 
@@ -39,9 +44,13 @@ def generate_acquisition_log(csv_path, acq_log_path, metadata_list=None):
             lines.append(f"{date}: {sats_str}")
 
         if metadata_list:
-            s2_meta = next((m for m in metadata_list if m.get("source") == "Sentinel-2"), None)
+            s2_meta = next(
+                (m for m in metadata_list if m.get("source") == "Sentinel-2"), None
+            )
             if s2_meta and "discarded_images" in s2_meta:
-                lines.append(f"\n# Discarded S2 images (clouds > {config.CLOUD_THRESHOLD_S2}%): {s2_meta['discarded_images']}")
+                lines.append(
+                    f"\n# Discarded S2 images (clouds > {config.CLOUD_THRESHOLD_S2}%): {s2_meta['discarded_images']}"
+                )
 
         with open(acq_log_path, "w") as f:
             f.write("\n".join(lines) + "\n")
@@ -126,7 +135,10 @@ def _format_discarded_images(metadata_list):
         # Abbreviate source names
         source_abbrev = source.replace("Sentinel-", "S").replace("Landsat 8/9", "L8/9")
 
-        table += f"| {source_abbrev} | {total} | {retained} | {discarded} | " f"{discard_rate:.1f}% | {reason} |\n"
+        table += (
+            f"| {source_abbrev} | {total} | {retained} | {discarded} | "
+            f"{discard_rate:.1f}% | {reason} |\n"
+        )
         has_data = True
 
     if not has_data:
@@ -156,7 +168,9 @@ def _format_monitoring_log(output_dir):
             section += "| Step | Duration (s) | Metrics |\n"
             section += "| :--- | :--- | :--- |\n"
             for step in data.get("steps", []):
-                metrics_str = ", ".join([f"{k}: {v}" for k, v in step.get("metrics", {}).items()])
+                metrics_str = ", ".join(
+                    [f"{k}: {v}" for k, v in step.get("metrics", {}).items()]
+                )
                 section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"
             sections.append(section)
         except Exception:
@@ -178,7 +192,9 @@ def _format_monitoring_log(output_dir):
             for step in data.get("steps", []):
                 metrics_val = step.get("metrics", {})
                 if isinstance(metrics_val, dict):
-                    metrics_str = ", ".join([f"{k}: {v}" for k, v in metrics_val.items()])
+                    metrics_str = ", ".join(
+                        [f"{k}: {v}" for k, v in metrics_val.items()]
+                    )
                 else:
                     metrics_str = str(metrics_val)
                 section += f"| {step['name']} | {step['duration_sec']:.2f} | {metrics_str or '-'} |\n"

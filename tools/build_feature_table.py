@@ -23,7 +23,11 @@ def find_latest_csv() -> str:
     candidates = []
     for root, _, files in os.walk("output"):
         for f in files:
-            if f.startswith("SmartHarvest_") and f.endswith(".csv") and "ready_for_kmeans" not in f:
+            if (
+                f.startswith("SmartHarvest_")
+                and f.endswith(".csv")
+                and "ready_for_kmeans" not in f
+            ):
                 candidates.append(os.path.join(root, f))
     if not candidates:
         raise FileNotFoundError("No SmartHarvest_*.csv found under output/")
@@ -53,15 +57,21 @@ def extract_lat_lon(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build DBStream feature table from SmartHarvest CSV")
-    parser.add_argument("--csv", dest="csv_path", default=None, help="Path to SmartHarvest_*.csv")
+    parser = argparse.ArgumentParser(
+        description="Build DBStream feature table from SmartHarvest CSV"
+    )
+    parser.add_argument(
+        "--csv", dest="csv_path", default=None, help="Path to SmartHarvest_*.csv"
+    )
     parser.add_argument(
         "--sample-fraction",
         type=float,
         default=None,
         help="Random sample fraction (0-1)",
     )
-    parser.add_argument("--sample-size", type=int, default=None, help="Random sample size (rows)")
+    parser.add_argument(
+        "--sample-size", type=int, default=None, help="Random sample size (rows)"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed for sampling")
     args = parser.parse_args()
 
@@ -106,7 +116,9 @@ def main():
 
     # Sampling
     if args.sample_size is not None:
-        feat_df = feat_df.sample(n=min(args.sample_size, len(feat_df)), random_state=args.seed)
+        feat_df = feat_df.sample(
+            n=min(args.sample_size, len(feat_df)), random_state=args.seed
+        )
     elif args.sample_fraction is not None:
         feat_df = feat_df.sample(frac=args.sample_fraction, random_state=args.seed)
 

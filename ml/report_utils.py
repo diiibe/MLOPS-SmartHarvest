@@ -47,18 +47,28 @@ def generate_ml_summary(ml_dir):
             cluster_df["cluster_status"] = "unknown"
 
         total_pixels = len(cluster_df)
-        total_clusters = len(cluster_df[cluster_df["cluster_label"] != -1]["cluster_label"].unique())
+        total_clusters = len(
+            cluster_df[cluster_df["cluster_label"] != -1]["cluster_label"].unique()
+        )
 
         # Anomalous clusters (outlier_score > 95th percentile)
         if "outlier_score" in cluster_df.columns:
             threshold = cluster_df["outlier_score"].quantile(0.95)
             anomalous_pixels = (cluster_df["outlier_score"] > threshold).sum()
-            pixel_anomaly_pct = (anomalous_pixels / total_pixels * 100) if total_pixels > 0 else 0
+            pixel_anomaly_pct = (
+                (anomalous_pixels / total_pixels * 100) if total_pixels > 0 else 0
+            )
 
             # Count anomalous clusters (clusters with mean outlier score > threshold)
-            cluster_scores = cluster_df[cluster_df["cluster_label"] != -1].groupby("cluster_label")["outlier_score"].mean()
+            cluster_scores = (
+                cluster_df[cluster_df["cluster_label"] != -1]
+                .groupby("cluster_label")["outlier_score"]
+                .mean()
+            )
             anomalous_clusters = (cluster_scores > threshold).sum()
-            anomaly_pct = (anomalous_clusters / total_clusters * 100) if total_clusters > 0 else 0
+            anomaly_pct = (
+                (anomalous_clusters / total_clusters * 100) if total_clusters > 0 else 0
+            )
         else:
             anomalous_pixels = 0
             pixel_anomaly_pct = 0
