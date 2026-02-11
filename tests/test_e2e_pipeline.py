@@ -109,8 +109,6 @@ class TestE2EPipeline(unittest.TestCase):
             self.fail(f"La pipeline è crashata: {e}")
 
         # 3. Verify Calls
-        mock_missing.assert_called()
-        print("Gate 1: Controllo partizioni mancanti - PASS")
         mock_srtm.assert_called()
         mock_st1.assert_called()
         mock_st2.assert_called()

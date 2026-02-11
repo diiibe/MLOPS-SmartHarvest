@@ -52,7 +52,3 @@ if result["success"]:
 else:
     print(f"\n✗ FAILED: {result.get('error', 'Unknown error')}")
     sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
