@@ -24,9 +24,12 @@ def normalize_features(frame, feature_cols):
     for i, col in enumerate(feature_cols):
         col_data = X[:, i]
         median_val = np.nanmedian(col_data)
-        X[col_data == np.nan] = median_val
         if np.isnan(median_val):
-            X[:, i] = 0  # Fallback if entire column is NaN
+            median_val = 0  # Fallback if entire column is NaN
+
+        # Correctly replace NaNs (the old `col_data == np.nan` never matches
+        # because NaN != NaN in IEEE 754 — use np.isnan instead).
+        X[np.isnan(X[:, i]), i] = median_val
 
     # Standardize
     scaler = StandardScaler()
@@ -53,8 +56,11 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
     """
     n_samples = len(X_scaled)
 
-    # Auto-select k: aim for ~20-50 pixels per microcluster
-    target_micro = min(max_microclusters, max(100, n_samples // 30))
+    # Auto-select k: aim for ~20-50 pixels per microcluster.
+    # Clamp to n_samples so MiniBatchKMeans never receives n_clusters > n_samples
+    # (which would raise), and cast to int explicitly for safety.
+    target_micro = min(max_microclusters, max(50, n_samples // 30))
+    target_micro = int(min(n_samples, target_micro))
 
     # Use MiniBatchKMeans for speed
     kmeans = MiniBatchKMeans(

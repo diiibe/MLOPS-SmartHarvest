@@ -165,37 +165,75 @@ def _create_outlier_image(df, week_id, output_dir):
         print(f"[Output] Warning: Could not create outlier image: {e}")
 
 
+def _convert_to_native(data):
+    """
+    Recursively convert numpy types to native Python types for JSON
+    serialization. Also ensures dictionary keys are strings.
+    """
+    if isinstance(data, dict):
+        return {str(k): _convert_to_native(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_convert_to_native(i) for i in data]
+    elif isinstance(data, np.integer):
+        return int(data)
+    elif isinstance(data, np.floating):
+        return float(data)
+    elif isinstance(data, np.ndarray):
+        return _convert_to_native(data.tolist())
+    else:
+        return data
+
+
 def save_tracking_state(week_id, track_ids, tracking_info, next_track_id, state_file):
     """
-    Save persistent tracking state.
+    Save persistent tracking state atomically.
+    Ensures all data is JSON-compatible.
     """
-    state = {
+    state_raw = {
         "last_week": week_id,
-        "track_ids": track_ids,  # {cluster_label: track_id}
+        "track_ids": track_ids,
         "tracking_info": tracking_info,
         "next_track_id": next_track_id,
         "timestamp": datetime.now().isoformat(),
     }
 
-    os.makedirs(os.path.dirname(state_file), exist_ok=True)
-    with open(state_file, "w") as f:
-        json.dump(state, f, indent=2)
+    # Convert all to native types (including string keys)
+    state = _convert_to_native(state_raw)
 
-    print(f"[State] Saved tracking state to {state_file}")
+    os.makedirs(os.path.dirname(state_file), exist_ok=True)
+
+    # Atomic write: write to temp file then rename
+    temp_file = f"{state_file}.tmp"
+    try:
+        with open(temp_file, "w") as f:
+            json.dump(state, f, indent=2)
+        os.replace(temp_file, state_file)
+        print(f"[State] Saved tracking state to {state_file} (atomic)")
+    except Exception as e:
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        print(f"[State] Error saving state: {e}")
 
 
 def load_tracking_state(state_file):
     """
     Load tracking state from previous run.
+    Handles malformed or missing state files.
     """
     if not os.path.exists(state_file):
         return None
 
-    with open(state_file, "r") as f:
-        state = json.load(f)
-
-    print(f"[State] Loaded tracking state from {state['last_week']}")
-    return state
+    try:
+        with open(state_file, "r") as f:
+            state = json.load(f)
+        print(f"[State] Loaded tracking state from {state.get('last_week', 'unknown')}")
+        return state
+    except (json.JSONDecodeError, ValueError) as e:
+        print(f"[State] Warning: Tracking state file is corrupted: {e}")
+        return None
+    except Exception as e:
+        print(f"[State] Error loading state: {e}")
+        return None
 
 
 def get_processed_weeks(output_dir):
