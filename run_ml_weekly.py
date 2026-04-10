@@ -18,6 +18,8 @@ from ml.pipeline import run_ml_pipeline
 
 import argparse
 
+
+def main():
     project_name = sys.argv[1]
     force_reprocess = "--force" in sys.argv
 
