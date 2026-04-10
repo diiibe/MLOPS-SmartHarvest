@@ -655,8 +655,8 @@ right ones for a production viticulture system.
 
 **Authors:**
 
-- **Lorenzo Di Bernardo** · University of Trieste — MSc Artificial Intelligence & Data Science — MLOps, software development
-- **Giovanni Mason** · Ca' Foscari University of Venice — Business & Administration — pipeline architecture, research, documentation
+- **Lorenzo Di Bernardo** · University of Trieste — M.Sc. Artificial Intelligence and Data Analytics — MLOps, software development
+- **Giovanni Mason** · University of Trieste — M.Sc. Artificial Intelligence and Data Analytics — pipeline architecture, research, documentation
 
 **Course:** Machine Learning Operations (MLOps) · Academic year 2025-26
 **Final evaluation:** 30/30

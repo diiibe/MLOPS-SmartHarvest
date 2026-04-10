@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Final project · Machine Learning Operations (MLOps) · A.A. 2025-26 · MSc in Artificial Intelligence and Data Science · University of Trieste
+  Exam of Machine Learning Operations 30/30 · A.A. 2025-26 · M.Sc. Artificial Intelligence and Data Analytics · University of Trieste
 </p>
 
 <p align="center">
@@ -23,8 +23,9 @@
 </p>
 
 <p align="center">
-  <strong>Lorenzo Di Bernardo</strong> · University of Trieste — AIDS &nbsp;|&nbsp;
-  <strong>Giovanni Mason</strong> · Ca' Foscari University of Venice — Business & Administration
+  <strong>Lorenzo Di Bernardo</strong> &nbsp;|&nbsp; <strong>Giovanni Mason</strong>
+  <br/>
+  <em>University of Trieste — M.Sc. Artificial Intelligence and Data Analytics</em>
 </p>
 
 ---
@@ -361,8 +362,8 @@ The test suite is skeleton-level (determinism checks, smoke tests on real data, 
 
 | Name | Focus | Affiliation |
 |---|---|---|
-| **Lorenzo Di Bernardo** | MLOps, Remote Sensing, Software Development | University of Trieste — MSc Artificial Intelligence & Data Science |
-| **Giovanni Mason** | Pipeline Architecture, Research, Documentation | Ca' Foscari University of Venice — Business & Administration |
+| **Lorenzo Di Bernardo** | MLOps, Remote Sensing, Software Development | University of Trieste — M.Sc. Artificial Intelligence and Data Analytics |
+| **Giovanni Mason** | Pipeline Architecture, Research, Documentation | University of Trieste — M.Sc. Artificial Intelligence and Data Analytics |
 
 ---
 
