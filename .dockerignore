@@ -1,0 +1,16 @@
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.DS_Store
+output/
+data/
+docs/course-deliverables/
+docs/reports-italian/
+*.ipynb_checkpoints/
+.vscode/
+.idea/
