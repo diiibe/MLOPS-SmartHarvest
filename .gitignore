@@ -44,4 +44,5 @@ build/
 #       and vineyard-specific. The demo/data/ snapshot IS versioned.
 output/
 data/
+!demo/data/
 *.pkl
