@@ -13,10 +13,17 @@ RUN apt-get update && apt-get install -y \
 
 # Copia il file dei requisiti e installa le librerie
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copia il codice sorgente
+COPY . .
 
 # Espone le porte per Jupyter (8888), API (8000), Streamlit (8501), Flask (5000)
 EXPOSE 8000 8501 5000
 
-# Comando di default (verrà sovrascritto dal docker-compose)
-CMD ["bash"]
+# Headless matplotlib per la modalità demo
+ENV MPLBACKEND=Agg
+
+# Comando di default: avvia la demo senza credenziali GEE
+CMD ["bash", "demo/run_demo.sh"]
