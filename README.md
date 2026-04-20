@@ -52,7 +52,7 @@ A commercial vineyard is never uniform. Two vines in the same row can follow opp
   <img src="docs/screenshots/demo.gif" alt="End-to-end SmartHarvest demo — Docker pipeline + interactive dashboard on the Fantinel37 vineyard" width="900" />
 </p>
 
-<p align="center"><em>End-to-end walk-through: <code>docker compose up demo</code> runs the full ML pipeline on the bundled Fantinel37 snapshot, then the Flask dashboard renders weekly cluster maps and the anomaly heatmap. <a href="docs/screenshots/demo.mp4">▶ Watch in HD (MP4, 1920×)</a>.</em></p>
+<p align="center"><em>End-to-end walk-through: <code>docker compose up demo</code> runs the full ML pipeline on the bundled Fantinel37 snapshot, then the Flask dashboard renders weekly cluster maps and the anomaly heatmap.</em></p>
 
 Everything runs on your laptop. No cloud account, no credentials, no pre-computed results.
 
@@ -65,16 +65,16 @@ Everything runs on your laptop. No cloud account, no credentials, no pre-compute
 ### Dashboard Walk-through
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-home.png" alt="SmartHarvest dashboard — project list landing page" width="900" />
+  <img src="docs/screenshots/landing-page.png" alt="SmartHarvest landing page — project name, search parameters, and ROI polygon drawing on the interactive map" width="900" />
 </p>
 
-<p align="center"><em>Landing page: existing projects plus the entry point for creating a new one.</em></p>
+<p align="center"><em>Landing page: pick a project name, set the acquisition parameters, and draw the vineyard boundary directly on the interactive map. The polygon becomes the project's spatial footprint for every subsequent acquisition.</em></p>
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-roi-selection.png" alt="ROI polygon drawing on the interactive map" width="900" />
+  <img src="docs/screenshots/dashboard-map.png" alt="Dashboard — multi-layer map view with per-sensor variables and project stats" width="900" />
 </p>
 
-<p align="center"><em>ROI selection: draw the vineyard boundary directly on the interactive map; the polygon becomes the project's spatial footprint for all subsequent acquisitions.</em></p>
+<p align="center"><em>Dashboard: multi-layer map view of the processed project. Each variable (NDVI, VH, LST, Slope, …) can be toggled from the layer control; the sidebar summarises project stats and exposes the CSV/Report exports.</em></p>
 
 <p align="center">
   <img src="docs/screenshots/dashboard-analysis.png" alt="Anomaly Detection tab — weekly outlier heatmap overlay" width="900" />
