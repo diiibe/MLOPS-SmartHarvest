@@ -52,7 +52,7 @@ A commercial vineyard is never uniform. Two vines in the same row can follow opp
   <img src="docs/screenshots/demo.gif" alt="End-to-end SmartHarvest demo — Docker pipeline + interactive dashboard on the Fantinel37 vineyard" width="900" />
 </p>
 
-<p align="center"><em>End-to-end walk-through: <code>docker compose up demo</code> runs the full ML pipeline on the bundled Fantinel37 snapshot, then the Flask dashboard renders weekly cluster maps and the anomaly heatmap.</em></p>
+<p align="center"><em>End-to-end walk-through: <code>docker compose up demo</code> runs the full ML pipeline on the bundled Fantinel37 snapshot, then the Flask dashboard renders weekly cluster maps and the anomaly heatmap. <a href="docs/screenshots/demo.mp4">▶ Watch the HD clip (MP4)</a>.</em></p>
 
 Everything runs on your laptop. No cloud account, no credentials, no pre-computed results.
 
