@@ -48,17 +48,39 @@ A commercial vineyard is never uniform. Two vines in the same row can follow opp
 
 ## Demo
 
+<p align="center">
+  <img src="docs/screenshots/demo.gif" alt="End-to-end SmartHarvest demo — Docker pipeline + interactive dashboard on the Fantinel37 vineyard" width="900" />
+</p>
+
+<p align="center"><em>End-to-end walk-through: <code>docker compose up demo</code> runs the full ML pipeline on the bundled Fantinel37 snapshot, then the Flask dashboard renders weekly cluster maps and the anomaly heatmap. <a href="docs/screenshots/demo.mp4">▶ Watch in HD (MP4, 1920×)</a>.</em></p>
+
 Everything runs on your laptop. No cloud account, no credentials, no pre-computed results.
 
 1. **Clone the repo.**
 2. **`docker compose up demo`** — builds the image and runs the ML pipeline on a bundled Fantinel37 snapshot.
 3. **Wait ~30 seconds.** The container processes 13 weeks of real vineyard data through the full clustering + tracking pipeline.
 4. **Inspect outputs** under `output/demo/ml_weekly/weekly/`: one `cluster_image_<week>.png` and one `outlier_image_<week>.png` per week, plus an interactive Folium map per week.
-5. **(Optional) `python app.py`** for the interactive Flask dashboard.
+5. **(Optional) `python app.py`** for the interactive Flask dashboard at <http://127.0.0.1:5001>.
+
+### Dashboard Walk-through
 
 <p align="center">
-  <img src="docs/screenshots/demo.gif" alt="Demo GIF placeholder — to be recorded" />
+  <img src="docs/screenshots/dashboard-home.png" alt="SmartHarvest dashboard — project list landing page" width="900" />
 </p>
+
+<p align="center"><em>Landing page: existing projects plus the entry point for creating a new one.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-roi-selection.png" alt="ROI polygon drawing on the interactive map" width="900" />
+</p>
+
+<p align="center"><em>ROI selection: draw the vineyard boundary directly on the interactive map; the polygon becomes the project's spatial footprint for all subsequent acquisitions.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-analysis.png" alt="Anomaly Detection tab — weekly outlier heatmap overlay" width="900" />
+</p>
+
+<p align="center"><em>Anomaly Detection tab: weekly timeline scrubber over the Fantinel37 vineyard with the HDBSCAN outlier heatmap active by default; the Normal and Anomalous cluster layers can be toggled on from the layer control.</em></p>
 
 ---
 
@@ -91,7 +113,8 @@ earthengine authenticate
 
 # 3. Launch the interactive Flask dashboard
 python app.py
-# Open http://localhost:5000
+# Open http://127.0.0.1:5001
+# (override with SMARTHARVEST_PORT=5000 if AirPlay Receiver is disabled)
 ```
 
 From the dashboard you can create a new project, draw a vineyard ROI on the interactive map, and trigger acquisition + ML analysis. Or run the core pipeline directly:
