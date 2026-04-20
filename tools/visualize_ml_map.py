@@ -101,21 +101,8 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
 
     normal_clusters = cluster_agg[~cluster_agg["is_anomalous"]]
 
-    if heat_data:
-        HeatMap(
-            heat_data,
-            radius=15,
-            blur=20,
-            min_opacity=0.3,
-            gradient={
-                0.0: 'blue',    # Normal
-                0.3: 'cyan',
-                0.5: 'lime',    # Medium
-                0.7: 'yellow',
-                0.85: 'orange',
-                1.0: 'red'      # Anomalous
-            }
-        ).add_to(fg_heatmap)
+    for _, cluster in normal_clusters.iterrows():
+        _add_cluster_marker(fg_normal, cluster, week_id, is_anomalous=False)
 
     fg_normal.add_to(m)
 
