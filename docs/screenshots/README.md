@@ -2,33 +2,24 @@
 
 This folder holds the images referenced by `README.md` and `TECHNICAL_REPORT.md`.
 
-## Files managed automatically
+## Current inventory
 
-The following files are generated (copied from real pipeline runs) during the
-portfolio uplift work and should not need manual intervention:
+All assets below are real captures from a full Fantinel37 run and are
+referenced by `README.md` (and in some cases `TECHNICAL_REPORT.md`):
 
-- **`ml-anomaly-heatmap-W45.png`** — Week-W45 outlier heatmap from the
-  Fantinel37 vineyard. Used as the hero image in the main README.
-- **`ml-cluster-map-W45.png`** — Week-W45 cluster map from the same vineyard.
-  Used in the Architecture section of the main README.
+- **`ml-anomaly-heatmap-W45.png`** — Week-W45 outlier heatmap. Hero image.
+- **`ml-cluster-map-W45.png`** — Week-W45 HDBSCAN cluster map.
+- **`dashboard-home.png`** — Flask dashboard landing page with project list.
+- **`dashboard-roi-selection.png`** — ROI polygon drawing on the interactive
+  map.
+- **`dashboard-analysis.png`** — Anomaly Detection tab with the outlier
+  heatmap active by default.
+- **`demo.gif`** — End-to-end walk-through: `docker compose up demo` plus
+  the dashboard. Kept under 5 MB so it renders inline on GitHub.
+- **`demo.mp4`** — HD (1920×) companion to `demo.gif`, linked as "Watch in
+  HD" from the README.
 
-## Placeholders that the author should replace
-
-The following files are committed as placeholders. Replace each one with a
-real PNG at the correct path:
-
-- **`dashboard-home.png`** — Screenshot of the Flask dashboard landing page
-  after `python app.py`, showing the project list and the option to create a
-  new project.
-- **`dashboard-roi-selection.png`** — Screenshot of the ROI drawing interface
-  with a vineyard polygon being drawn on the interactive map.
-- **`dashboard-analysis.png`** — Screenshot of the dashboard after running the
-  ML analysis, showing the anomaly heatmap overlaid on the base map.
-- **`demo.gif`** — Short (15-30 seconds) screen recording of
-  `docker compose up demo` start-to-finish, or of the Flask dashboard
-  demonstrating the end-to-end flow.
-
-When you replace a placeholder, keep the exact filename so the README
+If you re-record any of these, keep the exact filename so the README
 references continue to work.
 
 ## Filename conventions
