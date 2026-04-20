@@ -17,6 +17,8 @@ referenced by `README.md` (and in some cases `TECHNICAL_REPORT.md`):
   heatmap active by default.
 - **`demo.gif`** — End-to-end walk-through: `docker compose up demo` plus
   the dashboard. Kept under 5 MB so it renders inline on GitHub.
+- **`demo.mp4`** — HD companion to `demo.gif` (1920×, ~1.5 MB), linked as
+  "Watch the HD clip" from the main README.
 
 If you re-record any of these, keep the exact filename so the README
 references continue to work.
