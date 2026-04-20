@@ -97,7 +97,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     cluster_agg["is_anomalous"] = cluster_agg["outlier_score"] > outlier_threshold
 
     # Layer 1: Normal Clusters
-    fg_normal = folium.FeatureGroup(name="Normal Clusters", show=True)
+    fg_normal = folium.FeatureGroup(name="Normal Clusters", show=False)
 
     normal_clusters = cluster_agg[~cluster_agg["is_anomalous"]]
 
@@ -107,7 +107,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     fg_normal.add_to(m)
 
     # Layer 2: Anomalous Clusters
-    fg_anomalous = folium.FeatureGroup(name="Anomalous Clusters", show=True)
+    fg_anomalous = folium.FeatureGroup(name="Anomalous Clusters", show=False)
 
     anomalous_clusters = cluster_agg[cluster_agg["is_anomalous"]]
 
@@ -118,7 +118,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
 
     # Layer 3: Outlier Heatmap
     if os.path.exists(outlier_csv):
-        fg_heatmap = folium.FeatureGroup(name="Outlier Heatmap", show=False)
+        fg_heatmap = folium.FeatureGroup(name="Outlier Heatmap", show=True)
 
         outlier_df = pd.read_csv(outlier_csv)
 
