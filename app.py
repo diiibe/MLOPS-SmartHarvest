@@ -650,6 +650,7 @@ def _get_cluster_history(ml_dir, track_id, current_week_id):
 
 
 if __name__ == "__main__":
+    port = int(os.environ.get("SMARTHARVEST_PORT", 5001))
     print("SmartHarvest Web App Started")
-    print("Open: http://127.0.0.1:5000")
-    app.run(debug=True, port=5000)
+    print(f"Open: http://127.0.0.1:{port}")
+    app.run(debug=True, host="127.0.0.1", port=port)
