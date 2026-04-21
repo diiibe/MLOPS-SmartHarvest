@@ -229,7 +229,7 @@ function loadRoi() {
     var name = document.getElementById('savedRois').value;
     if (!name) return;
 
-    fetch('/rois/' + name)
+    fetch('/rois/' + encodeURIComponent(name))
         .then(response => response.json())
         .then(geometry => {
             drawnItems.clearLayers();
@@ -370,7 +370,7 @@ function startAnalysis() {
 
     // Start Polling
     var pollInterval = setInterval(function () {
-        fetch('/progress/' + projectName)
+        fetch('/progress/' + encodeURIComponent(projectName))
             .then(response => response.json())
             .then(data => {
                 document.getElementById('progressBar').style.width = data.percent + '%';

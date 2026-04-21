@@ -57,13 +57,22 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
             df["lon"] = df["coords"].apply(lambda x: x[0])
             df["lat"] = df["coords"].apply(lambda x: x[1])
 
-    center_lat = df["lat"].mean()
-    center_lon = df["lon"].mean()
+    # Fit the map to actual cluster bounds so ROIs outside Italy render
+    # correctly (previously zoom=16 centered on the Fantinel vineyard
+    # worked by accident).
+    lat_min, lat_max = float(df["lat"].min()), float(df["lat"].max())
+    lon_min, lon_max = float(df["lon"].min()), float(df["lon"].max())
+    center_lat = (lat_min + lat_max) / 2
+    center_lon = (lon_min + lon_max) / 2
 
-    # Create base map
     m = folium.Map(
-        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
+        location=[center_lat, center_lon],
+        tiles="Esri.WorldImagery",
     )
+    if lat_min != lat_max or lon_min != lon_max:
+        m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
+    else:
+        m.options["zoom"] = 16
 
     # Determine anomalous clusters (outlier_score > 95th percentile).
     # If the column is empty/all-NaN the quantile is NaN; fall back to +inf so
