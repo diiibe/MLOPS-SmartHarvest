@@ -9,38 +9,101 @@ from sklearn.cluster import MiniBatchKMeans
 import hdbscan
 
 
-def normalize_features(frame, feature_cols):
+def normalize_features(frame, feature_cols, reference_stats=None):
     """
-    STEP 4: Simple per-week normalization.
+    STEP 4: Feature normalization.
+
+    If `reference_stats` is provided (a dict of `{col: (mean, std)}`), the
+    features are centred/scaled against those rolling statistics instead of
+    being re-fit on this week alone. This keeps feature coordinates
+    comparable across weeks so the same vineyard block doesn't flip between
+    "anomalous" and "normal" only because a rainy week shifted the local
+    mean. Falls back to a per-week StandardScaler when no reference is
+    available (first week) or when a reference column's std is zero.
 
     Returns:
-        frame_normalized: DataFrame with scaled features
-        scaler: fitted StandardScaler (for inverse transform if needed)
+        frame_norm: DataFrame with `<col>_norm` columns added
+        scaler: fitted StandardScaler (per-week fit, always returned for
+            inverse_transform convenience)
+        X_scaled: ndarray of shape (n, len(feature_cols))
     """
-    # Extract features
-    X = frame[feature_cols].values
+    X = frame[feature_cols].values.astype(float, copy=True)
 
-    # Handle NaNs: fill with column median
-    for i, col in enumerate(feature_cols):
-        col_data = X[:, i]
-        median_val = np.nanmedian(col_data)
+    # Fill NaN with column median (fallback 0 if the entire column is NaN)
+    for i in range(X.shape[1]):
+        median_val = np.nanmedian(X[:, i])
         if np.isnan(median_val):
-            median_val = 0  # Fallback if entire column is NaN
-
-        # Correctly replace NaNs (the old `col_data == np.nan` never matches
-        # because NaN != NaN in IEEE 754 — use np.isnan instead).
+            median_val = 0.0
         X[np.isnan(X[:, i]), i] = median_val
 
-    # Standardize
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Always fit a per-week scaler so callers that want inverse_transform
+    # (or a fresh baseline) still get one.
+    scaler = StandardScaler().fit(X)
 
-    # Create normalized frame
+    if reference_stats:
+        means = np.array(
+            [reference_stats.get(c, (scaler.mean_[i], scaler.scale_[i]))[0]
+             for i, c in enumerate(feature_cols)]
+        )
+        stds = np.array(
+            [reference_stats.get(c, (scaler.mean_[i], scaler.scale_[i]))[1]
+             for i, c in enumerate(feature_cols)]
+        )
+        # Guard against zero-variance reference columns (would divide by 0)
+        stds = np.where(stds > 1e-12, stds, 1.0)
+        X_scaled = (X - means) / stds
+    else:
+        X_scaled = scaler.transform(X)
+
     frame_norm = frame.copy()
     for i, col in enumerate(feature_cols):
         frame_norm[f"{col}_norm"] = X_scaled[:, i]
 
     return frame_norm, scaler, X_scaled
+
+
+def compute_feature_stats(frame, feature_cols):
+    """Return `{col: (mean, std)}` from a single weekly frame.
+
+    Used to build the rolling reference the next week normalizes against.
+    NaNs are ignored; constant columns get `std=0` which the normalizer
+    then fences off. Kept separate from `normalize_features` so the
+    pipeline can accumulate a stats history without touching the scaled
+    output format.
+    """
+    stats = {}
+    for col in feature_cols:
+        if col not in frame.columns:
+            continue
+        vals = frame[col].to_numpy(dtype=float, copy=True)
+        vals = vals[~np.isnan(vals)]
+        if len(vals) == 0:
+            stats[col] = (0.0, 0.0)
+            continue
+        stats[col] = (float(vals.mean()), float(vals.std(ddof=0)))
+    return stats
+
+
+def merge_reference_stats(history, feature_cols):
+    """Aggregate a list of per-week `{col: (mean, std)}` dicts into a single
+    reference, using the mean of means and RMS of stds. This is a rough
+    approximation to pooling statistics across weeks without storing every
+    raw observation; exact pooling would require also knowing per-week
+    sample counts. Good enough for the "stabilize cluster boundaries"
+    goal — the clustering is density-based, not parametric."""
+    if not history:
+        return None
+    merged = {}
+    for col in feature_cols:
+        means = [h[col][0] for h in history if col in h]
+        stds = [h[col][1] for h in history if col in h]
+        if not means:
+            continue
+        merged[col] = (
+            float(np.mean(means)),
+            float(np.sqrt(np.mean(np.square(stds)))),
+        )
+    return merged or None
 
 
 def microclustering(X_scaled, frame, max_microclusters=5000):

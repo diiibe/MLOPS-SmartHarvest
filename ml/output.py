@@ -184,16 +184,41 @@ def _convert_to_native(data):
         return data
 
 
-def save_tracking_state(week_id, track_ids, tracking_info, next_track_id, state_file):
+def save_tracking_state(
+    week_id,
+    track_ids,
+    tracking_info,
+    next_track_id,
+    state_file,
+    stats_history=None,
+    anomaly_track_history=None,
+):
     """
     Save persistent tracking state atomically.
     Ensures all data is JSON-compatible.
+
+    `stats_history` (optional) is the rolling list of per-week feature
+    means/stds used by the cross-week normalizer. Persisting it means an
+    incremental run picks up the same reference the previous run was using,
+    rather than re-fitting from scratch on whatever weeks happen to be
+    reprocessed.
+
+    `anomaly_track_history` (optional) is the rolling list of
+    `set(track_id)` per week used by the persistence filter. Stored as a
+    list of lists so JSON can serialize it.
     """
+    serialized_anom_history = (
+        [sorted(int(x) for x in window) for window in anomaly_track_history]
+        if anomaly_track_history
+        else []
+    )
     state_raw = {
         "last_week": week_id,
         "track_ids": track_ids,
         "tracking_info": tracking_info,
         "next_track_id": next_track_id,
+        "stats_history": stats_history or [],
+        "anomaly_track_history": serialized_anom_history,
         "timestamp": datetime.now().isoformat(),
     }
 

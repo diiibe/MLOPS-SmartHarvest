@@ -104,6 +104,51 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                     f"({len(prev_frame)} pixels)"
                 )
 
+    # Rolling reference-stats history (most recent N weeks) used to stabilize
+    # feature normalization across weeks. Without this, a rainy/cloudy week
+    # can shift the mean of NDVI by 0.1 and make the same physical cluster
+    # land somewhere else in feature space, breaking cross-week comparisons
+    # of outlier scores. We keep it bounded so a single pathological week
+    # can't poison the reference forever.
+    ROLLING_WINDOW = 4
+    # Persistence window: how many recent weeks a track_id must appear in
+    # the anomaly summary before it is surfaced in the output. 0 = disabled
+    # (everything crossing the score threshold is reported). Bumping this
+    # to 2 is a good default once at least 3 weeks of history exist.
+    PERSISTENCE_WEEKS = 0
+    stats_history = []
+    anomaly_track_history = []
+    if prev_state and not force_reprocess:
+        try:
+            stats_history = [
+                {k: tuple(v) for k, v in h.items()}
+                for h in prev_state.get("stats_history", [])[-ROLLING_WINDOW:]
+            ]
+        except Exception:
+            stats_history = []
+        try:
+            anomaly_track_history = [
+                set(w) for w in prev_state.get("anomaly_track_history", [])[-ROLLING_WINDOW:]
+            ]
+        except Exception:
+            anomaly_track_history = []
+
+    # If we are reprocessing the same `last_week` the state was saved at, the
+    # last entry in each history corresponds to that very week. Drop it so
+    # normalization/persistence do not "see" the version of this week the
+    # previous run produced — which would otherwise make the reprocessed
+    # clustering converge on itself and break tracking against week N-1.
+    if (
+        prev_state
+        and not force_reprocess
+        and weeks_to_process
+        and prev_state.get("last_week") == weeks_to_process[0][0]
+    ):
+        if stats_history:
+            stats_history = stats_history[:-1]
+        if anomaly_track_history:
+            anomaly_track_history = anomaly_track_history[:-1]
+
     # Process weeks in chronological order
     results_summary = []
 
@@ -124,10 +169,19 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                 print(f"[WARNING] Skipping {week_id} - insufficient data")
                 continue
 
-            # STEP 4: Normalize features
+            # STEP 4: Normalize features against a rolling reference built
+            # from the previous weeks' stats. Fall back to per-week scaling
+            # when no history exists yet (first week of the timeline).
             print(f"\n[STEP 4] Normalizing features...")
+            reference_stats = clustering.merge_reference_stats(
+                stats_history, columns["features"]
+            )
+            if reference_stats:
+                print(
+                    f"  Using rolling reference from {len(stats_history)} prior week(s)"
+                )
             frame_norm, scaler, X_scaled = clustering.normalize_features(
-                frame, columns["features"]
+                frame, columns["features"], reference_stats=reference_stats
             )
 
             # STEP 5: Microclustering
@@ -161,7 +215,8 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
             # STEP 9: Anomaly detection
             # Pass microcluster-level outlier scores so the 95th-percentile
             # threshold is not biased by large microclusters (where every
-            # pixel inherits the same score).
+            # pixel inherits the same score). The absolute floor and
+            # persistence filter prevent "always 5% anomalies" noise.
             print(f"\n[STEP 9] Detecting anomalies...")
             anomalies, anomaly_summary = tracking.detect_anomalies(
                 frame,
@@ -169,6 +224,8 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                 outlier_scores,
                 track_ids,
                 micro_outlier_scores=outlier_scores_micro,
+                persistence_weeks=PERSISTENCE_WEEKS,
+                track_history=anomaly_track_history,
             )
 
             # STEP 7: Save outputs
@@ -191,9 +248,41 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
                 )
                 anomaly_summary.to_csv(anomaly_path, index=False)
 
-            # Save tracking state
+            # Update rolling stats history with *this* week's raw (unscaled)
+            # features so the next iteration has fresh reference statistics.
+            # We compute on `frame` (pre-normalization) so the stats stay in
+            # the original feature units.
+            week_stats = clustering.compute_feature_stats(
+                frame, columns["features"]
+            )
+            if week_stats:
+                stats_history.append(week_stats)
+                if len(stats_history) > ROLLING_WINDOW:
+                    stats_history = stats_history[-ROLLING_WINDOW:]
+
+            # Record which track_ids were anomalous this week for the
+            # persistence filter next week. Use the unfiltered anomaly set
+            # (before the persistence filter itself) so the filter doesn't
+            # require an already-persistent track to exist in order to grow.
+            week_anomaly_ids = (
+                set(anomaly_summary["track_id"].astype(int).tolist())
+                if len(anomaly_summary) > 0
+                else set()
+            )
+            anomaly_track_history.append(week_anomaly_ids)
+            if len(anomaly_track_history) > ROLLING_WINDOW:
+                anomaly_track_history = anomaly_track_history[-ROLLING_WINDOW:]
+
+            # Save tracking state (includes rolling stats + anomaly history
+            # for incremental runs)
             output.save_tracking_state(
-                week_id, track_ids, tracking_info, next_track_id, state_file
+                week_id,
+                track_ids,
+                tracking_info,
+                next_track_id,
+                state_file,
+                stats_history=stats_history,
+                anomaly_track_history=anomaly_track_history,
             )
 
             monitor.stop_step(

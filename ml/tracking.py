@@ -178,16 +178,39 @@ def track_clusters_simple(
 
 
 def detect_anomalies(
-    frame, cluster_labels, outlier_scores, track_ids, micro_outlier_scores=None
+    frame,
+    cluster_labels,
+    outlier_scores,
+    track_ids,
+    micro_outlier_scores=None,
+    min_absolute_score=0.5,
+    persistence_weeks=0,
+    track_history=None,
 ):
     """
     STEP 9: Simple anomaly detection based on outlier scores.
 
+    A pixel is anomalous when **both** conditions hold:
+      1. Its outlier score is in the top 5% for the week (relative).
+      2. Its outlier score is above `min_absolute_score` (absolute).
+    Condition 2 prevents the previous "always flag 5%" behaviour, where a
+    week with no genuinely anomalous vegetation still produced 5% of pixels
+    as "anomalies" just because the percentile is relative by construction.
+    Default `0.5` is calibrated against HDBSCAN's outlier-score scale (0–1,
+    GLOSH-based); lower it for more sensitive detection.
+
+    If `persistence_weeks > 0`, the anomaly_summary is additionally
+    filtered to track_ids that have been flagged for at least
+    `persistence_weeks` of the most recent weeks — a transient one-week
+    spike is suppressed. Requires `track_history`, a list of
+    `set(track_id)` for the last N weeks (most recent last), provided by
+    the caller.
+
     Threshold source:
-      - If `micro_outlier_scores` is provided, the 95th percentile is computed
-        on microcluster-level scores (unduplicated). This avoids the bias where
-        large microclusters dominate the pixel-level distribution and crowd out
-        genuine small-cluster outliers.
+      - If `micro_outlier_scores` is provided, the 95th percentile is
+        computed on microcluster-level scores (unduplicated) to avoid the
+        bias where large microclusters dominate the pixel-level
+        distribution and crowd out small-cluster outliers.
       - Otherwise, fall back to the per-pixel `outlier_scores`.
 
     Returns:
@@ -206,14 +229,19 @@ def detect_anomalies(
         print("[Anomaly Detection] Scores are constant — no anomalies detected")
         return pd.DataFrame(), pd.DataFrame()
 
-    score_threshold = np.percentile(scores_for_threshold, 95)
+    relative_threshold = float(np.percentile(scores_for_threshold, 95))
+    # Absolute floor dominates when the whole week is quiet; relative
+    # threshold dominates when there really are outliers to pick.
+    effective_threshold = max(relative_threshold, float(min_absolute_score))
 
-    # Use >= so ties at the 95th percentile still trigger; avoids "no anomalies
-    # detected" when the top 5 % is tied (common with propagated micro-scores).
-    anomaly_mask = np.asarray(outlier_scores) >= score_threshold
+    anomaly_mask = np.asarray(outlier_scores) >= effective_threshold
 
     if anomaly_mask.sum() == 0:
-        print("[Anomaly Detection] No anomalies detected")
+        print(
+            "[Anomaly Detection] No anomalies cross the combined "
+            f"relative (p95={relative_threshold:.3f}) / absolute "
+            f"(>={min_absolute_score}) threshold"
+        )
         return pd.DataFrame(), pd.DataFrame()
 
     # Build anomaly dataframe
@@ -232,6 +260,26 @@ def detect_anomalies(
     anomaly_summary = anomaly_summary[
         anomaly_summary["track_id"] != -1
     ]  # Exclude noise
+
+    # Optional persistence filter: only surface track_ids that have been
+    # anomalous for at least `persistence_weeks` of the last N windows.
+    # A transient one-week score spike (e.g. a single cloudy scene) is
+    # suppressed when the caller supplies enough history.
+    if persistence_weeks > 0 and track_history:
+        recent = track_history[-persistence_weeks:]
+        persistent_ids = set.intersection(*recent) if recent else set()
+        persistent_ids |= set(anomaly_summary["track_id"].tolist())
+        hit_count = {tid: 0 for tid in persistent_ids}
+        for window in track_history:
+            for tid in window:
+                if tid in hit_count:
+                    hit_count[tid] += 1
+        keep = {
+            tid
+            for tid, cnt in hit_count.items()
+            if cnt >= persistence_weeks
+        }
+        anomaly_summary = anomaly_summary[anomaly_summary["track_id"].isin(keep)]
 
     print(f"[Anomaly Detection] Found {len(anomaly_summary)} anomalous clusters")
 
