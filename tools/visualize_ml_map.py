@@ -65,8 +65,16 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
         location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
     )
 
-    # Determine anomalous clusters (outlier_score > 95th percentile)
-    outlier_threshold = df["outlier_score"].quantile(0.95)
+    # Determine anomalous clusters (outlier_score > 95th percentile).
+    # If the column is empty/all-NaN the quantile is NaN; fall back to +inf so
+    # the subsequent `> threshold` comparison cleanly marks nothing as anomalous
+    # instead of bubbling the NaN through pandas' boolean-coercion warnings.
+    if df.empty or df["outlier_score"].notna().sum() == 0:
+        outlier_threshold = float("inf")
+    else:
+        outlier_threshold = df["outlier_score"].quantile(0.95)
+        if pd.isna(outlier_threshold):
+            outlier_threshold = float("inf")
 
     # Aggregate by cluster
     agg_dict = {

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import pandas as pd
 import markdown
@@ -9,6 +10,7 @@ from flask import (
     jsonify,
     send_file,
     send_from_directory,
+    abort,
 )
 import main
 from tools import visualize_data_map, charts
@@ -17,12 +19,26 @@ app = Flask(__name__)
 
 os.makedirs("output", exist_ok=True)
 
+# Only allow letters, digits, dash, underscore, dot (without ".."). Anything
+# else becomes an underscore so the name can be used in a filesystem path and
+# in a URL without surprises.
+_SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]")
+
 
 def _get_project_safe_name(project_name):
-    """Ensure project name is safe for file paths (no spaces)."""
+    """Sanitize a project name for filesystem paths.
+
+    The previous implementation only replaced spaces, which left path-traversal
+    sequences (`../`) and separators (`/`, `\\`) intact — allowing crafted
+    `project_name` values to escape the `output/` directory when concatenated
+    with `os.path.join`.
+    """
     if not project_name:
         return "default"
-    return project_name.replace(" ", "_")
+    # Collapse path separators and ".." before the per-character filter.
+    cleaned = project_name.replace("/", "_").replace("\\", "_").replace("..", "_")
+    safe = _SAFE_NAME_RE.sub("_", cleaned).strip("._") or "default"
+    return safe
 
 
 @app.route("/")
@@ -42,7 +58,8 @@ def list_rois():
 
 @app.route("/rois/<name>", methods=["GET"])
 def get_roi(name):
-    path = os.path.join("rois", f"{name}.json")
+    safe = _get_project_safe_name(name)
+    path = os.path.join("rois", f"{safe}.json")
     if os.path.exists(path):
         with open(path, "r") as f:
             return jsonify(json.load(f))
@@ -56,11 +73,13 @@ def save_roi():
     geometry = data.get("geometry")
     if not name or not geometry:
         return jsonify({"success": False, "error": "Missing name or geometry"})
+    # Sanitize to prevent writing outside rois/ via "../" or absolute paths.
+    safe_name = _get_project_safe_name(name)
     os.makedirs("rois", exist_ok=True)
-    path = os.path.join("rois", f"{name}.json")
+    path = os.path.join("rois", f"{safe_name}.json")
     with open(path, "w") as f:
         json.dump(geometry, f, indent=4)
-    return jsonify({"success": True})
+    return jsonify({"success": True, "saved_as": safe_name})
 
 
 @app.route("/projects", methods=["GET"])
@@ -172,8 +191,9 @@ analysis_progress = {}
 
 @app.route("/progress/<project_name>")
 def get_progress(project_name):
+    safe = _get_project_safe_name(project_name)
     return jsonify(
-        analysis_progress.get(project_name, {"status": "idle", "percent": 0})
+        analysis_progress.get(safe, {"status": "idle", "percent": 0})
     )
 
 
@@ -188,6 +208,26 @@ def run_analysis():
             return jsonify({"success": False, "error": "Invalid geometry"})
 
         roi_coords = geometry["coordinates"]
+
+        # Validate ROI before kicking off the pipeline — saves a GEE auth round
+        # trip and gives the user an actionable error for malformed input.
+        try:
+            from modules.roi_validation import (
+                ROIValidationError,
+                validate_roi_coords,
+            )
+            import config as _cfg
+
+            roi_coords = validate_roi_coords(
+                roi_coords, max_area_ha=getattr(_cfg, "MAX_ROI_AREA_HA", 10_000)
+            )
+        except ROIValidationError as ve:
+            return jsonify({"success": False, "error": f"Invalid ROI: {ve}"})
+
+        # Use the sanitized name as the progress-dict key so the JS client,
+        # which polls /progress/<safe_name>, always hits the same key the
+        # pipeline is writing into.
+        project_name = _get_project_safe_name(project_name)
         analysis_date = data.get("analysis_date")
         time_range_days = data.get("time_range_days", 90)  # Default 3 months
 

@@ -123,7 +123,16 @@ class MLTimeline {
         label.textContent = 'Error';
         label.style.color = '#e74c3c';
 
-        document.getElementById('ml-cluster-info').innerHTML = `<p style="color: #e74c3c; font-size: 13px;">${message}</p>`;
+        // Use DOM APIs so the error string is rendered as text, never as
+        // HTML. innerHTML here was an XSS vector since `message` can bubble
+        // up from fetch rejections that include server-controlled content.
+        const target = document.getElementById('ml-cluster-info');
+        target.textContent = '';
+        const p = document.createElement('p');
+        p.style.color = '#e74c3c';
+        p.style.fontSize = '13px';
+        p.textContent = message;
+        target.appendChild(p);
     }
 }
 
