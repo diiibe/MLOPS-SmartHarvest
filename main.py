@@ -38,8 +38,8 @@ def create_conn_ee():
 def run_pipeline(
     roi_coords=None,
     project_name="default",
-    start_date="2024-06-01",
-    end_date="2024-09-01",
+    start_date=None,
+    end_date=None,
     progress_callback=None,
 ):
     """
@@ -48,8 +48,12 @@ def run_pipeline(
     Args:
         roi_coords: GeoJSON polygon coordinates [[lon, lat], ...]
         project_name: Name for this analysis project
-        start_date: Start of the analysis window (YYYY-MM-DD)
-        end_date: End of the analysis window (YYYY-MM-DD)
+        start_date: Start of the analysis window (YYYY-MM-DD). If omitted,
+            falls back to config.START_DATE — but callers are strongly
+            encouraged to supply explicit dates. The default window in
+            config is a Northern-hemisphere growing season (Jun–Sep) and
+            is NOT appropriate for Southern-hemisphere or tropical ROIs.
+        end_date: End of the analysis window (YYYY-MM-DD).
         progress_callback: Optional callable(str) for progress messages
     Returns:
         dict with output paths, or None on failure
@@ -67,21 +71,41 @@ def run_pipeline(
 
     try:
         create_conn_ee()
-        # ee.Initialize()
 
-        # Set ROI
-        if roi_coords:
-            config.ROI = ee.Geometry.Polygon(roi_coords)
-        else:
-            config.ROI = ee.Geometry.Polygon(config.ROI_COORDS)
+        # Validate and set ROI
+        from modules.roi_validation import (
+            ROIValidationError,
+            validate_roi_coords,
+        )
+
+        try:
+            raw_coords = roi_coords if roi_coords else config.ROI_COORDS
+            validated = validate_roi_coords(
+                raw_coords,
+                max_area_ha=getattr(config, "MAX_ROI_AREA_HA", 10_000),
+            )
+            config.ROI = ee.Geometry.Polygon(validated)
+        except ROIValidationError as ve:
+            log(f"Invalid ROI: {ve}")
+            raise
 
         area_sqm = config.ROI.area().getInfo()
         area_ha = area_sqm / 10000.0
         log(f"ROI Area: {area_ha:.2f} ha ({area_sqm:.0f} m²)")
 
-        # Set analysis window
-        config.START_DATE = start_date
-        config.END_DATE = end_date
+        # Log centroid so users can sanity-check the geography in the report.
+        try:
+            centroid = config.ROI.centroid().coordinates().getInfo()
+            log(f"ROI Centroid: lon={centroid[0]:.4f}, lat={centroid[1]:.4f}")
+        except Exception:
+            pass
+
+        # Set analysis window (fall back to config defaults only if caller
+        # supplied nothing — explicit is better than implicit).
+        if start_date:
+            config.START_DATE = start_date
+        if end_date:
+            config.END_DATE = end_date
         log(f"Analysis Window: {config.START_DATE} to {config.END_DATE}")
 
         output_dir = os.path.join("output", project_name_safe)
@@ -103,6 +127,14 @@ def run_pipeline(
         monitor.stop_step("Sentinel-2", {"image_count": s2_meta.get("image_count", 0)})
         all_metadata.append(s2_meta)
         log(f"  -> {s2_meta['image_count']} S2 images found.")
+
+        # Log the CRS so operators running the pipeline on new ROIs can see
+        # which UTM zone GEE selected (useful when debugging cross-zone ROIs).
+        try:
+            crs_info = master_crs.getInfo()
+            log(f"  -> Master CRS: {crs_info.get('crs', crs_info)}")
+        except Exception:
+            pass
 
         # 2. SRTM (static topo)
         log("Processing SRTM (Topography)...")
@@ -187,20 +219,6 @@ def run_pipeline(
             except Exception as e:
                 log(f"Warning: ML Analysis error: {e}")
             monitor.stop_step("ML-Analysis")
-
-        # 9. Generate map
-        if merged_path and os.path.exists(merged_path):
-            log("Generating verification map...")
-            monitor.start_step("Map")
-            try:
-                from tools import visualize_data_map
-                map_filename = f'Map_{project_name_safe}.html'
-                map_path = os.path.join(output_dir, map_filename)
-                visualize_data_map.create_verification_map(merged_path, map_path)
-                log(f"[OK] Map saved to: {map_path}")
-            except Exception as e:
-                log(f"Warning: Map generation failed: {e}")
-            monitor.stop_step("Map")
 
         # 10. Generate acquisition log and report
         log("Generating Acquisition Log and Report...")

@@ -5,6 +5,7 @@ numpy>=1.26,<3.0
 # Remote sensing
 earthengine-api>=0.1.400,<1.0
 google-auth>=2.0,<3.0
+shapely>=2.0,<3.0
 
 # Clustering / ML
 scikit-learn>=1.4,<2.0

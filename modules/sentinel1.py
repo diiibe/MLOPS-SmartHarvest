@@ -33,18 +33,19 @@ def get_sentinel1_data(master_crs):
     count = s1_full.size().getInfo()
     discarded_count = total_count - count
     if count == 0:
-        print("Warning: No Sentinel-1 data found. Returning empty collection.")
-        empty = ee.ImageCollection(
-            [
-                ee.Image.constant([-9999, -9999, -9999])
-                .rename(["VH", "VV", "Ratio"])
-                .reproject(crs=master_crs, scale=config.TARGET_SCALE)
-                .set("system:time_start", ee.Date(config.START_DATE).millis())
-            ]
+        # Return a truly empty collection and set `available=False` in the
+        # metadata so downstream steps can skip VH/VV/Ratio cleanly instead
+        # of ingesting -9999 sentinels that silently turn into NaN later.
+        print(
+            f"[Sentinel-1] No data in {config.START_DATE}..{config.END_DATE} — "
+            "downstream pipeline will skip S1 features."
         )
-        return empty, {
+        return ee.ImageCollection([]), {
             "source": "Sentinel-1",
             "image_count": 0,
+            "total_images": total_count,
+            "available": False,
+            "reason": "No S1 acquisitions match the filters for this ROI/window.",
             "date_range": f"{config.START_DATE} to {config.END_DATE}",
             "bands": ["VH", "VV", "Ratio"],
         }

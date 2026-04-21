@@ -499,11 +499,11 @@ def build_temporal_csv(csv_paths, output_path):
                 c for c in sat_columns.get(label, []) if c in df.columns
             ]
             print(f"  Data columns: {available_data_cols}")
+            n_rows = len(df)
             for col in available_data_cols:
                 non_null = df[col].notna().sum()
-                print(
-                    f"    {col}: {non_null} non-null values ({non_null/len(df)*100:.1f}%)"
-                )
+                pct = (non_null / n_rows * 100) if n_rows else 0.0
+                print(f"    {col}: {non_null} non-null values ({pct:.1f}%)")
 
             # Keep only relevant columns
             if "spatial_id" in df.columns:
@@ -650,12 +650,16 @@ def build_temporal_csv(csv_paths, output_path):
         print(f"         Remaining: {rows_after} rows with valid data")
 
     # --- Add Slope from SRTM (static, same for every date) ---
-    if use_spatial_id and "spatial_id" in srtm_df.columns:
-        # Map by spatial_id for perfect alignment
+    # srtm_df is None when the SRTM download did not produce a CSV (e.g. the
+    # ROI falls outside SRTM's ±60° coverage band, or the Drive export is
+    # still pending). Do not crash in that case: emit NaN Slope instead.
+    if srtm_df is None or srtm_df.empty:
+        print("[MERGE] No SRTM data available — Slope will be NaN.")
+        result_df["Slope"] = np.nan
+    elif use_spatial_id and "spatial_id" in srtm_df.columns:
         srtm_map = dict(zip(srtm_df["spatial_id"], srtm_df["Slope"]))
         result_df["Slope"] = result_df["spatial_id"].map(srtm_map)
     else:
-        # Fallback: map by .geo
         result_df["Slope"] = result_df[".geo"].map(srtm_slope)
 
     # --- Parse lat/lon from .geo ---

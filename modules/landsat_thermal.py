@@ -79,18 +79,21 @@ def get_landsat_thermal(master_crs):
         discarded_count = total_count - count
 
         if count == 0:
-            print("Warning: No Landsat thermal data found. Returning empty collection.")
-            empty = ee.ImageCollection(
-                [
-                    ee.Image.constant(-9999)
-                    .rename("LST")
-                    .reproject(crs=master_crs, scale=config.TARGET_SCALE)
-                    .set("system:time_start", ee.Date(config.START_DATE).millis())
-                ]
+            # Genuinely empty — do not fabricate a -9999 sentinel image. That
+            # got merged downstream as NaN, which looks identical to "cloud-
+            # masked pixel" and hid the fact that the source had no data at
+            # all for this ROI/window.
+            print(
+                f"[Landsat] No thermal data in {config.START_DATE}..{config.END_DATE} — "
+                "LST will be absent from the output."
             )
-            return empty, {
+            return ee.ImageCollection([]), {
                 "source": "Landsat 8/9",
+                "collection": "LANDSAT/LC08/C02/T1_L2 + LC09",
                 "image_count": 0,
+                "total_images": total_count,
+                "available": False,
+                "reason": "No Landsat 8/9 scenes pass filters for this ROI/window.",
                 "date_range": f"{config.START_DATE} to {config.END_DATE}",
                 "bands": ["LST"],
             }
@@ -144,20 +147,12 @@ def get_landsat_thermal(master_crs):
         return collection, metadata
 
     except Exception as e:
-        print(
-            f"Warning: Error processing Landsat thermal data ({e}). Using empty collection."
-        )
-        empty = ee.ImageCollection(
-            [
-                ee.Image.constant(-9999)
-                .rename("LST")
-                .reproject(crs=master_crs, scale=config.TARGET_SCALE)
-                .set("system:time_start", ee.Date(config.START_DATE).millis())
-            ]
-        )
-        return empty, {
+        print(f"[Landsat] Error processing thermal data: {e}. Returning empty.")
+        return ee.ImageCollection([]), {
             "source": "Landsat 8/9",
             "image_count": 0,
+            "available": False,
+            "reason": f"Processing error: {e}",
             "date_range": f"{config.START_DATE} to {config.END_DATE}",
             "bands": ["LST"],
             "error": str(e),
