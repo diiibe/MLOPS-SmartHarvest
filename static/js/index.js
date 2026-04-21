@@ -378,15 +378,41 @@ function startAnalysis() {
             });
     }, 1000);
 
+    // Only forward advanced params that the user actually set. The
+    // backend falls back to the same server-side defaults the CLI
+    // would use whenever a field is left blank.
+    function optionalNumber(id) {
+        var el = document.getElementById(id);
+        if (!el || el.value === '') return null;
+        var n = parseFloat(el.value);
+        return isFinite(n) ? n : null;
+    }
+
+    var payload = {
+        project_name: projectName,
+        geometry: geometry,
+        analysis_date: analysisDate,
+        time_range_days: parseInt(timeRange)
+    };
+    var advanced = {
+        cloud_threshold_s2: optionalNumber('cloudS2'),
+        cloud_threshold_landsat: optionalNumber('cloudLandsat'),
+        target_scale: optionalNumber('targetScale')
+    };
+    // Drop unset keys so the server's `data.get(..., default)` falls
+    // back to its constants rather than receiving a None override.
+    var pipelineConfig = {};
+    Object.keys(advanced).forEach(function (k) {
+        if (advanced[k] != null) pipelineConfig[k] = advanced[k];
+    });
+    if (Object.keys(pipelineConfig).length) {
+        payload.pipeline_config = pipelineConfig;
+    }
+
     fetch('/run_analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            project_name: projectName,
-            geometry: geometry,
-            analysis_date: analysisDate,
-            time_range_days: parseInt(timeRange)
-        })
+        body: JSON.stringify(payload)
     })
         .then(response => response.json())
         .then(data => {

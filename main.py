@@ -41,6 +41,9 @@ def run_pipeline(
     start_date=None,
     end_date=None,
     progress_callback=None,
+    cloud_threshold_s2=None,
+    cloud_threshold_landsat=None,
+    target_scale=None,
 ):
     """
     Run the SmartHarvest temporal pipeline.
@@ -54,7 +57,13 @@ def run_pipeline(
             config is a Northern-hemisphere growing season (Jun–Sep) and
             is NOT appropriate for Southern-hemisphere or tropical ROIs.
         end_date: End of the analysis window (YYYY-MM-DD).
-        progress_callback: Optional callable(str) for progress messages
+        progress_callback: Optional callable(str) for progress messages.
+        cloud_threshold_s2: Override for config.CLOUD_THRESHOLD_S2 (%).
+            Only scenes whose CLOUDY_PIXEL_PERCENTAGE is below this
+            value make it past the download filter.
+        cloud_threshold_landsat: Override for config.CLOUD_THRESHOLD_LANDSAT.
+        target_scale: Override for config.TARGET_SCALE — master-grid cell
+            size in metres (10 = Sentinel-2 native, 20 ≈ 4× fewer rows).
     Returns:
         dict with output paths, or None on failure
     """
@@ -107,6 +116,30 @@ def run_pipeline(
         if end_date:
             config.END_DATE = end_date
         log(f"Analysis Window: {config.START_DATE} to {config.END_DATE}")
+
+        # Per-run overrides for download-pipeline hyperparameters. The
+        # sensor modules read these from the `config` module at call
+        # time, so rebinding the attributes here is enough. We stash
+        # the effective values so they get recorded in the metadata
+        # alongside everything else about the run.
+        if cloud_threshold_s2 is not None:
+            config.CLOUD_THRESHOLD_S2 = int(cloud_threshold_s2)
+        if cloud_threshold_landsat is not None:
+            config.CLOUD_THRESHOLD_LANDSAT = int(cloud_threshold_landsat)
+        if target_scale is not None:
+            config.TARGET_SCALE = int(target_scale)
+        log(
+            "Hyperparameters: "
+            f"cloud_s2={config.CLOUD_THRESHOLD_S2} "
+            f"cloud_landsat={config.CLOUD_THRESHOLD_LANDSAT} "
+            f"target_scale={config.TARGET_SCALE}m"
+        )
+        pipeline_hparams = {
+            "source": "Hyperparameters",
+            "cloud_threshold_s2": config.CLOUD_THRESHOLD_S2,
+            "cloud_threshold_landsat": config.CLOUD_THRESHOLD_LANDSAT,
+            "target_scale": config.TARGET_SCALE,
+        }
 
         output_dir = os.path.join("output", project_name_safe)
         os.makedirs(output_dir, exist_ok=True)
@@ -236,6 +269,10 @@ def run_pipeline(
             "analysis_range": f"{config.START_DATE} to {config.END_DATE}",
         }
         all_metadata.insert(0, area_stats)
+        # Persist the effective hyperparameters so the report / dashboard
+        # can show what was actually used for this run (and so we have a
+        # trail if the caller passes overrides via the Advanced panel).
+        all_metadata.append(pipeline_hparams)
 
         report_filename = f"Report_{project_name_safe}.md"
         report_path = os.path.join(output_dir, report_filename)

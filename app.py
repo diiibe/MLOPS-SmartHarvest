@@ -254,6 +254,43 @@ def run_analysis():
             new_percent = min(current["percent"] + 10, 95)
             analysis_progress[project_name] = {"status": msg, "percent": new_percent}
 
+        # Optional per-run overrides for the download-pipeline knobs the
+        # user can set from the "Advanced parameters" panel on the
+        # index page. Only fields the client actually sent are passed
+        # through; anything missing falls back to the config defaults.
+        pipeline_config = data.get("pipeline_config") or {}
+        pipeline_overrides = {}
+        if "cloud_threshold_s2" in pipeline_config:
+            try:
+                pipeline_overrides["cloud_threshold_s2"] = int(
+                    pipeline_config["cloud_threshold_s2"]
+                )
+            except (TypeError, ValueError):
+                return jsonify({
+                    "success": False,
+                    "error": "cloud_threshold_s2 must be a number",
+                })
+        if "cloud_threshold_landsat" in pipeline_config:
+            try:
+                pipeline_overrides["cloud_threshold_landsat"] = int(
+                    pipeline_config["cloud_threshold_landsat"]
+                )
+            except (TypeError, ValueError):
+                return jsonify({
+                    "success": False,
+                    "error": "cloud_threshold_landsat must be a number",
+                })
+        if "target_scale" in pipeline_config:
+            try:
+                pipeline_overrides["target_scale"] = int(
+                    pipeline_config["target_scale"]
+                )
+            except (TypeError, ValueError):
+                return jsonify({
+                    "success": False,
+                    "error": "target_scale must be a number",
+                })
+
         # Run Pipeline
         result = main.run_pipeline(
             roi_coords=roi_coords,
@@ -261,6 +298,7 @@ def run_analysis():
             start_date=start_date,
             end_date=end_date,
             progress_callback=update_progress,
+            **pipeline_overrides,
         )
 
         if result:
@@ -304,6 +342,7 @@ def dashboard(project_name):
                 # Separate list for image counts to ensure specific ordering
                 image_stats = []
                 topo_stat = None
+                hparam_stats = []
 
                 for item in meta_list:
                     if "source" in item:
@@ -320,6 +359,25 @@ def dashboard(project_name):
                                     "value": item.get("analysis_range", "N/A"),
                                 }
                             )
+                        elif item["source"] == "Hyperparameters":
+                            # Show only the effective values the run used,
+                            # rendered as a single compact row each so the
+                            # sidebar stays dense.
+                            if "cloud_threshold_s2" in item:
+                                hparam_stats.append({
+                                    "label": "Cloud threshold S2 (%)",
+                                    "value": str(item["cloud_threshold_s2"]),
+                                })
+                            if "cloud_threshold_landsat" in item:
+                                hparam_stats.append({
+                                    "label": "Cloud threshold Landsat (%)",
+                                    "value": str(item["cloud_threshold_landsat"]),
+                                })
+                            if "target_scale" in item:
+                                hparam_stats.append({
+                                    "label": "Grid resolution (m)",
+                                    "value": str(item["target_scale"]),
+                                })
                         elif item["source"] == "SRTM":
                             topo_stat = {
                                 "label": "Topography",
@@ -339,6 +397,11 @@ def dashboard(project_name):
                 # Append Topography last
                 if topo_stat:
                     stats.append(topo_stat)
+
+                # Hyperparameters go at the bottom of the sidebar so the
+                # primary numbers (area, window, image counts) stay above
+                # the fold.
+                stats.extend(hparam_stats)
 
         except Exception as e:
             print(f"Error reading metadata: {e}")
