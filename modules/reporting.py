@@ -104,6 +104,80 @@ def _format_cloud_shadow_stats(metadata_list):
     return output
 
 
+def _format_threshold_sensitivity(metadata_list, thresholds=None):
+    """
+    Render a "what if we had used a different cloud threshold?" table.
+
+    For each optical / thermal source that stashed `cloud_per_image_pct`
+    during acquisition (Sentinel-2, Landsat 8/9), count how many scenes
+    would have been kept at a range of hypothetical thresholds and
+    compare against the one actually used. This turns an abstract knob
+    ("we filter at 50%") into something concrete the user can calibrate
+    against a real dataset.
+
+    Args:
+        metadata_list: list of metadata dicts produced by the acquisition
+            modules. Entries without `cloud_per_image_pct` are skipped.
+        thresholds: optional iterable of percentages to probe. Defaults
+            to a pragmatic sweep from 10 to 100 in steps of 10.
+
+    Returns:
+        str: markdown text, or a short placeholder if no source exposes
+        a per-image cloud array (e.g. runs that pre-date this feature).
+    """
+    if thresholds is None:
+        thresholds = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+    rows = []
+    for meta in metadata_list:
+        per_image = meta.get("cloud_per_image_pct")
+        if not per_image:
+            continue
+        source = meta.get("source", "Unknown")
+        used_threshold = meta.get("cloud_threshold_used")
+        total = len(per_image)
+        for threshold in thresholds:
+            kept = sum(1 for p in per_image if p is not None and p < threshold)
+            rows.append((source, threshold, kept, total, used_threshold))
+
+    if not rows:
+        return (
+            "_No per-image cloud-coverage arrays were captured for this run — "
+            "counterfactual sensitivity table not available._\n\n"
+        )
+
+    # Group by source so the table reads top-to-bottom per sensor.
+    output = (
+        "For each optical / thermal source, below is the number of scenes "
+        "that would have passed the cloud filter at various thresholds "
+        "(exclusive, as `CLOUDY_PIXEL_PERCENTAGE < threshold`). The "
+        "*[used]* marker highlights the threshold applied to the run on "
+        "disk; tightening it always keeps fewer scenes, loosening it keeps "
+        "more, saturating at the total count in the window.\n\n"
+    )
+
+    by_source = {}
+    for source, threshold, kept, total, used in rows:
+        by_source.setdefault(source, {"rows": [], "total": total, "used": used})
+        by_source[source]["rows"].append((threshold, kept))
+
+    for source, payload in by_source.items():
+        output += f"**{source}** — {payload['total']} scenes in the window\n\n"
+        output += "| Threshold (%) | Kept | Discarded | Kept / Total |\n"
+        output += "| ---: | ---: | ---: | :--- |\n"
+        for threshold, kept in payload["rows"]:
+            marker = " *[used]*" if threshold == payload["used"] else ""
+            discarded = payload["total"] - kept
+            pct = (kept / payload["total"] * 100) if payload["total"] else 0
+            output += (
+                f"| {threshold}{marker} | {kept} | {discarded} | "
+                f"{pct:.0f}% |\n"
+            )
+        output += "\n"
+
+    return output
+
+
 def _format_discarded_images(metadata_list):
     """
     Format discarded images table as markdown.
@@ -350,6 +424,10 @@ def generate_report(
     # NEW SECTION 5: Discarded Images
     report += "\n## 5. Discarded Images\n\n"
     report += _format_discarded_images(metadata_list)
+
+    # NEW SECTION 5b: Cloud Threshold Sensitivity (counterfactual)
+    report += "\n## 5.1 Cloud Threshold Sensitivity\n\n"
+    report += _format_threshold_sensitivity(metadata_list)
 
     # NEW SECTION 6: ML Weekly Analysis (if available)
     if ml_dir and os.path.exists(ml_dir):

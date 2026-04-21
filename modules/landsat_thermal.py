@@ -31,13 +31,24 @@ def get_landsat_thermal(master_crs):
         landsat_raw = l9_raw.merge(l8_raw)
         total_count = landsat_raw.size().getInfo()
 
-        # Calculate cloud coverage statistics BEFORE filtering
+        # Calculate cloud coverage statistics BEFORE filtering. Pull
+        # the per-image list too so downstream reporting can build a
+        # "threshold sensitivity" counterfactual without re-querying
+        # GEE.
         print("[Landsat] Calculating cloud coverage statistics...")
         cloud_stats = (
             landsat_raw.aggregate_stats("CLOUD_COVER").getInfo()
             if total_count > 0
             else {}
         )
+        cloud_per_image = []
+        if total_count > 0:
+            try:
+                cloud_per_image = (
+                    landsat_raw.aggregate_array("CLOUD_COVER").getInfo() or []
+                )
+            except Exception as e:
+                print(f"[Landsat] Warning: could not fetch per-image cloud array: {e}")
 
         # Calculate QA mask statistics
         print("[Landsat] Calculating QA mask statistics...")
@@ -136,6 +147,8 @@ def get_landsat_thermal(master_crs):
                 "max": cloud_stats.get("max", 0),
                 "stddev": cloud_stats.get("stdDev", 0),
             },
+            "cloud_threshold_used": config.CLOUD_THRESHOLD_LANDSAT,
+            "cloud_per_image_pct": cloud_per_image,
             "qa_masked": {
                 "mean": qa_stats.get("mean", 0),
                 "min": qa_stats.get("min", 0),

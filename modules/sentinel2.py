@@ -23,9 +23,19 @@ def get_sentinel2_data():
 
     total_count = s2_raw.size().getInfo()
 
-    # Calculate cloud coverage statistics BEFORE filtering
+    # Calculate cloud coverage statistics BEFORE filtering. We also
+    # pull the per-image values so downstream reporting can compute
+    # counterfactuals — "how many scenes would have been kept at
+    # threshold X?" — without re-querying GEE.
     print("[S2] Calculating cloud coverage statistics...")
     cloud_stats = s2_raw.aggregate_stats("CLOUDY_PIXEL_PERCENTAGE").getInfo()
+    try:
+        cloud_per_image = s2_raw.aggregate_array(
+            "CLOUDY_PIXEL_PERCENTAGE"
+        ).getInfo() or []
+    except Exception as e:
+        print(f"[S2] Warning: could not fetch per-image cloud array: {e}")
+        cloud_per_image = []
 
     # Calculate shadow coverage statistics from SCL band
     print("[S2] Calculating shadow coverage statistics...")
@@ -147,6 +157,8 @@ def get_sentinel2_data():
             "max": cloud_stats.get("max", 0),
             "stddev": cloud_stats.get("stdDev", 0),
         },
+        "cloud_threshold_used": config.CLOUD_THRESHOLD_S2,
+        "cloud_per_image_pct": cloud_per_image,
         "shadow_coverage": {
             "mean": shadow_stats.get("mean", 0),
             "min": shadow_stats.get("min", 0),
