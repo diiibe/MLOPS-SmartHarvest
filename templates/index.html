@@ -72,6 +72,32 @@
 
     <div class="divider"></div>
 
+    <details class="advanced-params">
+        <summary>Advanced parameters</summary>
+        <div class="inline-hint" style="margin-bottom: 10px;">
+            Overrides for the data-download pipeline. Leave blank to use the
+            server-side defaults.
+        </div>
+
+        <div class="form-group">
+            <label for="cloudS2">Sentinel-2 cloud threshold (%)</label>
+            <input type="number" id="cloudS2" min="0" max="100" step="1" placeholder="50" title="Scenes with CLOUDY_PIXEL_PERCENTAGE above this value are discarded before download.">
+            <div class="inline-hint">Tile-level cloud filter. Lower = stricter.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="cloudLandsat">Landsat cloud threshold (%)</label>
+            <input type="number" id="cloudLandsat" min="0" max="100" step="1" placeholder="80" title="Scenes with more than this percentage of cloud cover are discarded.">
+            <div class="inline-hint">Landsat 8/9 filter for LST. Default 80.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="targetScale">Grid resolution (m)</label>
+            <input type="number" id="targetScale" min="10" max="60" step="10" placeholder="10" title="Master grid cell size. 10 m matches Sentinel-2 native; 20 m quarters the row count.">
+            <div class="inline-hint">10 m native S2, 20 m = 4× fewer rows.</div>
+        </div>
+    </details>
+
     <button class="btn-secondary" onclick="saveCurrentRoi()">Save Location</button>
     <button class="btn-success" id="runButton" onclick="startAnalysis()">Start Analysis</button>
     <div class="inline-hint" id="runHint">Draw ROI and set parameters to start.</div>
