@@ -29,6 +29,239 @@ def _parse_coords(geo_str):
         return [0, 0]
 
 
+# Client-side date navigator injected into the map HTML.
+#
+# Contract with the surrounding Python code:
+#   * `window.__SH_MAP_CONFIG.variables[label]` holds the timeline metadata
+#     for one overlay. `fg_name` is the folium-generated global JS variable
+#     of the matching Leaflet feature group.
+#   * The global Leaflet map object is the only one on the page; Folium
+#     always names it `map_<hex>`. We find it by iterating `window` keys.
+#
+# Behaviour:
+#   * `overlayadd` makes the toggled variable the "active" one.
+#   * Arrows page through `config.variables[active].dates`; the selected
+#     frame is fetched from /api/variable_frame/<project>/<col>/<date>
+#     and re-rendered inside the feature group by `clearLayers()` + new
+#     CircleMarkers.
+#   * `overlayremove` falls back to the most recently added overlay still
+#     visible (if any), so the date label stays in sync.
+#   * Nothing is persisted across page reloads — that's why a refresh
+#     returns every variable to its latest acquisition.
+_DATE_NAV_JS = """
+(function () {
+    function findLeafletMap() {
+        for (var k in window) {
+            if (k.indexOf("map_") === 0 && window[k] instanceof L.Map) {
+                return window[k];
+            }
+        }
+        return null;
+    }
+
+    function init() {
+        var map = findLeafletMap();
+        if (!map) {
+            setTimeout(init, 80);
+            return;
+        }
+        var cfg = window.__SH_MAP_CONFIG;
+        if (!cfg || !cfg.variables) return;
+
+        var variables = cfg.variables;
+        // `currentDate[label]` = date string currently displayed for that
+        // variable. Seeded with the latest, which matches what Python
+        // rendered into the initial FG.
+        var currentDate = {};
+        Object.keys(variables).forEach(function (k) {
+            currentDate[k] = variables[k].latest;
+        });
+
+        // Stack of active overlay labels, most-recent-on-top. Used to
+        // resolve "the last selected one" for the date display. Folium
+        // renders a `show=True` overlay before this script runs so
+        // `overlayadd` won't fire for it — prime the stack by walking
+        // the map's current layers instead.
+        var activeStack = [];
+        map.eachLayer(function (layer) {
+            Object.keys(variables).forEach(function (label) {
+                if (window[variables[label].fg_name] === layer) {
+                    activeStack.push(label);
+                }
+            });
+        });
+
+        // Build the DOM control.
+        var control = L.control({ position: "topleft" });
+        control.onAdd = function () {
+            var div = L.DomUtil.create("div", "sh-date-nav leaflet-bar");
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            div.innerHTML =
+                '<div class="sh-dn-label">Acquisition date</div>' +
+                '<div class="sh-dn-row">' +
+                '  <button class="sh-dn-btn sh-dn-prev" title="Previous acquisition">&#9664;</button>' +
+                '  <div class="sh-dn-date">—</div>' +
+                '  <button class="sh-dn-btn sh-dn-next" title="Next acquisition">&#9654;</button>' +
+                '</div>' +
+                '<div class="sh-dn-var"></div>';
+            return div;
+        };
+        control.addTo(map);
+
+        var rootEl = control.getContainer();
+        var dateEl = rootEl.querySelector(".sh-dn-date");
+        var varEl = rootEl.querySelector(".sh-dn-var");
+        var prevBtn = rootEl.querySelector(".sh-dn-prev");
+        var nextBtn = rootEl.querySelector(".sh-dn-next");
+
+        function activeLabel() {
+            return activeStack.length ? activeStack[activeStack.length - 1] : null;
+        }
+
+        function render() {
+            var label = activeLabel();
+            if (!label) {
+                dateEl.textContent = "—";
+                varEl.textContent = "No layer active";
+                varEl.classList.add("sh-dn-empty");
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+            varEl.classList.remove("sh-dn-empty");
+            var meta = variables[label];
+            var date = currentDate[label];
+            var idx = meta.dates.indexOf(date);
+            dateEl.textContent = date || "—";
+            varEl.textContent = label;
+            prevBtn.disabled = idx <= 0;
+            nextBtn.disabled = idx === -1 || idx >= meta.dates.length - 1;
+        }
+
+        function colorFor(val, meta) {
+            // Linear interpolation between meta.colors stops.
+            if (val == null || isNaN(val)) return "#888";
+            var t = (val - meta.vmin) / (meta.vmax - meta.vmin);
+            t = Math.max(0, Math.min(1, t));
+            var stops = meta.colors;
+            if (stops.length === 1) return stops[0];
+            var pos = t * (stops.length - 1);
+            var i = Math.floor(pos);
+            var f = pos - i;
+            if (i >= stops.length - 1) return stops[stops.length - 1];
+            return mixHex(stops[i], stops[i + 1], f);
+        }
+
+        function toRgb(hex) {
+            // Accept #rgb, #rrggbb, or named — caller passes hex strings
+            // because Python side produces them from branca colormaps.
+            hex = hex.replace("#", "");
+            if (hex.length === 3) {
+                hex = hex.split("").map(function (c) { return c + c; }).join("");
+            }
+            return [
+                parseInt(hex.substr(0, 2), 16),
+                parseInt(hex.substr(2, 2), 16),
+                parseInt(hex.substr(4, 2), 16),
+            ];
+        }
+
+        function mixHex(a, b, f) {
+            var ra = toRgb(a);
+            var rb = toRgb(b);
+            var r = Math.round(ra[0] + (rb[0] - ra[0]) * f);
+            var g = Math.round(ra[1] + (rb[1] - ra[1]) * f);
+            var bl = Math.round(ra[2] + (rb[2] - ra[2]) * f);
+            return "#" + [r, g, bl].map(function (v) {
+                return ("0" + v.toString(16)).slice(-2);
+            }).join("");
+        }
+
+        var inflight = 0;
+
+        function loadFrame(label, date) {
+            var meta = variables[label];
+            var fg = window[meta.fg_name];
+            if (!fg) return;
+
+            var ticket = ++inflight;
+            var url = "/api/variable_frame/" + encodeURIComponent(cfg.project) +
+                      "/" + encodeURIComponent(meta.col) +
+                      "/" + encodeURIComponent(date);
+            fetch(url).then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.json();
+            }).then(function (payload) {
+                if (ticket !== inflight) return;  // superseded
+                fg.clearLayers();
+                var rows = payload.points || [];
+                rows.forEach(function (p) {
+                    var color = colorFor(p.value, meta);
+                    var m = L.circleMarker([p.lat, p.lon], {
+                        radius: 4,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.85,
+                        weight: 1,
+                    });
+                    m.bindPopup(
+                        "<b>" + label + "</b><br>" +
+                        "Value: " + (p.value != null ? p.value.toFixed(4) : "n/a") + "<br>" +
+                        "Date: " + date + "<br>" +
+                        "Lat: " + p.lat.toFixed(5) + ", Lon: " + p.lon.toFixed(5)
+                    );
+                    m.addTo(fg);
+                });
+                currentDate[label] = date;
+                render();
+            }).catch(function (err) {
+                console.error("[SH-date-nav] load failed", err);
+            });
+        }
+
+        function step(direction) {
+            var label = activeLabel();
+            if (!label) return;
+            var meta = variables[label];
+            var idx = meta.dates.indexOf(currentDate[label]);
+            if (idx === -1) return;
+            var next = idx + direction;
+            if (next < 0 || next >= meta.dates.length) return;
+            loadFrame(label, meta.dates[next]);
+        }
+
+        prevBtn.addEventListener("click", function () { step(-1); });
+        nextBtn.addEventListener("click", function () { step(1); });
+
+        map.on("overlayadd", function (e) {
+            if (variables[e.name]) {
+                var i = activeStack.indexOf(e.name);
+                if (i !== -1) activeStack.splice(i, 1);
+                activeStack.push(e.name);
+                render();
+            }
+        });
+        map.on("overlayremove", function (e) {
+            if (variables[e.name]) {
+                var i = activeStack.indexOf(e.name);
+                if (i !== -1) activeStack.splice(i, 1);
+                render();
+            }
+        });
+
+        render();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+"""
+
+
 def get_available_dates(csv_path):
     """Return sorted list of unique dates in the temporal CSV."""
     if not os.path.exists(csv_path):
@@ -76,26 +309,27 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
     # layer control alongside the per-sensor variable layers.
     fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=False)
 
-    # Color palette for clusters
+    # Color palette for clusters — Tableau 10 (perceptually well-separated,
+    # works against the Esri satellite basemap and the dark sidebar).
     unique_clusters = cluster_df["cluster_label"].unique()
     unique_clusters = [c for c in unique_clusters if c != -1]  # Exclude noise
     colors_palette = [
-        "#e74c3c",
-        "#3498db",
-        "#2ecc71",
-        "#f39c12",
-        "#9b59b6",
-        "#1abc9c",
-        "#e67e22",
-        "#34495e",
-        "#16a085",
-        "#c0392b",
+        "#4E79A7",  # blue
+        "#F28E2B",  # orange
+        "#E15759",  # red
+        "#76B7B2",  # teal
+        "#59A14F",  # green
+        "#EDC948",  # yellow
+        "#B07AA1",  # purple
+        "#FF9DA7",  # pink
+        "#9C755F",  # brown
+        "#BAB0AC",  # warm grey
     ]
 
     cluster_colors = {}
     for i, c in enumerate(unique_clusters):
         cluster_colors[c] = colors_palette[i % len(colors_palette)]
-    cluster_colors[-1] = "#7f8c8d"  # Gray for noise
+    cluster_colors[-1] = "#4C4C4C"  # Dark grey for noise (distinct from #BAB0AC)
 
     # Add markers
     for _, row in cluster_df.iterrows():
@@ -137,7 +371,9 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
     )
 
 
-def create_verification_map(csv_path, output_file, selected_date=None):
+def create_verification_map(
+    csv_path, output_file, selected_date=None, project_name=None
+):
     """
     Create a Folium map with one layer per statistic.
 
@@ -146,6 +382,10 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         output_file: Path for the output HTML map.
         selected_date: Date string (YYYY-MM-DD) to display.
                       If None, each variable uses its own latest date with data.
+        project_name: Flask project name. When supplied, the rendered map
+                      exposes a date-navigator control below the layer panel
+                      that pages through each variable's historical
+                      acquisitions via the /api/variable_frame endpoint.
     Returns:
         str: Path to the output HTML file, or None on error.
     """
@@ -199,6 +439,14 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     """
 
     numeric_stats = [c for c in schema.STATS_COLUMNS if c in df.columns]
+
+    # Index of layer metadata the date-navigator needs to page through
+    # historical acquisitions. Keys are the layer labels shown in the
+    # layer control (so we can match them against Leaflet's overlayadd
+    # event), values carry the underlying column key, the vmin/vmax
+    # scale, the ordered list of dates with data, and the folium-
+    # generated feature-group JS variable name.
+    variable_index = {}
 
     for col in numeric_stats:
         if col not in df.columns:
@@ -278,6 +526,22 @@ def create_verification_map(csv_path, output_file, selected_date=None):
 
         fg.add_to(m)
 
+        # Record the timeline so the date-navigator can page through this
+        # variable's acquisitions without a full map reload.
+        variable_dates = sorted(
+            df[df[col].notna()]["date"].dropna().unique().tolist()
+        )
+        variable_index[label] = {
+            "col": col,
+            "label": label,
+            "vmin": vmin,
+            "vmax": vmax,
+            "colors": colors,
+            "dates": variable_dates,
+            "latest": display_date,
+            "fg_name": fg.get_name(),
+        }
+
     # Add ML anomaly scale to legend if ML dir exists
     ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
     if os.path.exists(ml_dir):
@@ -335,7 +599,9 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     m.add_child(CustomLegend(legend_html))
     folium.LayerControl(position="topleft", collapsed=False).add_to(m)
 
-    # Dark mode CSS for layer control
+    # Dark mode CSS for layer control. min-width is set slightly larger
+    # than Leaflet's default so long labels (e.g. "Land Surface
+    # Temperature (°C)") and the date-navigator widget sit comfortably.
     dark_css = """
     <style>
         .leaflet-control-layers {
@@ -347,6 +613,7 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             padding: 6px !important;
             font-family: 'Segoe UI', sans-serif !important;
             max-height: 85vh !important;
+            min-width: 220px !important;
             overflow-y: auto !important;
         }
         .leaflet-control-layers-base label,
@@ -366,9 +633,91 @@ def create_verification_map(csv_path, output_file, selected_date=None):
         .leaflet-control-layers::-webkit-scrollbar-track {
             background: transparent;
         }
+        /* Date navigator — sits just under the layer control, same width
+           so the two feel like a single stacked panel. */
+        .sh-date-nav {
+            background-color: rgba(25,25,25,0.92);
+            color: #eee;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            padding: 8px 10px;
+            margin-top: 6px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            min-width: 220px;
+        }
+        .sh-date-nav .sh-dn-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #9aa;
+            margin-bottom: 4px;
+        }
+        .sh-date-nav .sh-dn-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .sh-date-nav .sh-dn-btn {
+            background: rgba(255,255,255,0.08);
+            color: #eee;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            cursor: pointer;
+            width: 26px;
+            height: 22px;
+            font-size: 12px;
+            line-height: 1;
+            padding: 0;
+        }
+        .sh-date-nav .sh-dn-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.18);
+        }
+        .sh-date-nav .sh-dn-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+        .sh-date-nav .sh-dn-date {
+            flex-grow: 1;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .sh-date-nav .sh-dn-var {
+            font-size: 9px;
+            color: #8ab4ff;
+            text-align: center;
+            margin-top: 3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sh-date-nav .sh-dn-empty {
+            font-size: 10px;
+            color: #888;
+            font-style: italic;
+            text-align: center;
+        }
     </style>
     """
     m.get_root().html.add_child(folium.Element(dark_css))
+
+    # Date-navigator: only makes sense when we know the API origin
+    # (which the Flask route supplies via project_name).
+    if project_name and variable_index:
+        config = {
+            "project": project_name,
+            "variables": variable_index,
+        }
+        nav_script = (
+            "<script>\n"
+            "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
+            + _DATE_NAV_JS
+            + "\n</script>\n"
+        )
+        m.get_root().html.add_child(folium.Element(nav_script))
 
     m.save(output_file)
     print(f"Map saved to {output_file}")

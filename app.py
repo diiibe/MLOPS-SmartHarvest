@@ -437,7 +437,9 @@ def get_map(project_name):
     if needs_regen:
         print(f"Generating map for {project_name}...")
         try:
-            visualize_data_map.create_verification_map(csv_path, map_path)
+            visualize_data_map.create_verification_map(
+                csv_path, map_path, project_name=project_name_safe
+            )
         except Exception as e:
             print(f"Error generating map: {e}")
             return (
@@ -453,6 +455,72 @@ def get_map(project_name):
         )
 
     return send_from_directory(output_dir, map_filename)
+
+
+@app.route("/api/variable_frame/<project_name>/<variable>/<date>")
+def variable_frame(project_name, variable, date):
+    """
+    Return the raw (lat, lon, value) tuples for a specific variable on a
+    specific date. Consumed by the map's date-navigator control to page
+    through a layer's historical acquisitions without rebuilding the
+    whole map HTML.
+
+    Response shape:
+        {"project": "...", "variable": "...", "date": "YYYY-MM-DD",
+         "points": [{"lat": 46.xxxxx, "lon": 12.xxxxx, "value": 0.71}, ...]}
+    """
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join("output", project_name_safe)
+    csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
+    if not os.path.exists(csv_path):
+        return jsonify({"error": "CSV not found", "points": []}), 404
+
+    try:
+        df = pd.read_csv(csv_path, usecols=lambda c: c in (
+            "date", "lat", "lon", ".geo", variable
+        ))
+    except ValueError:
+        # Variable column missing from the CSV.
+        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
+
+    if variable not in df.columns:
+        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
+
+    # Backfill lat/lon from .geo if the column materialisation didn't
+    # already produce them (matches visualize_data_map's own handling).
+    if ("lat" not in df.columns or "lon" not in df.columns) and ".geo" in df.columns:
+        import json as _json
+
+        def _parse(g):
+            try:
+                data = _json.loads(g) if isinstance(g, str) else g
+                return data["coordinates"]
+            except Exception:
+                return [None, None]
+
+        coords = df[".geo"].apply(_parse)
+        df["lon"] = coords.apply(lambda x: x[0])
+        df["lat"] = coords.apply(lambda x: x[1])
+
+    frame = df[(df["date"] == date) & df[variable].notna()]
+    # Collapse duplicates at the same location on the same day (e.g. two
+    # passes in a tile corner) to avoid double-drawing markers.
+    if len(frame):
+        frame = (
+            frame.groupby(["lat", "lon"], as_index=False)[variable].mean()
+        )
+
+    points = [
+        {"lat": float(r["lat"]), "lon": float(r["lon"]), "value": float(r[variable])}
+        for _, r in frame.iterrows()
+        if pd.notna(r["lat"]) and pd.notna(r["lon"])
+    ]
+    return jsonify({
+        "project": project_name_safe,
+        "variable": variable,
+        "date": date,
+        "points": points,
+    })
 
 
 @app.route("/download/<project_name>")
