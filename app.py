@@ -420,8 +420,21 @@ def get_map(project_name):
     map_filename = f"Map_{project_name_safe}.html"
     map_path = os.path.join(output_dir, map_filename)
 
-    # Generate map if it doesn't exist but CSV does
-    if not os.path.exists(map_path) and os.path.exists(csv_path):
+    # Regenerate the map if:
+    # - it doesn't exist yet, or
+    # - `ml_weekly/` is newer than the cached map. This covers projects
+    #   whose map was generated before the ML pipeline finished — those
+    #   HTMLs are missing the "ML Clusters (<week>)" overlay entirely,
+    #   and without this check they'd keep serving stale content.
+    ml_dir = os.path.join(output_dir, "ml_weekly")
+    needs_regen = os.path.exists(csv_path) and (
+        not os.path.exists(map_path)
+        or (
+            os.path.exists(ml_dir)
+            and os.path.getmtime(ml_dir) > os.path.getmtime(map_path)
+        )
+    )
+    if needs_regen:
         print(f"Generating map for {project_name}...")
         try:
             visualize_data_map.create_verification_map(csv_path, map_path)

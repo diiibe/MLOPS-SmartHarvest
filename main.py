@@ -191,7 +191,26 @@ def run_pipeline(
                 "Warning: Could not assemble full temporal dataset. Some satellite data may be missing."
             )
 
-        # 8. Generate map
+        # 8. Run ML Anomaly Detection (Integrated)
+        # Must run BEFORE map generation so that
+        # `create_verification_map` can pick up the `ml_weekly/` output
+        # and register the "ML Clusters (<week>)" overlay in the map's
+        # layer control. Otherwise a freshly-analysed project ends up
+        # with no cluster layer in the dashboard map.
+        if merged_path and os.path.exists(merged_path):
+            log("Running ML Anomaly Detection...")
+            monitor.start_step("ML-Analysis")
+            try:
+                ml_result = run_ml_pipeline(merged_path, output_dir)
+                if ml_result.get("success"):
+                    log(f"[OK] ML Analysis complete for {ml_result['latest_week']}")
+                else:
+                    log(f"Warning: ML Analysis failed: {ml_result.get('error')}")
+            except Exception as e:
+                log(f"Warning: ML Analysis error: {e}")
+            monitor.stop_step("ML-Analysis")
+
+        # 9. Generate map
         if merged_path and os.path.exists(merged_path):
             log("Generating verification map...")
             monitor.start_step("Map")
@@ -205,20 +224,6 @@ def run_pipeline(
             except Exception as e:
                 log(f"Warning: Map generation failed: {e}")
             monitor.stop_step("Map")
-
-        # 9. Run ML Anomaly Detection (Integrated)
-        if merged_path and os.path.exists(merged_path):
-            log("Running ML Anomaly Detection...")
-            monitor.start_step("ML-Analysis")
-            try:
-                ml_result = run_ml_pipeline(merged_path, output_dir)
-                if ml_result.get("success"):
-                    log(f"[OK] ML Analysis complete for {ml_result['latest_week']}")
-                else:
-                    log(f"Warning: ML Analysis failed: {ml_result.get('error')}")
-            except Exception as e:
-                log(f"Warning: ML Analysis error: {e}")
-            monitor.stop_step("ML-Analysis")
 
         # 10. Generate acquisition log and report
         log("Generating Acquisition Log and Report...")
