@@ -16,8 +16,21 @@ import pandas as pd
 from branca.element import MacroElement
 from jinja2 import Template
 from folium.plugins import HeatMap
+from matplotlib.colors import to_hex
 
 import schema
+
+
+def _resolve_to_hex(colors):
+    """
+    Normalise a list of branca/CSS colour specs to `#rrggbb` strings.
+
+    The per-variable `COLUMN_COLORS` table uses named CSS colours (e.g.
+    ``["red", "yellow", "green"]``) because branca accepts them as-is.
+    The date-navigator's client-side colour interpolation only knows
+    how to parse hex, so we convert here before embedding.
+    """
+    return [to_hex(c) for c in colors]
 
 
 def _parse_coords(geo_str):
@@ -536,7 +549,7 @@ def create_verification_map(
             "label": label,
             "vmin": vmin,
             "vmax": vmax,
-            "colors": colors,
+            "colors": _resolve_to_hex(colors),
             "dates": variable_dates,
             "latest": display_date,
             "fg_name": fg.get_name(),

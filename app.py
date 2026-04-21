@@ -422,18 +422,36 @@ def get_map(project_name):
 
     # Regenerate the map if:
     # - it doesn't exist yet, or
-    # - `ml_weekly/` is newer than the cached map. This covers projects
-    #   whose map was generated before the ML pipeline finished — those
-    #   HTMLs are missing the "ML Clusters (<week>)" overlay entirely,
-    #   and without this check they'd keep serving stale content.
+    # - `ml_weekly/` is newer than the cached map (covers projects whose
+    #   map was generated before the ML pipeline finished — those are
+    #   missing the "ML Clusters (<week>)" overlay), or
+    # - the cached HTML pre-dates the date-navigator feature (the
+    #   `__SH_MAP_CONFIG` marker embeds it; an old cache has no widget
+    #   no matter how much the user hard-refreshes).
     ml_dir = os.path.join(output_dir, "ml_weekly")
-    needs_regen = os.path.exists(csv_path) and (
-        not os.path.exists(map_path)
-        or (
-            os.path.exists(ml_dir)
-            and os.path.getmtime(ml_dir) > os.path.getmtime(map_path)
-        )
-    )
+    needs_regen = False
+    if os.path.exists(csv_path):
+        if not os.path.exists(map_path):
+            needs_regen = True
+        else:
+            if (
+                os.path.exists(ml_dir)
+                and os.path.getmtime(ml_dir) > os.path.getmtime(map_path)
+            ):
+                needs_regen = True
+            else:
+                try:
+                    # Feature-detect the date navigator: we look for the
+                    # CSS class injected near the top of <head>. 8 KB
+                    # comfortably clears the leaflet/folium CSS banner
+                    # that precedes it, without pulling the whole 50 MB
+                    # marker blob into memory.
+                    with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
+                        head = f.read(8192)
+                    if "sh-date-nav" not in head:
+                        needs_regen = True
+                except OSError:
+                    needs_regen = True
     if needs_regen:
         print(f"Generating map for {project_name}...")
         try:
