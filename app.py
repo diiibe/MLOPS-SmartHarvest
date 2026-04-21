@@ -538,17 +538,15 @@ def variable_frame(project_name, variable, date):
         df["lon"] = coords.apply(lambda x: x[0])
         df["lat"] = coords.apply(lambda x: x[1])
 
-    # "As-of" snapshot: for each pixel, return its latest observation
-    # whose acquisition date is <= the requested date. This keeps the
-    # vineyard fully populated on every step — a pixel that happened
-    # to be cloud-masked on `date` still shows its most recent clear
-    # reading, instead of disappearing from the map.
-    eligible = df[(df["date"] <= date) & df[variable].notna()]
-    frame = (
-        eligible.sort_values("date")
-        .groupby(["lat", "lon"], as_index=False)
-        .last()
-    )
+    # Strict single-date filter: return every pixel observed on
+    # exactly this date. No resampling, no per-pixel subsetting —
+    # what you see is the full cloud/revisit footprint for the day.
+    frame = df[(df["date"] == date) & df[variable].notna()]
+    if len(frame):
+        # Collapse tile-boundary duplicates (same pixel seen by two
+        # overlapping tiles on the same pass) to avoid double-drawing
+        # the same marker. This does not reduce unique pixel coverage.
+        frame = frame.groupby(["lat", "lon"], as_index=False)[variable].mean()
 
     points = [
         {"lat": float(r["lat"]), "lon": float(r["lon"]), "value": float(r[variable])}
