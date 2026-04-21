@@ -117,7 +117,8 @@ _DATE_NAV_JS = """
                 '  <div class="sh-dn-date">—</div>' +
                 '  <button class="sh-dn-btn sh-dn-next" title="Next acquisition">&#9654;</button>' +
                 '</div>' +
-                '<div class="sh-dn-var"></div>';
+                '<div class="sh-dn-var"></div>' +
+                '<div class="sh-dn-count"></div>';
             return div;
         };
         control.addTo(map);
@@ -125,8 +126,18 @@ _DATE_NAV_JS = """
         var rootEl = control.getContainer();
         var dateEl = rootEl.querySelector(".sh-dn-date");
         var varEl = rootEl.querySelector(".sh-dn-var");
+        var countEl = rootEl.querySelector(".sh-dn-count");
         var prevBtn = rootEl.querySelector(".sh-dn-prev");
         var nextBtn = rootEl.querySelector(".sh-dn-next");
+
+        // `currentCount[label]` tracks the number of pixels rendered
+        // for the active frame of each variable. Priming with the
+        // Python-side initial count means the widget shows the right
+        // number immediately on load, before any fetch happens.
+        var currentCount = {};
+        Object.keys(variables).forEach(function (k) {
+            currentCount[k] = variables[k].initial_count;
+        });
 
         function activeLabel() {
             return activeStack.length ? activeStack[activeStack.length - 1] : null;
@@ -138,6 +149,7 @@ _DATE_NAV_JS = """
                 dateEl.textContent = "—";
                 varEl.textContent = "No layer active";
                 varEl.classList.add("sh-dn-empty");
+                countEl.textContent = "";
                 prevBtn.disabled = true;
                 nextBtn.disabled = true;
                 return;
@@ -148,6 +160,10 @@ _DATE_NAV_JS = """
             var idx = meta.dates.indexOf(date);
             dateEl.textContent = date || "—";
             varEl.textContent = label;
+            var n = currentCount[label];
+            countEl.textContent = (n == null)
+                ? ""
+                : n.toLocaleString() + " pixel" + (n === 1 ? "" : "s");
             prevBtn.disabled = idx <= 0;
             nextBtn.disabled = idx === -1 || idx >= meta.dates.length - 1;
         }
@@ -227,6 +243,7 @@ _DATE_NAV_JS = """
                     m.addTo(fg);
                 });
                 currentDate[label] = date;
+                currentCount[label] = rows.length;
                 render();
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
@@ -552,6 +569,7 @@ def create_verification_map(
             "colors": _resolve_to_hex(colors),
             "dates": variable_dates,
             "latest": display_date,
+            "initial_count": int(len(col_df)),
             "fg_name": fg.get_name(),
         }
 
@@ -712,6 +730,13 @@ def create_verification_map(
             color: #888;
             font-style: italic;
             text-align: center;
+        }
+        .sh-date-nav .sh-dn-count {
+            font-size: 9px;
+            color: #8c8c8c;
+            text-align: center;
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
         }
     </style>
     """
