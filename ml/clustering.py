@@ -84,23 +84,53 @@ def microclustering(X_scaled, frame, max_microclusters=5000):
     return micro_labels, micro_centroids, micro_sizes
 
 
-def hdbscan_clustering(micro_centroids, micro_sizes, min_cluster_size=10):
+def hdbscan_clustering(
+    micro_centroids,
+    micro_sizes,
+    min_cluster_size=10,
+    target_min_pixels=50,
+):
     """
     STEP 6: HDBSCAN on microcluster centroids.
+
+    `micro_sizes` (dict {label: pixel_count}) is used to translate a
+    user-meaningful "cluster must cover at least N pixels" threshold into the
+    microcluster-space `min_cluster_size` that HDBSCAN consumes. This prevents
+    singleton microclusters from dominating when the microcluster population
+    is uneven — the previous implementation accepted `micro_sizes` but never
+    used it.
+
+    min_samples is also scaled with microcluster count (was hardcoded to 5).
 
     Returns:
         cluster_labels: final cluster label per microcluster (-1 = noise)
         outlier_scores: outlier score per microcluster (higher = more outlier)
     """
-    # Adjust min_cluster_size based on number of microclusters
     n_micro = len(micro_centroids)
-    adjusted_min_size = max(5, min(min_cluster_size, n_micro // 20))
+
+    # Average pixels per microcluster (fallback 1 if sizes missing/empty)
+    if micro_sizes:
+        avg_micro_px = max(1.0, float(sum(micro_sizes.values())) / len(micro_sizes))
+    else:
+        avg_micro_px = 1.0
+
+    # How many microclusters add up to `target_min_pixels` pixels on average
+    size_from_pixels = max(2, int(round(target_min_pixels / avg_micro_px)))
+    adjusted_min_size = max(
+        2, min(min_cluster_size, size_from_pixels, max(2, n_micro // 20))
+    )
+
+    # min_samples scales with density: enough to suppress single-point noise
+    # without being so strict that sparse microcluster sets collapse to all-noise.
+    adjusted_min_samples = max(2, min(10, n_micro // 50))
 
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=adjusted_min_size,
-        min_samples=5,
+        min_samples=adjusted_min_samples,
         metric="euclidean",
         cluster_selection_method="eom",  # Excess of Mass
+        core_dist_n_jobs=1,  # single-thread → reproducible run-to-run
+        approx_min_span_tree=False,  # exact MST → deterministic
     )
 
     cluster_labels = clusterer.fit_predict(micro_centroids)
@@ -109,7 +139,11 @@ def hdbscan_clustering(micro_centroids, micro_sizes, min_cluster_size=10):
     n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
     n_noise = (cluster_labels == -1).sum()
 
-    print(f"[HDBSCAN] Found {n_clusters} clusters + {n_noise} noise microclusters")
+    print(
+        f"[HDBSCAN] Found {n_clusters} clusters + {n_noise} noise microclusters "
+        f"(min_cluster_size={adjusted_min_size}, min_samples={adjusted_min_samples}, "
+        f"avg_micro_px={avg_micro_px:.1f})"
+    )
 
     return cluster_labels, outlier_scores, clusterer
 

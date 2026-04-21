@@ -80,6 +80,30 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
         prev_track_ids = {int(k): v for k, v in prev_state["track_ids"].items()}
         print(f"[Tracking] Resuming from week {prev_state['last_week']}")
 
+    # Rehydrate prev_frame/prev_labels from disk for incremental runs.
+    # Without this, the first week in weeks_to_process always sees
+    # prev_frame=None and track_clusters_simple treats it as the first ever
+    # week — restarting track IDs from scratch on every incremental update.
+    if weeks_to_process and not force_reprocess:
+        first_to_process_id = weeks_to_process[0][0]
+        all_week_ids = [w[0] for w in weeks]
+        try:
+            idx = all_week_ids.index(first_to_process_id)
+        except ValueError:
+            idx = 0
+        if idx > 0:
+            prev_week_id = all_week_ids[idx - 1]
+            loaded_frame, loaded_labels = output.load_previous_week_frame(
+                ml_dir, prev_week_id
+            )
+            if loaded_frame is not None and loaded_labels is not None:
+                prev_frame = loaded_frame
+                prev_labels = loaded_labels
+                print(
+                    f"[Tracking] Rehydrated prev_frame from {prev_week_id} "
+                    f"({len(prev_frame)} pixels)"
+                )
+
     # Process weeks in chronological order
     results_summary = []
 
@@ -135,9 +159,16 @@ def run_ml_pipeline(csv_path, output_base_dir, force_reprocess=False):
             )
 
             # STEP 9: Anomaly detection
+            # Pass microcluster-level outlier scores so the 95th-percentile
+            # threshold is not biased by large microclusters (where every
+            # pixel inherits the same score).
             print(f"\n[STEP 9] Detecting anomalies...")
             anomalies, anomaly_summary = tracking.detect_anomalies(
-                frame, cluster_labels, outlier_scores, track_ids
+                frame,
+                cluster_labels,
+                outlier_scores,
+                track_ids,
+                micro_outlier_scores=outlier_scores_micro,
             )
 
             # STEP 7: Save outputs
