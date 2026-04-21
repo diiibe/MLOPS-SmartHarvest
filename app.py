@@ -455,18 +455,19 @@ def get_map(project_name):
                 needs_regen = True
             else:
                 try:
-                    # Feature-detect the date navigator by the JS config
-                    # sentinel, not the CSS class. An earlier bug in
-                    # `/reuse_project` regenerated maps with the CSS
-                    # injected but the `window.__SH_MAP_CONFIG` script
-                    # skipped — those files satisfy a "sh-date-nav"
-                    # check but the widget still does not boot.
-                    # The sentinel sits just after the CSS block; 32 KB
-                    # clears both comfortably without pulling in the
-                    # ~50 MB of CircleMarker literals that follow.
+                    # Feature-detect by the most recent config field we
+                    # ship (`max_pixels`, added for the cloud-coverage
+                    # hint). Older maps still have `__SH_MAP_CONFIG`
+                    # but lack this field, so checking the sentinel
+                    # alone silently serves a stale widget. Bump the
+                    # marker every time the embedded config grows a
+                    # field the client needs.
+                    # 32 KB clears the leading CSS + the full config
+                    # JSON without pulling in the ~50 MB of marker
+                    # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_MAP_CONFIG" not in head:
+                    if "max_pixels" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
