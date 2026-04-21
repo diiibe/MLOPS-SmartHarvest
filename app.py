@@ -538,13 +538,17 @@ def variable_frame(project_name, variable, date):
         df["lon"] = coords.apply(lambda x: x[0])
         df["lat"] = coords.apply(lambda x: x[1])
 
-    frame = df[(df["date"] == date) & df[variable].notna()]
-    # Collapse duplicates at the same location on the same day (e.g. two
-    # passes in a tile corner) to avoid double-drawing markers.
-    if len(frame):
-        frame = (
-            frame.groupby(["lat", "lon"], as_index=False)[variable].mean()
-        )
+    # "As-of" snapshot: for each pixel, return its latest observation
+    # whose acquisition date is <= the requested date. This keeps the
+    # vineyard fully populated on every step — a pixel that happened
+    # to be cloud-masked on `date` still shows its most recent clear
+    # reading, instead of disappearing from the map.
+    eligible = df[(df["date"] <= date) & df[variable].notna()]
+    frame = (
+        eligible.sort_values("date")
+        .groupby(["lat", "lon"], as_index=False)
+        .last()
+    )
 
     points = [
         {"lat": float(r["lat"]), "lon": float(r["lon"]), "value": float(r[variable])}
