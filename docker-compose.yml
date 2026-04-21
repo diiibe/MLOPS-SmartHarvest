@@ -5,8 +5,11 @@ services:
     volumes:
       - .:/app
       - ~/.config/earthengine:/root/.config/earthengine
+    # Host port is overridable via SMARTHARVEST_HOST_PORT because macOS
+    # occupies port 5000 by default (AirPlay Receiver / ControlCenter).
+    # Defaults to 5001 so `docker compose up` works on a stock Mac.
     ports:
-      - "5000:5000"
+      - "${SMARTHARVEST_HOST_PORT:-5001}:5000"
     environment:
       - PYTHONUNBUFFERED=1
     command: flask --app app run --host 0.0.0.0 --port 5000 --debug

@@ -14,3 +14,10 @@ docs/reports-italian/
 *.ipynb_checkpoints/
 .vscode/
 .idea/
+
+# Secrets must never be baked into images that could be pushed.
+# Mount them at runtime instead (see docker-compose.yml).
+.env
+google_cred.json
+*_credentials.json
+*service-account*.json
