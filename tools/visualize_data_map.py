@@ -160,12 +160,23 @@ def create_verification_map(csv_path, output_file, selected_date=None):
     df["lon"] = df["coords"].apply(lambda x: x[0])
     df["lat"] = df["coords"].apply(lambda x: x[1])
 
-    center_lat = df["lat"].mean()
-    center_lon = df["lon"].mean()
+    # Fit the map to the actual ROI bounding box instead of a fixed zoom=16
+    # that worked for a 30 ha vineyard but dropped everything else off-screen.
+    lat_min, lat_max = float(df["lat"].min()), float(df["lat"].max())
+    lon_min, lon_max = float(df["lon"].min()), float(df["lon"].max())
+    center_lat = (lat_min + lat_max) / 2
+    center_lon = (lon_min + lon_max) / 2
 
     m = folium.Map(
-        location=[center_lat, center_lon], zoom_start=16, tiles="Esri.WorldImagery"
+        location=[center_lat, center_lon],
+        tiles="Esri.WorldImagery",
     )
+    # fit_bounds accepts [[south, west], [north, east]] and handles tiny
+    # single-point ROIs by falling back to its own default zoom.
+    if lat_min != lat_max or lon_min != lon_max:
+        m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
+    else:
+        m.options["zoom"] = 16
 
     if selected_date:
         print(f"Adding layers for date: {selected_date}")

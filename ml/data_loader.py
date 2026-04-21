@@ -4,8 +4,6 @@ STEP 1-3: Data Loading and Weekly Frame Construction
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-import os
 
 
 def load_and_filter_s2(csv_path):
@@ -29,12 +27,30 @@ def load_and_filter_s2(csv_path):
     if "lat" in df.columns and "lon" in df.columns:
         coord_cols.extend(["lat", "lon"])
 
-    # Feature columns (numeric, not coords/metadata)
-    feature_cols = [
+    # Feature columns: explicit whitelist from config (avoids accidentally
+    # feeding the clustering with structurally-NaN columns like S1/L8 bands
+    # that only have values on rare concurrent-acquisition dates).
+    try:
+        import config as _app_config
+
+        whitelist = list(getattr(_app_config, "ML_FEATURES", []))
+    except Exception:
+        whitelist = []
+
+    numeric_cols = [
         c
         for c in df.select_dtypes(include=[np.number]).columns
-        if c not in ["lat", "lon"] and not c.startswith(".")
+        if c not in ("lat", "lon") and not c.startswith(".")
     ]
+    if whitelist:
+        feature_cols = [c for c in whitelist if c in numeric_cols]
+        # If nothing from the whitelist is present (e.g. external CSV), fall
+        # back to the auto-detected numeric columns so tests on minimal CSVs
+        # still work.
+        if not feature_cols:
+            feature_cols = numeric_cols
+    else:
+        feature_cols = numeric_cols
 
     # Filter for S2 (main timeline)
     if sat_col:
@@ -75,8 +91,14 @@ def define_weeks(df, date_col="date"):
     """
     df = df.copy()
 
-    # Assign week ID (ISO week: YYYY-Wxx)
-    df["week_id"] = df[date_col].dt.strftime("%Y-W%U")
+    # True ISO 8601 week (Mon–Sun, week 1 contains the first Thursday of the year).
+    # %G is the ISO year (differs from %Y around Jan 1), %V is the ISO week
+    # zero-padded. Previously %U was used (US convention, Sun-start) which
+    # both misaligned with the README's claim of "ISO week" and produced W00
+    # at year boundaries that broke alphabetical sorting.
+    df["week_id"] = df[date_col].dt.strftime("%G-W%V")
+    # Pandas default "W" alias = "W-SUN" = weeks ending Sunday → start_time is
+    # Monday, which matches ISO. (Using W-MON would start weeks on Tuesday.)
     df["week_start"] = df[date_col].dt.to_period("W").dt.start_time
 
     # Get unique weeks sorted
@@ -127,18 +149,31 @@ def build_weekly_frame(df, week_id, coord_cols, feature_cols, date_col="date"):
         )
         group_col = "pixel_id"
 
-    # Take most recent observation per pixel
-    week_df = week_df.sort_values(date_col, ascending=False)
-    frame = week_df.groupby(group_col).first().reset_index()
+    # Aggregate features with the nanmedian across all acquisitions in the
+    # week, not just the most recent one. Median is robust to cloud/haze
+    # outliers and to the occasional SCL misclassification that slips past
+    # the upstream masking. Coords and spatial_id are taken from the first
+    # row in the group (they are pixel-constant within a week).
+    present_features = [c for c in feature_cols if c in week_df.columns]
+    # Do not re-include group_col in coord_present — otherwise the merge below
+    # creates duplicate "spatial_id" columns and later `.notna()` lookups fail.
+    coord_present = [
+        c for c in coord_cols if c in week_df.columns and c != group_col
+    ]
 
-    # Keep only coords + features
-    keep_cols = (
-        [group_col] + [c for c in coord_cols if c in frame.columns] + feature_cols
-    )
-    frame = frame[[c for c in keep_cols if c in frame.columns]]
+    grouped = week_df.groupby(group_col, as_index=False, sort=False)
+    first_view = grouped.first()
+    keep_for_coords = [group_col] + [c for c in coord_present if c in first_view.columns]
+    coords_frame = first_view[keep_for_coords]
+    if present_features:
+        feat_frame = grouped[present_features].median(numeric_only=True)
+        frame = coords_frame.merge(feat_frame, on=group_col, how="left")
+    else:
+        frame = coords_frame
 
     # Drop pixels with all NaN features
-    frame = frame[frame[feature_cols].notna().any(axis=1)]
+    if present_features:
+        frame = frame[frame[present_features].notna().any(axis=1)]
 
     print(f"[Weekly Frame] {week_id}: {len(frame):,} pixels")
 

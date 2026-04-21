@@ -38,6 +38,9 @@ build/
 # Secrets and credentials
 .env
 .config/
+google_cred.json
+*_credentials.json
+*service-account*.json
 
 # Project-specific
 # NOTE: output/ is the live output of real runs. Not versioned because large

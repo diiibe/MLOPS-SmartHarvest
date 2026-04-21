@@ -2,6 +2,14 @@ import ee
 import config
 
 
+# SRTM v3 (SRTMGL1_003) is the 1-arc-second global DEM. Its actual coverage
+# is roughly 56°S to 60°N — polar regions fall outside. For ROIs outside
+# this band Slope/Elevation will come back as fully masked (NaN); we warn
+# the user so the silent feature-loss is visible.
+_SRTM_LAT_MIN = -56.0
+_SRTM_LAT_MAX = 60.0
+
+
 def get_srtm_data(master_crs):
     """
     Process SRTM data to create topographic features.
@@ -13,6 +21,23 @@ def get_srtm_data(master_crs):
         image (ee.Image): Static image with Slope band.
         metadata (dict): Metadata about the data source.
     """
+    available = True
+    coverage_note = None
+    try:
+        bounds = config.ROI.bounds().coordinates().getInfo()[0]
+        lats = [pt[1] for pt in bounds]
+        lat_min, lat_max = min(lats), max(lats)
+        if lat_max > _SRTM_LAT_MAX or lat_min < _SRTM_LAT_MIN:
+            available = False
+            coverage_note = (
+                f"ROI latitude range [{lat_min:.2f}, {lat_max:.2f}] falls outside "
+                f"SRTM coverage [{_SRTM_LAT_MIN}, {_SRTM_LAT_MAX}]. "
+                "Slope will be NaN for pixels above/below this band."
+            )
+            print(f"[SRTM] WARNING: {coverage_note}")
+    except Exception as exc:
+        # bounds() failure is non-fatal — proceed without the warning.
+        print(f"[SRTM] Could not compute ROI bounds for coverage check: {exc}")
 
     srtm = ee.Image("USGS/SRTMGL1_003")
 
@@ -33,6 +58,9 @@ def get_srtm_data(master_crs):
         "collection": "USGS/SRTMGL1_003",
         "image_count": "Static",
         "bands": ["Elevation", "Slope"],
+        "available": available,
     }
+    if coverage_note:
+        metadata["reason"] = coverage_note
 
     return topo_resampled, metadata

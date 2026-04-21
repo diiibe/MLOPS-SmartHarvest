@@ -75,43 +75,61 @@ def track_clusters_simple(
     # Find overlapping pixels
     overlap_pixels = set(current_pixel_cluster.keys()) & set(prev_pixel_cluster.keys())
 
-    # For each current cluster, find best match with previous clusters
+    # Pre-compute prev track sizes (for IoU denominator)
+    prev_track_sizes = {}
+    for track_id in prev_pixel_track.values():
+        if track_id != -1:
+            prev_track_sizes[track_id] = prev_track_sizes.get(track_id, 0) + 1
+
+    # For each current cluster, find best match with previous clusters using IoU
     unique_current = [c for c in np.unique(current_labels) if c != -1]
     track_ids = {}
-    matched_prev_tracks = set()
+    # Score each (curr_cluster, prev_track) candidate, then greedy-assign best-first
+    # to prevent two current clusters from claiming the same prev track (split bug).
+    candidates = []  # (iou, curr_cluster, prev_track)
 
     for curr_cluster in unique_current:
-        # Pixels in current cluster
         curr_pixels = [p for p, c in current_pixel_cluster.items() if c == curr_cluster]
+        curr_size = len(curr_pixels)
         curr_overlap = [p for p in curr_pixels if p in overlap_pixels]
 
         if len(curr_overlap) == 0:
-            # New cluster (no overlap with previous week)
-            track_ids[curr_cluster] = None  # Assign new ID later
             continue
 
-        # Find previous tracks that overlap with this cluster
         prev_tracks_overlap = [
             prev_pixel_track[p] for p in curr_overlap if prev_pixel_track[p] != -1
         ]
-
-        if len(prev_tracks_overlap) == 0:
-            # All overlapping pixels were noise in previous week
-            track_ids[curr_cluster] = None
+        if not prev_tracks_overlap:
             continue
 
-        # Majority vote: which previous track had most overlap?
+        # Count overlap per prev track; compute IoU = inter / (|curr| + |prev_track| - inter)
         prev_track_counts = pd.Series(prev_tracks_overlap).value_counts()
-        best_prev_track = prev_track_counts.index[0]
-        overlap_count = prev_track_counts.iloc[0]
-        overlap_pct = overlap_count / len(curr_overlap) * 100
+        for prev_track, inter in prev_track_counts.items():
+            prev_sz = prev_track_sizes.get(prev_track, 0)
+            denom = curr_size + prev_sz - inter
+            if denom <= 0:
+                continue
+            iou = inter / denom
+            candidates.append((iou, curr_cluster, int(prev_track)))
 
-        # Assign track ID if significant overlap (>30%)
-        if overlap_pct > 30:
-            track_ids[curr_cluster] = best_prev_track
-            matched_prev_tracks.add(best_prev_track)
-        else:
-            track_ids[curr_cluster] = None  # New cluster
+    # Greedy: highest IoU first, each curr_cluster and each prev_track matched at most once
+    candidates.sort(key=lambda x: (-x[0], x[1], x[2]))
+    matched_prev_tracks = set()
+    IOU_THRESHOLD = 0.30
+    for iou, curr_cluster, prev_track in candidates:
+        if iou < IOU_THRESHOLD:
+            break
+        if curr_cluster in track_ids:
+            continue
+        if prev_track in matched_prev_tracks:
+            continue
+        track_ids[curr_cluster] = prev_track
+        matched_prev_tracks.add(prev_track)
+
+    # Unmatched current clusters (no IoU >= threshold or prev_track already taken)
+    for curr_cluster in unique_current:
+        if curr_cluster not in track_ids:
+            track_ids[curr_cluster] = None
 
     # Assign new track IDs for unmatched clusters
     next_track_id = (
@@ -159,27 +177,77 @@ def track_clusters_simple(
     return track_ids, tracking_info, next_track_id
 
 
-def detect_anomalies(frame, cluster_labels, outlier_scores, track_ids):
+def detect_anomalies(
+    frame,
+    cluster_labels,
+    outlier_scores,
+    track_ids,
+    micro_outlier_scores=None,
+    min_absolute_score=0.5,
+    persistence_weeks=0,
+    track_history=None,
+):
     """
     STEP 9: Simple anomaly detection based on outlier scores.
 
-    Returns:
-        anomalies: DataFrame with candidate anomaly pixels/clusters
-    """
-    # High outlier score threshold (top 5%)
-    score_threshold = np.percentile(outlier_scores, 95)
+    A pixel is anomalous when **both** conditions hold:
+      1. Its outlier score is in the top 5% for the week (relative).
+      2. Its outlier score is above `min_absolute_score` (absolute).
+    Condition 2 prevents the previous "always flag 5%" behaviour, where a
+    week with no genuinely anomalous vegetation still produced 5% of pixels
+    as "anomalies" just because the percentile is relative by construction.
+    Default `0.5` is calibrated against HDBSCAN's outlier-score scale (0–1,
+    GLOSH-based); lower it for more sensitive detection.
 
-    # Find anomalous pixels
-    anomaly_mask = outlier_scores > score_threshold
+    If `persistence_weeks > 0`, the anomaly_summary is additionally
+    filtered to track_ids that have been flagged for at least
+    `persistence_weeks` of the most recent weeks — a transient one-week
+    spike is suppressed. Requires `track_history`, a list of
+    `set(track_id)` for the last N weeks (most recent last), provided by
+    the caller.
+
+    Threshold source:
+      - If `micro_outlier_scores` is provided, the 95th percentile is
+        computed on microcluster-level scores (unduplicated) to avoid the
+        bias where large microclusters dominate the pixel-level
+        distribution and crowd out small-cluster outliers.
+      - Otherwise, fall back to the per-pixel `outlier_scores`.
+
+    Returns:
+        anomalies, anomaly_summary: two DataFrames (possibly empty).
+    """
+    scores_for_threshold = (
+        np.asarray(micro_outlier_scores)
+        if micro_outlier_scores is not None
+        else np.asarray(outlier_scores)
+    )
+
+    # Degenerate inputs: constant scores or all-zero → no meaningful anomalies
+    if scores_for_threshold.size == 0 or np.allclose(
+        scores_for_threshold, scores_for_threshold.flat[0]
+    ):
+        print("[Anomaly Detection] Scores are constant — no anomalies detected")
+        return pd.DataFrame(), pd.DataFrame()
+
+    relative_threshold = float(np.percentile(scores_for_threshold, 95))
+    # Absolute floor dominates when the whole week is quiet; relative
+    # threshold dominates when there really are outliers to pick.
+    effective_threshold = max(relative_threshold, float(min_absolute_score))
+
+    anomaly_mask = np.asarray(outlier_scores) >= effective_threshold
 
     if anomaly_mask.sum() == 0:
-        print("[Anomaly Detection] No anomalies detected")
-        return pd.DataFrame()
+        print(
+            "[Anomaly Detection] No anomalies cross the combined "
+            f"relative (p95={relative_threshold:.3f}) / absolute "
+            f"(>={min_absolute_score}) threshold"
+        )
+        return pd.DataFrame(), pd.DataFrame()
 
     # Build anomaly dataframe
     anomalies = frame[anomaly_mask].copy()
     anomalies["cluster_label"] = cluster_labels[anomaly_mask]
-    anomalies["outlier_score"] = outlier_scores[anomaly_mask]
+    anomalies["outlier_score"] = np.asarray(outlier_scores)[anomaly_mask]
     anomalies["track_id"] = [track_ids.get(c, -1) for c in anomalies["cluster_label"]]
 
     # Group by cluster/track
@@ -192,6 +260,26 @@ def detect_anomalies(frame, cluster_labels, outlier_scores, track_ids):
     anomaly_summary = anomaly_summary[
         anomaly_summary["track_id"] != -1
     ]  # Exclude noise
+
+    # Optional persistence filter: only surface track_ids that have been
+    # anomalous for at least `persistence_weeks` of the last N windows.
+    # A transient one-week score spike (e.g. a single cloudy scene) is
+    # suppressed when the caller supplies enough history.
+    if persistence_weeks > 0 and track_history:
+        recent = track_history[-persistence_weeks:]
+        persistent_ids = set.intersection(*recent) if recent else set()
+        persistent_ids |= set(anomaly_summary["track_id"].tolist())
+        hit_count = {tid: 0 for tid in persistent_ids}
+        for window in track_history:
+            for tid in window:
+                if tid in hit_count:
+                    hit_count[tid] += 1
+        keep = {
+            tid
+            for tid, cnt in hit_count.items()
+            if cnt >= persistence_weeks
+        }
+        anomaly_summary = anomaly_summary[anomaly_summary["track_id"].isin(keep)]
 
     print(f"[Anomaly Detection] Found {len(anomaly_summary)} anomalous clusters")
 

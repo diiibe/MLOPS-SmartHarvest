@@ -57,9 +57,25 @@ END_DATE = "2025-09-01"
 # 20m → ~2.5K points/km² (4x reduction)
 TARGET_SCALE = 10
 
-# Cloud thresholds
-CLOUD_THRESHOLD_S2 = 50  # Sentinel-2 (Optical)
-CLOUD_THRESHOLD_LANDSAT = 80  # Landsat (Thermal) - more permissive, data is scarcer
+# Cloud thresholds (overridable via env vars for tropical / persistently cloudy zones)
+# SMARTHARVEST_CLOUD_S2 / SMARTHARVEST_CLOUD_LANDSAT
+CLOUD_THRESHOLD_S2 = int(os.environ.get("SMARTHARVEST_CLOUD_S2", 50))
+CLOUD_THRESHOLD_LANDSAT = int(os.environ.get("SMARTHARVEST_CLOUD_LANDSAT", 80))
+
+# ---------------------------------------------------------------------------
+# ML kernel configuration
+# ---------------------------------------------------------------------------
+
+# Columns used by the ML pipeline (clustering + anomaly detection).
+# S1/L8 bands (VH/VV/Ratio/LST) are excluded by default because rows filtered
+# to S2 observations almost never have concurrent S1/L8 acquisitions, so those
+# columns are structurally NaN and contribute no signal (they became constant
+# after median-fill + scaling). Slope is included because it is static and
+# joined to every row.
+ML_FEATURES = ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP", "Slope"]
+
+# ROI validation limits
+MAX_ROI_AREA_HA = int(os.environ.get("SMARTHARVEST_MAX_ROI_HA", 10000))  # 100 km²
 
 # Download chunking (for large datasets that exceed GEE limits)
 # Temporal data is automatically split into chunks if direct download fails
