@@ -482,25 +482,26 @@ def create_verification_map(
         if col not in df.columns:
             continue
 
-        # Filter data for this column
-        if selected_date:
-            # Use specified date for all columns
-            col_df = df[df["date"] == selected_date][
-                ["lat", "lon", ".geo", "date", col]
-            ].copy()
-            display_date = selected_date
-        else:
-            # Use latest date with data for this column
-            col_data_df = df[df[col].notna()].copy()
-            if col_data_df.empty:
-                continue
-            display_date = col_data_df["date"].max()
-            col_df = col_data_df[col_data_df["date"] == display_date][
-                ["lat", "lon", ".geo", "date", col]
-            ].copy()
-
-        # Average if multiple points same location same day
-        col_df = col_df.groupby([".geo", "lat", "lon"], as_index=False)[col].mean()
+        # "As-of" snapshot for this variable: for each pixel, keep its
+        # latest observation whose acquisition date is <= the target
+        # date. This means a pixel cloud-masked on the snapshot date
+        # still shows its most recent clear reading instead of dropping
+        # off the map — matching the date-navigator API contract.
+        col_data_df = df[df[col].notna()][
+            ["lat", "lon", ".geo", "date", col]
+        ]
+        if col_data_df.empty:
+            continue
+        target_date = selected_date if selected_date else col_data_df["date"].max()
+        display_date = target_date
+        eligible = col_data_df[col_data_df["date"] <= target_date]
+        if eligible.empty:
+            continue
+        col_df = (
+            eligible.sort_values("date")
+            .groupby([".geo", "lat", "lon"], as_index=False)
+            .last()
+        )
 
         col_data = col_df[col].dropna()
         if col_data.empty:
