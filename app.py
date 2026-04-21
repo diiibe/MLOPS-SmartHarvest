@@ -1,4 +1,5 @@
 import os
+import time
 import re
 import json
 import pandas as pd
@@ -398,6 +399,16 @@ def dashboard(project_name):
         with open(report_path, "r") as f:
             report_html = markdown.markdown(f.read(), extensions=["tables"])
 
+    # Cache-buster for the map iframe: when the map HTML is regenerated
+    # (e.g. because we just added the date-navigator feature) the mtime
+    # changes, so Chrome fetches a fresh copy instead of reusing the
+    # cached iframe it remembered from the previous dashboard visit.
+    map_path = os.path.join(output_dir, f"Map_{project_name_safe}.html")
+    if os.path.exists(map_path):
+        map_cache_bust = int(os.path.getmtime(map_path))
+    else:
+        map_cache_bust = int(time.time())
+
     return render_template(
         "dashboard.html",
         project_name=project_name_safe,
@@ -406,6 +417,7 @@ def dashboard(project_name):
         ts_data=ts_data,
         available_dates=available_dates,
         charts=charts_html,
+        map_cache_bust=map_cache_bust,
     )
 
 
