@@ -219,7 +219,9 @@ def run_pipeline(
 
                 map_filename = f"Map_{project_name_safe}.html"
                 map_path = os.path.join(output_dir, map_filename)
-                visualize_data_map.create_verification_map(merged_path, map_path)
+                visualize_data_map.create_verification_map(
+                    merged_path, map_path, project_name=project_name_safe
+                )
                 log(f"[OK] Map saved to: {map_path}")
             except Exception as e:
                 log(f"Warning: Map generation failed: {e}")
