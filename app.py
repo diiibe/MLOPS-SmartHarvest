@@ -156,7 +156,9 @@ def reuse_project():
         # Regenerate map
         map_path = os.path.join(output_dir, f"Map_{project_name_safe}.html")
         try:
-            visualize_data_map.create_verification_map(csv_path, map_path)
+            visualize_data_map.create_verification_map(
+                csv_path, map_path, project_name=project_name_safe
+            )
             print(f"[OK] Map regenerated: {map_path}")
         except Exception as e:
             print(f"Warning: Map generation failed: {e}")
@@ -453,14 +455,18 @@ def get_map(project_name):
                 needs_regen = True
             else:
                 try:
-                    # Feature-detect the date navigator: we look for the
-                    # CSS class injected near the top of <head>. 8 KB
-                    # comfortably clears the leaflet/folium CSS banner
-                    # that precedes it, without pulling the whole 50 MB
-                    # marker blob into memory.
+                    # Feature-detect the date navigator by the JS config
+                    # sentinel, not the CSS class. An earlier bug in
+                    # `/reuse_project` regenerated maps with the CSS
+                    # injected but the `window.__SH_MAP_CONFIG` script
+                    # skipped — those files satisfy a "sh-date-nav"
+                    # check but the widget still does not boot.
+                    # The sentinel sits just after the CSS block; 32 KB
+                    # clears both comfortably without pulling in the
+                    # ~50 MB of CircleMarker literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
-                        head = f.read(8192)
-                    if "sh-date-nav" not in head:
+                        head = f.read(32768)
+                    if "__SH_MAP_CONFIG" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
