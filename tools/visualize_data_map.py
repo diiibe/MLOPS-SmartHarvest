@@ -72,8 +72,9 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
             coords_df = df[["spatial_id", "lat", "lon"]].drop_duplicates("spatial_id")
             cluster_df = cluster_df.merge(coords_df, on="spatial_id", how="left")
 
-    # Create cluster layer
-    fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=False)
+    # Create cluster layer (default-on so it surfaces in the layer panel
+    # AND on the map without the user having to scroll the overlay list).
+    fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=True)
 
     # Color palette for clusters
     unique_clusters = cluster_df["cluster_label"].unique()
@@ -345,13 +346,25 @@ def create_verification_map(csv_path, output_file, selected_date=None):
             box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
             padding: 6px !important;
             font-family: 'Segoe UI', sans-serif !important;
-            max-height: 65vh !important;
+            max-height: 85vh !important;
             overflow-y: auto !important;
         }
         .leaflet-control-layers-base label,
         .leaflet-control-layers-overlays label {
             margin-bottom: 2px !important;
             font-size: 10px !important;
+        }
+        /* Visible scrollbar so the ML Clusters entry at the bottom of the
+           list is discoverable even on short viewports. */
+        .leaflet-control-layers::-webkit-scrollbar {
+            width: 8px;
+        }
+        .leaflet-control-layers::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.25) !important;
+            border-radius: 4px;
+        }
+        .leaflet-control-layers::-webkit-scrollbar-track {
+            background: transparent;
         }
     </style>
     """
