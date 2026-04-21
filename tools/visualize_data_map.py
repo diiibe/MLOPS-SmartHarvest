@@ -118,7 +118,8 @@ _DATE_NAV_JS = """
                 '  <button class="sh-dn-btn sh-dn-next" title="Next acquisition">&#9654;</button>' +
                 '</div>' +
                 '<div class="sh-dn-var"></div>' +
-                '<div class="sh-dn-count"></div>';
+                '<div class="sh-dn-count"></div>' +
+                '<div class="sh-dn-cloud"></div>';
             return div;
         };
         control.addTo(map);
@@ -127,6 +128,7 @@ _DATE_NAV_JS = """
         var dateEl = rootEl.querySelector(".sh-dn-date");
         var varEl = rootEl.querySelector(".sh-dn-var");
         var countEl = rootEl.querySelector(".sh-dn-count");
+        var cloudEl = rootEl.querySelector(".sh-dn-cloud");
         var prevBtn = rootEl.querySelector(".sh-dn-prev");
         var nextBtn = rootEl.querySelector(".sh-dn-next");
 
@@ -150,6 +152,7 @@ _DATE_NAV_JS = """
                 varEl.textContent = "No layer active";
                 varEl.classList.add("sh-dn-empty");
                 countEl.textContent = "";
+                cloudEl.textContent = "";
                 prevBtn.disabled = true;
                 nextBtn.disabled = true;
                 return;
@@ -164,6 +167,27 @@ _DATE_NAV_JS = """
             countEl.textContent = (n == null)
                 ? ""
                 : n.toLocaleString() + " pixel" + (n === 1 ? "" : "s");
+            // Optical / thermal sensors: estimate cloud coverage from
+            // how much of the variable's peak footprint is missing on
+            // this frame. Radar / topography are not cloud-affected so
+            // we just report coverage without the "cloud" framing.
+            if (n == null || !meta.max_pixels) {
+                cloudEl.textContent = "";
+            } else {
+                var coveragePct = Math.round((n / meta.max_pixels) * 100);
+                var lostPct = Math.max(0, 100 - coveragePct);
+                if (meta.cloud_sensitive) {
+                    if (lostPct <= 2) {
+                        cloudEl.textContent = "clear — ~" + coveragePct + "% of ROI";
+                    } else {
+                        cloudEl.textContent =
+                            "~" + lostPct + "% cloud-masked · " +
+                            coveragePct + "% of ROI";
+                    }
+                } else {
+                    cloudEl.textContent = coveragePct + "% of ROI observed";
+                }
+            }
             prevBtn.disabled = idx <= 0;
             nextBtn.disabled = idx === -1 || idx >= meta.dates.length - 1;
         }
@@ -559,11 +583,19 @@ def create_verification_map(
 
         fg.add_to(m)
 
-        # Record the timeline so the date-navigator can page through this
-        # variable's acquisitions without a full map reload.
-        variable_dates = sorted(
-            df[df[col].notna()]["date"].dropna().unique().tolist()
+        # Record the timeline so the date-navigator can page through
+        # this variable's acquisitions without a full map reload.
+        # `max_pixels` is the largest per-date observation footprint
+        # across all acquisitions; combined with the current frame's
+        # count it lets the UI estimate cloud-masked fraction for
+        # optical/thermal variables.
+        per_date_counts = (
+            df[df[col].notna()].groupby("date").size()
         )
+        variable_dates = sorted(per_date_counts.index.tolist())
+        max_pixels = int(per_date_counts.max()) if len(per_date_counts) else 0
+        sensor = schema.COLUMN_SATELLITE.get(col)
+        cloud_sensitive = sensor in ("S2", "L8")
         variable_index[label] = {
             "col": col,
             "label": label,
@@ -573,6 +605,9 @@ def create_verification_map(
             "dates": variable_dates,
             "latest": display_date,
             "initial_count": int(len(col_df)),
+            "max_pixels": max_pixels,
+            "cloud_sensitive": cloud_sensitive,
+            "sensor": sensor,
             "fg_name": fg.get_name(),
         }
 
@@ -740,6 +775,16 @@ def create_verification_map(
             text-align: center;
             margin-top: 2px;
             font-variant-numeric: tabular-nums;
+        }
+        .sh-date-nav .sh-dn-cloud {
+            font-size: 9px;
+            color: #c8d5ff;
+            text-align: center;
+            margin-top: 1px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
     """
