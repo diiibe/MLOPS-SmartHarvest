@@ -72,9 +72,9 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
             coords_df = df[["spatial_id", "lat", "lon"]].drop_duplicates("spatial_id")
             cluster_df = cluster_df.merge(coords_df, on="spatial_id", how="left")
 
-    # Create cluster layer (default-on so it surfaces in the layer panel
-    # AND on the map without the user having to scroll the overlay list).
-    fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=True)
+    # Cluster layer is off by default — the user toggles it from the
+    # layer control alongside the per-sensor variable layers.
+    fg = folium.FeatureGroup(name=f"ML Clusters ({latest_week})", show=False)
 
     # Color palette for clusters
     unique_clusters = cluster_df["cluster_label"].unique()
