@@ -8,11 +8,13 @@ services:
     # Host port is overridable via SMARTHARVEST_HOST_PORT because macOS
     # occupies port 5000 by default (AirPlay Receiver / ControlCenter).
     # Defaults to 5001 so `docker compose up` works on a stock Mac.
+    # Container binds to the same port so Flask's "Running on http://..."
+    # banner in the logs shows a copy-pasteable URL.
     ports:
-      - "${SMARTHARVEST_HOST_PORT:-5001}:5000"
+      - "${SMARTHARVEST_HOST_PORT:-5001}:${SMARTHARVEST_HOST_PORT:-5001}"
     environment:
       - PYTHONUNBUFFERED=1
-    command: flask --app app run --host 0.0.0.0 --port 5000 --debug
+    command: flask --app app run --host 0.0.0.0 --port ${SMARTHARVEST_HOST_PORT:-5001} --debug
 
   demo:
     build: .
