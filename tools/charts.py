@@ -65,7 +65,23 @@ SENSOR_COLOR = {
 
 
 def _base_layout(**overrides) -> Dict[str, Any]:
-    """Return a layout dict matching the page's dark-muted design."""
+    """Return a layout dict matching the page's dark-muted design.
+
+    Nested axis overrides are deep-merged, not replaced. Without this
+    a caller like `yaxis=dict(tickmode="array", ...)` would wipe out
+    the base's `zerolinecolor`, and Plotly would fall back to its
+    default (white) — visible as a stray horizontal line crossing the
+    row at y = 0.
+    """
+    axis_defaults = dict(
+        gridcolor=COLORS["grid"],
+        linecolor=COLORS["grid"],
+        tickcolor=COLORS["grid"],
+        zerolinecolor=COLORS["grid"],
+        zerolinewidth=1,
+        tickfont=dict(color=COLORS["tick"], size=11),
+        title_font=dict(color=COLORS["axis"], size=11),
+    )
     layout = dict(
         paper_bgcolor=COLORS["canvas"],
         plot_bgcolor=COLORS["canvas"],
@@ -77,25 +93,17 @@ def _base_layout(**overrides) -> Dict[str, Any]:
             font_size=12,
             font_family=FONT["family"],
         ),
-        xaxis=dict(
-            gridcolor=COLORS["grid"],
-            linecolor=COLORS["grid"],
-            tickcolor=COLORS["grid"],
-            zerolinecolor=COLORS["grid"],
-            tickfont=dict(color=COLORS["tick"], size=11),
-            title_font=dict(color=COLORS["axis"], size=11),
-        ),
-        yaxis=dict(
-            gridcolor=COLORS["grid"],
-            linecolor=COLORS["grid"],
-            tickcolor=COLORS["grid"],
-            zerolinecolor=COLORS["grid"],
-            tickfont=dict(color=COLORS["tick"], size=11),
-            title_font=dict(color=COLORS["axis"], size=11),
-        ),
+        xaxis=dict(axis_defaults),
+        yaxis=dict(axis_defaults),
         showlegend=False,
     )
-    layout.update(overrides)
+    for key, value in overrides.items():
+        if key in ("xaxis", "yaxis") and isinstance(value, dict):
+            merged = dict(axis_defaults)
+            merged.update(value)
+            layout[key] = merged
+        else:
+            layout[key] = value
     return layout
 
 
@@ -169,9 +177,9 @@ def create_acquisition_timeline(df: pd.DataFrame) -> Optional[str]:
                 mode="markers",
                 marker=dict(
                     symbol="circle",
-                    size=9,
+                    size=13,
                     color=SENSOR_COLOR[sensor],
-                    line=dict(width=1, color="#1a1a1a"),
+                    line=dict(width=0),
                     opacity=0.95,
                 ),
                 name=sensor,
@@ -180,21 +188,25 @@ def create_acquisition_timeline(df: pd.DataFrame) -> Optional[str]:
         )
 
     layout = _base_layout(
-        height=220,
+        height=240,
         yaxis=dict(
             tickmode="array",
             tickvals=list(range(len(order))),
             ticktext=order,
             autorange="reversed",
             gridcolor=COLORS["canvas"],
-            linecolor=COLORS["grid"],
-            tickfont=dict(color=COLORS["tick"], size=11),
+            linecolor=COLORS["canvas"],
+            tickcolor=COLORS["canvas"],
+            tickfont=dict(color=COLORS["tick"], size=12),
+            zeroline=False,
+            showline=False,
         ),
         xaxis=dict(
             gridcolor=COLORS["grid"],
             linecolor=COLORS["grid"],
             tickfont=dict(color=COLORS["tick"], size=11),
             title=None,
+            zeroline=False,
         ),
     )
     fig.update_layout(layout)
