@@ -563,56 +563,207 @@ body {
     background: #2b000a;
 }
 
-.page-dashboard #report-view {
-    display: none;
-    padding: 40px;
-    overflow-y: auto;
-    height: 100%;
-    background: #1a1a1a;
-    max-width: 800px;
-    margin: 0 auto;
-    color: #ddd;
-}
-
 .page-dashboard iframe {
     width: 100%;
     height: 100%;
     border: none;
 }
 
+/* -- Report tab -------------------------------------------------------
+   Goal: look like a document, not a dashboard panel. GitHub / Linear
+   long-form reading: neutral grays, subtle horizontal rules, no blue
+   accents, no decorative panels inside the content column. */
+
+.page-dashboard #report-view {
+    display: none;
+    height: 100%;
+    overflow-y: auto;
+    background: #1a1a1a;
+    padding: 32px 48px 64px;
+}
+
+.page-dashboard #report-view > * {
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-dashboard #report-view {
+    color: #d0d0d0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* Headings — plain weight progression, no colour cues. */
+.page-dashboard #report-view h1,
+.page-dashboard #report-view h2,
+.page-dashboard #report-view h3,
+.page-dashboard #report-view h4 {
+    color: #f0f0f0;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: 32px 0 12px;
+}
+
 .page-dashboard #report-view h1 {
-    font-size: 24px;
-    color: #fff;
-    border-bottom: 1px solid #444;
+    font-size: 26px;
+    border-bottom: 1px solid #2e2e2e;
     padding-bottom: 10px;
+    margin-top: 8px;
 }
 
 .page-dashboard #report-view h2 {
     font-size: 20px;
-    color: #3498db;
-    margin-top: 30px;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 6px;
+    margin-top: 40px;
 }
 
+.page-dashboard #report-view h3 {
+    font-size: 16px;
+    margin-top: 28px;
+}
+
+.page-dashboard #report-view h4 {
+    font-size: 14px;
+    color: #c8c8c8;
+    margin-top: 20px;
+}
+
+/* First heading should not open with a huge top gap. */
+.page-dashboard #report-view > :first-child {
+    margin-top: 0;
+}
+
+.page-dashboard #report-view p {
+    margin: 0 0 12px;
+}
+
+.page-dashboard #report-view strong {
+    color: #f0f0f0;
+    font-weight: 600;
+}
+
+.page-dashboard #report-view em {
+    color: #b8b8b8;
+}
+
+.page-dashboard #report-view a {
+    color: #c8c8c8;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: #555;
+}
+
+.page-dashboard #report-view a:hover {
+    color: #f0f0f0;
+    text-decoration-color: #888;
+}
+
+.page-dashboard #report-view ul,
+.page-dashboard #report-view ol {
+    margin: 0 0 12px;
+    padding-left: 24px;
+}
+
+.page-dashboard #report-view li {
+    margin-bottom: 4px;
+}
+
+.page-dashboard #report-view li > p {
+    margin: 0 0 4px;
+}
+
+/* Inline code — monospace, subtle surface, no rounded pill. */
+.page-dashboard #report-view code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+        monospace;
+    font-size: 12.5px;
+    background: #242424;
+    border: 1px solid #303030;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: #e2d7b5;
+}
+
+/* Fenced code blocks: flat surface, horizontal scroll if needed. */
+.page-dashboard #report-view pre {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.page-dashboard #report-view pre code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: #d8d8d8;
+    border-radius: 0;
+    font-size: inherit;
+}
+
+/* Blockquote — quiet left rule, nothing flashy. */
+.page-dashboard #report-view blockquote {
+    margin: 0 0 16px;
+    padding: 4px 14px;
+    border-left: 3px solid #3a3a3a;
+    color: #b0b0b0;
+}
+
+.page-dashboard #report-view blockquote > :last-child {
+    margin-bottom: 0;
+}
+
+.page-dashboard #report-view hr {
+    border: 0;
+    border-top: 1px solid #2a2a2a;
+    margin: 28px 0;
+}
+
+/* Tables — GitHub-ish. No vertical rules, no zebra, just a header
+   underline and a row separator. Numeric columns align right when
+   markdown emits `| ---: |` which renders as style="text-align:right". */
 .page-dashboard #report-view table {
     width: 100%;
     border-collapse: collapse;
-    margin: 20px 0;
-    font-size: 14px;
+    margin: 12px 0 20px;
+    font-size: 13px;
 }
 
-.page-dashboard #report-view th,
-.page-dashboard #report-view td {
-    border: 1px solid #444;
-    padding: 10px;
-    text-align: left;
-}
-
-.page-dashboard #report-view th {
-    background: #333;
+.page-dashboard #report-view thead th {
     font-weight: 600;
-    color: #fff;
+    color: #f0f0f0;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #3a3a3a;
+    background: transparent;
 }
 
-.page-dashboard #report-view tr:nth-child(even) {
-    background: #222;
+.page-dashboard #report-view tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #242424;
+    color: #c8c8c8;
+}
+
+.page-dashboard #report-view tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.page-dashboard #report-view tbody tr:hover td {
+    background: #202020;
+}
+
+.page-dashboard #report-view th[align="right"],
+.page-dashboard #report-view td[align="right"],
+.page-dashboard #report-view th[style*="text-align:right"],
+.page-dashboard #report-view td[style*="text-align:right"],
+.page-dashboard #report-view th[style*="text-align: right"],
+.page-dashboard #report-view td[style*="text-align: right"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }

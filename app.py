@@ -462,7 +462,10 @@ def dashboard(project_name):
     report_html = "<p>Report not found.</p>"
     if os.path.exists(report_path):
         with open(report_path, "r") as f:
-            report_html = markdown.markdown(f.read(), extensions=["tables"])
+            report_html = markdown.markdown(
+                f.read(),
+                extensions=["tables", "fenced_code", "sane_lists"],
+            )
 
     # Cache-buster for the map iframe: when the map HTML is regenerated
     # (e.g. because we just added the date-navigator feature) the mtime
