@@ -446,6 +446,10 @@ def dashboard(project_name):
             charts_html["acquisition"] = charts.create_acquisition_timeline(df)
             charts_html["cloud_coverage"] = charts.create_cloud_coverage(meta_list)
             charts_html["index_trends"] = charts.create_index_trends(df)
+            charts_html["canopy_overlay"] = charts.create_canopy_overlay(df)
+            charts_html["water_overlay"] = charts.create_water_overlay(df)
+            charts_html["radar_overlay"] = charts.create_radar_overlay(df)
+            charts_html["thermal_vs_vigour"] = charts.create_thermal_vs_vigour(df)
             charts_html["distributions"] = charts.create_distributions(df)
             charts_html["correlation"] = charts.create_correlation(df)
             charts_html["ndvi_by_slope"] = charts.create_ndvi_by_slope(df)
@@ -495,6 +499,7 @@ def dashboard(project_name):
         ts_data=ts_data,
         available_dates=available_dates,
         charts=charts_html,
+        variable_glossary=charts.VARIABLE_GLOSSARY,
         map_cache_bust=map_cache_bust,
     )
 

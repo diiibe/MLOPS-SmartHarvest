@@ -168,9 +168,11 @@ def create_acquisition_timeline(df: pd.DataFrame) -> Optional[str]:
                 y=block["_y"],
                 mode="markers",
                 marker=dict(
-                    symbol="line-ns",
-                    size=22,
-                    line=dict(width=2, color=SENSOR_COLOR[sensor]),
+                    symbol="circle",
+                    size=9,
+                    color=SENSOR_COLOR[sensor],
+                    line=dict(width=1, color="#1a1a1a"),
+                    opacity=0.95,
                 ),
                 name=sensor,
                 hovertemplate=f"<b>{sensor}</b> — %{{x|%Y-%m-%d}}<extra></extra>",
@@ -706,6 +708,231 @@ def create_ndvi_by_slope(df: pd.DataFrame) -> Optional[str]:
         )
     )
     return _to_html(fig)
+
+
+# -- 7. Multi-variable overlays ---------------------------------------
+
+# Extra hues used strictly for the overlay plots — a curated rotation
+# with the two base tokens (primary + secondary) so every chart in the
+# tab still reads as one family.
+OVERLAY_COLORS = [
+    COLORS["primary"],      # wine red — first series
+    COLORS["secondary"],    # amber — second series
+    "#5a7b6f",              # muted teal — third (S1-family)
+    "#7a7a7a",              # mid grey — fourth (reference / baseline)
+]
+
+
+def _overlay_timeseries(
+    df: pd.DataFrame,
+    columns: List[str],
+    y_title: str,
+    normalize: Optional[str] = None,
+    height: int = 280,
+) -> Optional[str]:
+    """
+    Shared implementation for "several variables on the same axes".
+
+    Each series shows its daily ROI mean; the lines use the curated
+    `OVERLAY_COLORS` rotation so they stay readable against each
+    other on the dark surface.
+
+    Args:
+        columns: variable column names to overlay. Missing or all-NaN
+            columns are skipped silently.
+        y_title: y-axis label to apply after any normalization.
+        normalize: `None` (raw values), `"minmax"` (rescale each
+            series to 0-1 across its own range), or `"zscore"`
+            (subtract per-series mean, divide by std). Normalization
+            is necessary when the variables would otherwise not share
+            a sensible scale (e.g. NDVI in [0,1] vs LST in °C).
+    """
+    if df is None or df.empty or "date" not in df.columns:
+        return None
+    present = [c for c in columns if c in df.columns and df[c].notna().any()]
+    if len(present) < 2:
+        return None
+
+    work = df[["date"] + present].dropna(how="all", subset=present).copy()
+    work["date"] = pd.to_datetime(work["date"])
+
+    fig = go.Figure()
+    legend_items = []
+
+    for i, col in enumerate(present):
+        daily = (
+            work[["date", col]]
+            .dropna()
+            .groupby("date", as_index=False)[col]
+            .mean()
+            .sort_values("date")
+        )
+        if daily.empty:
+            continue
+
+        display = daily[col].copy()
+        raw = daily[col].copy()
+        if normalize == "minmax":
+            lo, hi = display.min(), display.max()
+            if hi > lo:
+                display = (display - lo) / (hi - lo)
+        elif normalize == "zscore":
+            mu, sd = display.mean(), display.std(ddof=0)
+            if sd > 0:
+                display = (display - mu) / sd
+
+        colour = OVERLAY_COLORS[i % len(OVERLAY_COLORS)]
+        customdata = raw.to_numpy().reshape(-1, 1)
+        fig.add_trace(
+            go.Scatter(
+                x=daily["date"],
+                y=display,
+                mode="lines+markers",
+                name=col,
+                line=dict(color=colour, width=1.8),
+                marker=dict(size=5, color=colour, line=dict(width=0)),
+                customdata=customdata,
+                hovertemplate=(
+                    "<b>%{fullData.name}</b><br>"
+                    "%{x|%Y-%m-%d}<br>"
+                    "raw %{customdata[0]:.3f}<extra></extra>"
+                ),
+            )
+        )
+        legend_items.append(col)
+
+    if not legend_items:
+        return None
+
+    fig.update_layout(
+        _base_layout(
+            height=height,
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="left",
+                x=0,
+                bgcolor=COLORS["canvas"],
+                bordercolor=COLORS["canvas"],
+                font=dict(color=COLORS["tick"], size=11),
+            ),
+            xaxis=dict(
+                gridcolor=COLORS["grid"],
+                linecolor=COLORS["grid"],
+                tickfont=dict(color=COLORS["tick"], size=11),
+            ),
+            yaxis=dict(
+                title=y_title,
+                gridcolor=COLORS["grid"],
+                linecolor=COLORS["grid"],
+                tickfont=dict(color=COLORS["tick"], size=11),
+                title_font=dict(color=COLORS["axis"], size=11),
+            ),
+            hovermode="x unified",
+        )
+    )
+    return _to_html(fig)
+
+
+def create_canopy_overlay(df: pd.DataFrame) -> Optional[str]:
+    """NDVI and NDRE on a shared [0, 1] axis — both are vigour proxies,
+    red-edge saturates later so divergence flags dense mature canopies."""
+    return _overlay_timeseries(
+        df, ["NDVI", "NDRE"], y_title="Index value"
+    )
+
+
+def create_water_overlay(df: pd.DataFrame) -> Optional[str]:
+    """NDWI (McFeeters) and MNDWI (Xu) on a shared axis. Both track water
+    signal but MNDWI uses SWIR so it handles wet soil / built-up areas
+    more gracefully."""
+    return _overlay_timeseries(
+        df, ["NDWI", "MNDWI"], y_title="Index value"
+    )
+
+
+def create_radar_overlay(df: pd.DataFrame) -> Optional[str]:
+    """Sentinel-1 VH + VV + their ratio — all in dB so a shared axis
+    is honest. Lines diverging indicates a change in canopy structure
+    vs surface roughness."""
+    return _overlay_timeseries(
+        df, ["VH", "VV", "Ratio"], y_title="Backscatter (dB)"
+    )
+
+
+def create_thermal_vs_vigour(df: pd.DataFrame) -> Optional[str]:
+    """LST (°C) next to NDVI ([0, 1]) — unrelated scales, so z-score
+    each series. A classic evapotranspiration check: well-watered
+    canopies stay cooler even when NDVI plateaus."""
+    return _overlay_timeseries(
+        df,
+        ["NDVI", "LST"],
+        y_title="Standard deviations from series mean",
+        normalize="zscore",
+    )
+
+
+# -- Variable glossary --------------------------------------------------
+# One-liner definitions shown as tooltips and rendered in the Data
+# Analysis tab's glossary block. Kept deliberately short so they fit
+# in a browser's native title popup without being truncated.
+VARIABLE_GLOSSARY: Dict[str, str] = {
+    "NDVI": (
+        "Normalized Difference Vegetation Index — (NIR − Red) / (NIR + Red). "
+        "Canopy photosynthetic activity. Range [−1, 1]; healthy "
+        "vegetation typically > 0.6."
+    ),
+    "NDRE": (
+        "Normalized Difference Red-Edge Index — (NIR − RedEdge) / "
+        "(NIR + RedEdge). Saturates later than NDVI; better signal "
+        "on dense mature canopies."
+    ),
+    "NDWI": (
+        "Normalized Difference Water Index (McFeeters) — "
+        "(Green − NIR) / (Green + NIR). Surface water on soil; on "
+        "vegetation proxies leaf-water content."
+    ),
+    "MNDWI": (
+        "Modified NDWI (Xu) — (Green − SWIR1) / (Green + SWIR1). "
+        "Better water-vs-built discrimination than NDWI; sensitive "
+        "to wet soil."
+    ),
+    "IRECI": (
+        "Inverted Red-Edge Chlorophyll Index — (NIR − Red) / "
+        "(RE1 / RE2). Non-linear chlorophyll / nitrogen proxy used "
+        "in grapevine literature."
+    ),
+    "S2REP": (
+        "Sentinel-2 Red-Edge Position — inflection of the red-edge "
+        "reflectance curve in nm. Tracks chlorophyll and nitrogen "
+        "dynamics through the season."
+    ),
+    "VH": (
+        "Sentinel-1 VH backscatter (dB) — cross-polarized return. "
+        "Sensitive to canopy structure and volume-scattering elements "
+        "like leaves and clusters."
+    ),
+    "VV": (
+        "Sentinel-1 VV backscatter (dB) — co-polarized return. "
+        "Dominated by surface roughness and soil-moisture dielectric."
+    ),
+    "Ratio": (
+        "VH / VV ratio (dB) — structure-vs-surface contrast. More "
+        "negative values indicate sparser canopies or bare rows."
+    ),
+    "LST": (
+        "Land Surface Temperature (°C) from Landsat 8/9 thermal. "
+        "Lower than air temperature on transpiring canopies; spikes "
+        "during water stress."
+    ),
+    "Slope": (
+        "Terrain slope in degrees from the SRTM DEM. Static variable "
+        "driving water retention, sun exposure, and mechanization "
+        "feasibility."
+    ),
+}
 
 
 # -- Backward-compatible re-exports -----------------------------------
