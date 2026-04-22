@@ -569,6 +569,111 @@ body {
     border: none;
 }
 
+/* -- Data Analysis tab ------------------------------------------------
+   Document-style reading column rather than a KPI grid. Each chart
+   sits under its own heading + one-line description, a thin top
+   rule separates sections, no cards / no left accents / no colour-
+   coded headings. */
+
+.page-dashboard #analysis-view {
+    display: none;
+    overflow-y: auto;
+    height: 100%;
+    background: #1a1a1a;
+    padding: 24px 32px 64px;
+}
+
+.page-dashboard .analysis {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.page-dashboard .analysis-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.page-dashboard .analysis-section + .analysis-section,
+.page-dashboard .analysis-grid + .analysis-section,
+.page-dashboard .analysis-section + .analysis-grid {
+    padding-top: 28px;
+    border-top: 1px solid #252525;
+}
+
+.page-dashboard .analysis-section > header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.page-dashboard .analysis-section > header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #f0f0f0;
+    line-height: 1.3;
+}
+
+.page-dashboard .analysis-section > header p {
+    margin: 0;
+    font-size: 12.5px;
+    color: #8c8c8c;
+    line-height: 1.5;
+}
+
+.page-dashboard .analysis-plot {
+    /* Plotly owns the internal padding; we give it a quiet gutter
+       and let the transparent canvas blend with the page bg. */
+    margin-top: 4px;
+}
+
+.page-dashboard .analysis-plot .plotly-graph-div {
+    width: 100% !important;
+}
+
+.page-dashboard .analysis-plot .modebar {
+    background: transparent !important;
+}
+
+.page-dashboard .analysis-plot .modebar-btn path {
+    fill: #7a7a7a !important;
+}
+
+.page-dashboard .analysis-plot .modebar-btn.active path,
+.page-dashboard .analysis-plot .modebar-btn:hover path {
+    fill: #d6d6d6 !important;
+}
+
+.page-dashboard .analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px;
+}
+
+.page-dashboard .analysis-grid > .analysis-section {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.page-dashboard .analysis-grid > .analysis-section + .analysis-section {
+    border-top: 0;
+    padding-top: 0;
+}
+
+@media (max-width: 900px) {
+    .page-dashboard #analysis-view {
+        padding: 20px 20px 48px;
+    }
+    .page-dashboard .analysis-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 24px;
+    }
+}
+
 /* -- Report tab -------------------------------------------------------
    Goal: look like a document, not a dashboard panel. GitHub / Linear
    long-form reading: neutral grays, subtle horizontal rules, no blue

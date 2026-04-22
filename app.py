@@ -434,15 +434,25 @@ def dashboard(project_name):
         stats.append({"label": "Status", "value": "Data not yet available"})
 
     # Generate Charts
+    # Order matters: `acquisition` renders first and carries the full
+    # plotly.js payload via CDN; every subsequent chart embeds only
+    # its own figure and reuses the already-loaded library. All
+    # renderers return `None` when their input isn't available so the
+    # template's `{% if charts.X %}` guard skips the section cleanly.
     charts_html = {}
     if os.path.exists(csv_path):
         try:
             df = pd.read_csv(csv_path)
-            # charts_html['temporal_trends'] = charts.create_temporal_trends(df)  # Removed per user request
-            charts_html["histograms"] = charts.create_histograms(df)
-            # charts_html['correlation'] = charts.create_correlation_matrix(df)  # Removed per user request
+            charts_html["acquisition"] = charts.create_acquisition_timeline(df)
+            charts_html["cloud_coverage"] = charts.create_cloud_coverage(meta_list)
+            charts_html["index_trends"] = charts.create_index_trends(df)
+            charts_html["distributions"] = charts.create_distributions(df)
+            charts_html["correlation"] = charts.create_correlation(df)
+            charts_html["ndvi_by_slope"] = charts.create_ndvi_by_slope(df)
         except Exception as e:
             print(f"Error generating charts: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Available dates for date selector
     available_dates = (
