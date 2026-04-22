@@ -88,9 +88,11 @@
             <header>
                 <h3>
                     <span>{{ title }}</span>
-                    <span class="info" tabindex="0" role="button"
+                    <span class="info"
+                          tabindex="0"
+                          role="button"
                           aria-label="About this chart"
-                          title="{{ help_text }}">?</span>
+                          data-tooltip="{{ help_text }}">?</span>
                 </h3>
                 <p>{{ caption }}</p>
             </header>

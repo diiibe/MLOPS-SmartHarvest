@@ -628,12 +628,14 @@ body {
     line-height: 1.5;
 }
 
-/* `?` info affordance next to a section title. The browser's native
-   tooltip shows the full explanation on hover / keyboard focus; the
-   visual is just a quiet 16 px pill that signals "there is help
-   available here" without the colourful floating icons AI dashboards
-   default to. */
+/* `?` info affordance next to a section title. Custom CSS tooltip
+   instead of the browser's native `title` attribute, which has a
+   ~1 s delay and sometimes never shows at all on spans. The
+   tooltip is a `::after` pseudo-element reading from the
+   `data-tooltip` attribute — zero JS, instant hover response,
+   full keyboard focus coverage. */
 .page-dashboard .analysis-section > header .info {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -655,6 +657,41 @@ body {
     color: #e0e0e0;
     border-color: #5a5a5a;
     outline: none;
+}
+
+.page-dashboard .analysis-section > header .info::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: max-content;
+    max-width: 340px;
+    padding: 8px 12px;
+    background: #121212;
+    color: #d6d6d6;
+    border: 1px solid #2e2e2e;
+    border-radius: 6px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    font-weight: 400;
+    white-space: normal;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-2px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+    z-index: 30;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.page-dashboard .analysis-section > header .info:hover::after,
+.page-dashboard .analysis-section > header .info:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 /* Glossary — compact definition list that reads like a docs block,
