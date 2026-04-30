@@ -96,6 +96,12 @@ _DATE_NAV_JS = """
         // `overlayadd` won't fire for it — prime the stack by walking
         // the map's current layers instead.
         var activeStack = [];
+        // `loadedOnce[label]` becomes true the first time we have
+        // populated that layer's FeatureGroup with markers. Layers
+        // that start hidden lazy-load on first overlayadd; the
+        // default-on layer (e.g. NDVI) is bootstrapped right after
+        // the map mounts so the user never sees an empty canvas.
+        var loadedOnce = {};
         map.eachLayer(function (layer) {
             Object.keys(variables).forEach(function (label) {
                 if (window[variables[label].fg_name] === layer) {
@@ -268,10 +274,21 @@ _DATE_NAV_JS = """
                 });
                 currentDate[label] = date;
                 currentCount[label] = rows.length;
+                loadedOnce[label] = true;
                 render();
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
             });
+        }
+
+        // Lazy-load helper used by both the boot path (active layers
+        // at first paint) and overlayadd (newly toggled layer with
+        // an empty FG). No-op once the layer has been populated at
+        // least once — subsequent date scrubs go through `loadFrame`
+        // directly.
+        function ensureLoaded(label) {
+            if (!label || loadedOnce[label]) return;
+            loadFrame(label, currentDate[label] || variables[label].latest);
         }
 
         function step(direction) {
@@ -293,6 +310,7 @@ _DATE_NAV_JS = """
                 var i = activeStack.indexOf(e.name);
                 if (i !== -1) activeStack.splice(i, 1);
                 activeStack.push(e.name);
+                ensureLoaded(e.name);
                 render();
             }
         });
@@ -305,6 +323,15 @@ _DATE_NAV_JS = """
         });
 
         render();
+
+        // Boot path: any layer that was added to the map by Folium
+        // (i.e. `show=True` server-side, currently NDVI) starts with
+        // an empty FeatureGroup since Python no longer pre-renders
+        // markers. Pull the latest frame for each so the user sees
+        // pixels immediately on first paint.
+        activeStack.slice().forEach(function (label) {
+            ensureLoaded(label);
+        });
     }
 
     if (document.readyState === "loading") {
@@ -472,9 +499,13 @@ def create_verification_map(
     center_lat = (lat_min + lat_max) / 2
     center_lon = (lon_min + lon_max) / 2
 
+    # `prefer_canvas` switches Leaflet's renderer to canvas instead of
+    # SVG so the thousands of CircleMarkers in the variable layers
+    # paint as one canvas pass instead of thousands of DOM nodes.
     m = folium.Map(
         location=[center_lat, center_lon],
         tiles="Esri.WorldImagery",
+        prefer_canvas=True,
     )
     # fit_bounds accepts [[south, west], [north, east]] and handles tiny
     # single-point ROIs by falling back to its own default zoom.
@@ -566,31 +597,17 @@ def create_verification_map(
         </div>
         """
 
-        # Default: show NDVI layer, hide others
+        # The variable's pixels are NOT serialised into the HTML
+        # anymore — pre-rendering 12 layers × ~5 000 markers each
+        # was inflating Map_<project>.html to ~50 MB and forcing
+        # the browser to construct as many DOM / canvas children
+        # before first paint. Instead we register an empty
+        # FeatureGroup; the date-navigator JS bootstrap loads the
+        # default-on layer's points from `/api/variable_frame`
+        # on init, and any other layer the first time the user
+        # toggles it on (`overlayadd`).
         show = col == "NDVI"
         fg = folium.FeatureGroup(name=label, show=show)
-
-        for _, row in col_df.iterrows():
-            val = row.get(col)
-            if pd.isna(val):
-                continue
-            color = colormap(val)
-            popup_text = (
-                f"<b>{label}</b><br>"
-                f"Value: {val:.4f}<br>"
-                f"Date: {display_date}<br>"
-                f"Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}"
-            )
-            folium.CircleMarker(
-                location=[row["lat"], row["lon"]],
-                radius=4,
-                color=color,
-                fill=True,
-                fill_color=color,
-                fill_opacity=0.85,
-                popup=folium.Popup(popup_text, max_width=220),
-            ).add_to(fg)
-
         fg.add_to(m)
 
         # Record the timeline so the date-navigator can page through
@@ -807,8 +824,13 @@ def create_verification_map(
             "project": project_name,
             "variables": variable_index,
         }
+        # `__SH_LAZY_LAYERS` is also the self-heal sentinel checked
+        # by `app.py` `/map/<project>` and `/ml_map/<project>` so it
+        # lives at the very top of the embed where a 32 KB head-scan
+        # is guaranteed to find it.
         nav_script = (
             "<script>\n"
+            "window.__SH_LAZY_LAYERS = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

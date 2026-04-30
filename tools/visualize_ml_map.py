@@ -69,9 +69,13 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     center_lat = (lat_min + lat_max) / 2
     center_lon = (lon_min + lon_max) / 2
 
+    # Canvas renderer keeps the cluster + heatmap pass cheap when
+    # the week is dense (~5 000 markers); SVG was creating thousands
+    # of DOM nodes on every layer toggle.
     m = folium.Map(
         location=[center_lat, center_lon],
         tiles="Esri.WorldImagery",
+        prefer_canvas=True,
     )
     if lat_min != lat_max or lon_min != lon_max:
         m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
@@ -191,6 +195,14 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     </style>
     """
     m.get_root().html.add_child(folium.Element(dark_css))
+
+    # Self-heal sentinel — `app.py /ml_map` regenerates the cached
+    # HTML when this string is missing from the head. Bump the
+    # token whenever we change the iframe's contract so old caches
+    # don't keep serving a stale version.
+    m.get_root().html.add_child(folium.Element(
+        "<script>window.__SH_LAZY_LAYERS = true;</script>"
+    ))
 
     # Basemap switcher (Mapbox). When no token is configured the
     # original `Esri.WorldImagery` tile layer stays as default.
