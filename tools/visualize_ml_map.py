@@ -71,12 +71,18 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
 
     # Canvas renderer keeps the cluster + heatmap pass cheap when
     # the week is dense (~5 000 markers); SVG was creating thousands
-    # of DOM nodes on every layer toggle.
+    # of DOM nodes on every layer toggle. Initialise without a
+    # built-in tile layer so the explicit base-layer registration
+    # below puts every basemap into the same Folium layer control
+    # as a single-active radio group.
+    from tools.visualize_data_map import _add_basemap_layers
+
     m = folium.Map(
         location=[center_lat, center_lon],
-        tiles="Esri.WorldImagery",
+        tiles=None,
         prefer_canvas=True,
     )
+    _add_basemap_layers(m, mapbox_token)
     if lat_min != lat_max or lon_min != lon_max:
         m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
     else:
@@ -201,16 +207,8 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # token whenever we change the iframe's contract so old caches
     # don't keep serving a stale version.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_BASEMAP_RADIO = true;</script>"
     ))
-
-    # Basemap switcher (Mapbox). When no token is configured the
-    # original `Esri.WorldImagery` tile layer stays as default.
-    from tools.basemap_switcher import basemap_switcher_html
-
-    switcher = basemap_switcher_html(mapbox_token, default="satellite")
-    if switcher:
-        m.get_root().html.add_child(folium.Element(switcher))
 
     # Save map
     m.save(output_file)

@@ -8,6 +8,7 @@ Supports date filtering via the `selected_date` parameter.
 
 import json
 import os
+from typing import Optional
 
 import branca.colormap as cm
 import folium
@@ -40,6 +41,58 @@ def _parse_coords(geo_str):
         return data["coordinates"]  # [lon, lat]
     except Exception:
         return [0, 0]
+
+
+# Single-active basemap setup for the Folium maps. Registering the
+# tiles as `overlay=False` makes Folium's LayerControl render them as
+# a radio group at the top of the panel — exactly the UX the user
+# wanted: pick one, the others come off automatically. Falls back to
+# Esri-only when there is no Mapbox token.
+_MAPBOX_BASEMAPS = [
+    ("Satellite", "satellite-streets-v12"),
+    ("Outdoors",  "outdoors-v12"),
+    ("Light",     "light-v11"),
+    ("Dark",      "dark-v11"),
+]
+
+_MAPBOX_ATTR = (
+    '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> '
+    '&copy; <a href="https://www.openstreetmap.org/about/">OSM</a>'
+)
+
+
+def _add_basemap_layers(m: "folium.Map", mapbox_token: Optional[str]) -> None:
+    """
+    Register a small set of base layers (radio-grouped) on `m`.
+
+    Order is significant — Folium adds the first layer to the map by
+    default, so the topmost entry below is what the user sees on
+    first paint. Mapbox layers are skipped when no token is present.
+    """
+    if mapbox_token:
+        for name, style_id in _MAPBOX_BASEMAPS:
+            url = (
+                "https://api.mapbox.com/styles/v1/mapbox/" + style_id +
+                "/tiles/512/{z}/{x}/{y}@2x?access_token=" + mapbox_token
+            )
+            folium.TileLayer(
+                tiles=url,
+                name=name,
+                attr=_MAPBOX_ATTR,
+                control=True,
+                overlay=False,
+                max_zoom=22,
+                tile_size=512,
+                zoom_offset=-1,
+            ).add_to(m)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        name="Esri Satellite",
+        attr="Tiles &copy; Esri",
+        control=True,
+        overlay=False,
+        max_zoom=19,
+    ).add_to(m)
 
 
 # Client-side date navigator injected into the map HTML.
@@ -472,11 +525,15 @@ def create_verification_map(
                       that pages through each variable's historical
                       acquisitions via the /api/variable_frame endpoint.
         mapbox_token: Public Mapbox token. When supplied, the map
-                      renders the four landslide-app basemap styles
-                      (Outdoors / Light / Satellite / Dark) and
-                      injects the panel switcher in the top-right
-                      corner. Empty / None falls back to the
-                      hard-coded `Esri.WorldImagery` tiles.
+                      registers the four landslide-app basemap
+                      styles (Outdoors / Light / Satellite / Dark)
+                      plus the Esri fallback as base layers in the
+                      Folium layer control — Leaflet's single-active
+                      radio behaviour means picking one automatically
+                      removes the others, so the user can swap basemap
+                      from the same panel that holds the variable
+                      overlays. Empty / None keeps just the Esri
+                      tiles as before.
     Returns:
         str: Path to the output HTML file, or None on error.
     """
@@ -502,11 +559,15 @@ def create_verification_map(
     # `prefer_canvas` switches Leaflet's renderer to canvas instead of
     # SVG so the thousands of CircleMarkers in the variable layers
     # paint as one canvas pass instead of thousands of DOM nodes.
+    # Initialise without a built-in basemap; we add base layers
+    # explicitly below so they all appear as radio options inside the
+    # Folium layer control.
     m = folium.Map(
         location=[center_lat, center_lon],
-        tiles="Esri.WorldImagery",
+        tiles=None,
         prefer_canvas=True,
     )
+    _add_basemap_layers(m, mapbox_token)
     # fit_bounds accepts [[south, west], [north, east]] and handles tiny
     # single-point ROIs by falling back to its own default zoom.
     if lat_min != lat_max or lon_min != lon_max:
@@ -830,21 +891,12 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_BASEMAP_RADIO = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
         )
         m.get_root().html.add_child(folium.Element(nav_script))
-
-    # Basemap switcher (Mapbox). Injected only when the caller supplied
-    # a token; otherwise the original `Esri.WorldImagery` tile layer
-    # stays untouched and no panel renders.
-    from tools.basemap_switcher import basemap_switcher_html
-
-    switcher = basemap_switcher_html(mapbox_token, default="satellite")
-    if switcher:
-        m.get_root().html.add_child(folium.Element(switcher))
 
     m.save(output_file)
     print(f"Map saved to {output_file}")
