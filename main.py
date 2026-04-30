@@ -253,7 +253,11 @@ def run_pipeline(
                 map_filename = f"Map_{project_name_safe}.html"
                 map_path = os.path.join(output_dir, map_filename)
                 visualize_data_map.create_verification_map(
-                    merged_path, map_path, project_name=project_name_safe
+                    merged_path,
+                    map_path,
+                    project_name=project_name_safe,
+                    mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                    or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
                 )
                 log(f"[OK] Map saved to: {map_path}")
             except Exception as e:

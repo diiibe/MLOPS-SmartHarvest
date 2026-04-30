@@ -27,7 +27,7 @@ def _parse_coords(geo_str):
         return [0, 0]
 
 
-def create_ml_anomaly_map(ml_dir, week_id, output_file):
+def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     """
     Create dedicated ML anomaly detection map for a specific week.
 
@@ -35,6 +35,10 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
         ml_dir: Path to ml_weekly directory
         week_id: Week ID (e.g., '2025-W45')
         output_file: Path for output HTML
+        mapbox_token: Public Mapbox token. When supplied the four
+            landslide-app basemap styles + the panel switcher are
+            injected; when omitted the hard-coded
+            `Esri.WorldImagery` stays untouched.
 
     Returns:
         str: Path to output HTML, or None on error
@@ -187,6 +191,14 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     </style>
     """
     m.get_root().html.add_child(folium.Element(dark_css))
+
+    # Basemap switcher (Mapbox). When no token is configured the
+    # original `Esri.WorldImagery` tile layer stays as default.
+    from tools.basemap_switcher import basemap_switcher_html
+
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
 
     # Save map
     m.save(output_file)

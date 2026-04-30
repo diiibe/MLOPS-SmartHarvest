@@ -426,7 +426,11 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
 
 
 def create_verification_map(
-    csv_path, output_file, selected_date=None, project_name=None
+    csv_path,
+    output_file,
+    selected_date=None,
+    project_name=None,
+    mapbox_token=None,
 ):
     """
     Create a Folium map with one layer per statistic.
@@ -440,6 +444,12 @@ def create_verification_map(
                       exposes a date-navigator control below the layer panel
                       that pages through each variable's historical
                       acquisitions via the /api/variable_frame endpoint.
+        mapbox_token: Public Mapbox token. When supplied, the map
+                      renders the four landslide-app basemap styles
+                      (Outdoors / Light / Satellite / Dark) and
+                      injects the panel switcher in the top-right
+                      corner. Empty / None falls back to the
+                      hard-coded `Esri.WorldImagery` tiles.
     Returns:
         str: Path to the output HTML file, or None on error.
     """
@@ -804,6 +814,15 @@ def create_verification_map(
             + "\n</script>\n"
         )
         m.get_root().html.add_child(folium.Element(nav_script))
+
+    # Basemap switcher (Mapbox). Injected only when the caller supplied
+    # a token; otherwise the original `Esri.WorldImagery` tile layer
+    # stays untouched and no panel renders.
+    from tools.basemap_switcher import basemap_switcher_html
+
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
 
     m.save(output_file)
     print(f"Map saved to {output_file}")

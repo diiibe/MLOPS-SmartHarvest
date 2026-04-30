@@ -165,7 +165,11 @@ def reuse_project():
         map_path = os.path.join(output_dir, f"Map_{project_name_safe}.html")
         try:
             visualize_data_map.create_verification_map(
-                csv_path, map_path, project_name=project_name_safe
+                csv_path,
+                map_path,
+                project_name=project_name_safe,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
             )
             print(f"[OK] Map regenerated: {map_path}")
         except Exception as e:
@@ -544,19 +548,19 @@ def get_map(project_name):
                 needs_regen = True
             else:
                 try:
-                    # Feature-detect by the most recent config field we
-                    # ship (`max_pixels`, added for the cloud-coverage
-                    # hint). Older maps still have `__SH_MAP_CONFIG`
-                    # but lack this field, so checking the sentinel
-                    # alone silently serves a stale widget. Bump the
-                    # marker every time the embedded config grows a
-                    # field the client needs.
-                    # 32 KB clears the leading CSS + the full config
-                    # JSON without pulling in the ~50 MB of marker
+                    # Feature-detect by the most recent embed sentinel.
+                    # Bump the marker every time the embedded payload
+                    # grows a field the client needs — currently
+                    # `__SH_BASEMAP_CONFIG` (added for the Mapbox
+                    # switcher injection). Older maps still carry
+                    # `__SH_MAP_CONFIG` but lack the basemap config,
+                    # so the panel never renders without a regen.
+                    # 32 KB clears the leading CSS + the full embed
+                    # without pulling in the ~50 MB of marker
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "max_pixels" not in head:
+                    if "__SH_BASEMAP_CONFIG" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -564,7 +568,11 @@ def get_map(project_name):
         print(f"Generating map for {project_name}...")
         try:
             visualize_data_map.create_verification_map(
-                csv_path, map_path, project_name=project_name_safe
+                csv_path,
+                map_path,
+                project_name=project_name_safe,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
             )
         except Exception as e:
             print(f"Error generating map: {e}")
@@ -707,11 +715,30 @@ def ml_map(project_name):
     map_filename = f"ml_map_{week_id}.html"
     map_path = os.path.join(ml_dir, map_filename)
 
-    # Generate map if it doesn't exist
-    if not os.path.exists(map_path):
+    # Generate or regenerate the map. The cached HTML is rebuilt when
+    # it doesn't exist yet OR when it predates the basemap-switcher
+    # embed (sentinel `__SH_BASEMAP_CONFIG`). Same logic the data-map
+    # route uses so the two iframes stay feature-aligned.
+    needs_regen = not os.path.exists(map_path)
+    if not needs_regen:
+        try:
+            with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
+                head = f.read(32768)
+            if "__SH_BASEMAP_CONFIG" not in head:
+                needs_regen = True
+        except OSError:
+            needs_regen = True
+
+    if needs_regen:
         print(f"[ML Map] Generating map for {week_id}...")
         try:
-            visualize_ml_map.create_ml_anomaly_map(ml_dir, week_id, map_path)
+            visualize_ml_map.create_ml_anomaly_map(
+                ml_dir,
+                week_id,
+                map_path,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
+            )
         except Exception as e:
             print(f"[ML Map] Error: {e}")
             import traceback
