@@ -44,7 +44,15 @@ def _get_project_safe_name(project_name):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Pull the Mapbox token from the env so the New Project page can
+    # offer Mapbox raster basemaps (Outdoors / Light / Satellite / Dark)
+    # the same way landslide-app does. When no token is configured the
+    # JS falls back to the original Esri / OSM tiles so the demo path
+    # keeps working without any cloud account.
+    mapbox_token = os.environ.get("MAPBOX_TOKEN") or os.environ.get(
+        "SMARTHARVEST_MAPBOX_TOKEN", ""
+    )
+    return render_template("index.html", mapbox_token=mapbox_token)
 
 
 @app.route("/rois", methods=["GET"])

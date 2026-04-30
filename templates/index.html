@@ -12,11 +12,14 @@
 
 {% block content %}
 <div id="sidebar">
-    <h1>SmartHarvest Wine</h1>
+    <header class="brand-mark">
+        <span class="brand-name">SmartHarvest</span>
+        <span class="brand-subtitle">Vineyard analytics</span>
+    </header>
 
     <div class="status-message" id="statusMessage" role="status" aria-live="polite"></div>
 
-    <div class="form-group">
+    <div class="form-group form-group--card">
         <label>Existing Projects</label>
         <select id="existingProjects" onchange="loadExistingProject()">
             <option value="">New Project</option>
@@ -24,12 +27,12 @@
         <div class="inline-hint">Select to reuse data, or choose "New Project" to start fresh.</div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group form-group--card">
         <label>Project Name</label>
         <input type="text" id="projectName" placeholder="Enter project name" value="New Vineyard">
     </div>
 
-    <div class="form-group">
+    <div class="form-group form-group--card">
         <label>Saved Locations</label>
         <select id="savedRois" onchange="loadRoi()">
             <option value="">Select Vineyard</option>
@@ -57,17 +60,19 @@
     </div>
 
     <div class="summary-card" aria-live="polite">
-        <div class="summary-title">ROI Summary</div>
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="summary-label">Area</div>
-                <div class="summary-value" id="roiArea">N/A</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Status</div>
-                <div class="summary-value" id="roiStatus">No ROI</div>
-            </div>
-        </div>
+        <h3 class="summary-title">ROI Summary</h3>
+        <table class="summary-kv">
+            <tbody>
+                <tr>
+                    <td>Area</td>
+                    <td id="roiArea">N/A</td>
+                </tr>
+                <tr>
+                    <td>Status</td>
+                    <td id="roiStatus">No ROI</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <div class="divider"></div>
@@ -114,6 +119,15 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    // Mapbox token comes from the server (env var) so we never hard-code
+    // it in source. Empty string means "no token configured" — the
+    // basemap switcher then falls back to the existing Esri / OSM
+    // tiles so the demo path keeps working.
+    window.SH_CONFIG = {
+        mapboxToken: {{ mapbox_token | tojson }}
+    };
+</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js" defer></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js" defer></script>

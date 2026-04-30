@@ -1453,3 +1453,291 @@ button, input, select, textarea {
 }
 
 .sh-tinker__actions button:active { transform: translateY(0) scale(0.96); }
+
+/* ──────────────────────────────────────────────────────────────────
+   New Project page — landslide polish
+   ────────────────────────────────────────────────────────────────── */
+
+.page-index #sidebar {
+    width: 320px;
+    padding: 20px 18px 24px;
+    gap: 14px;
+}
+
+.page-index .brand-mark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin-bottom: 6px;
+}
+
+.page-index .brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--c-text);
+}
+
+.page-index .brand-subtitle {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--c-text-soft);
+}
+
+.page-index #sidebar h1 {
+    /* Legacy h1 in case the markup ever reverts — kept light and
+       restrained so it doesn't compete with the new brand-mark. */
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--c-text);
+    text-align: center;
+    margin: 0 0 12px;
+}
+
+.page-index .form-group label {
+    color: var(--c-text-soft);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.page-index .form-group--card {
+    /* No extra container — the underlying form-group spacing is
+       enough; the modifier stays as a hook for future tweaks. */
+}
+
+.page-index .inline-hint {
+    color: var(--c-text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.page-index .divider {
+    height: 1px;
+    background: var(--c-border-soft);
+    margin: 4px 0 10px;
+}
+
+.page-index .summary-card {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--c-ochre-stripe);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin: 6px 0 10px;
+    transition: filter 200ms var(--e-quart);
+}
+
+.page-index .summary-card:hover { filter: brightness(1.04); }
+
+.page-index .summary-card .summary-title {
+    margin: 0 auto 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+
+.page-index .summary-kv {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.page-index .summary-kv tr {
+    transition: background 180ms var(--e-quart);
+}
+
+.page-index .summary-kv tr:hover {
+    background: color-mix(in srgb, var(--c-ochre-bg) 60%, transparent);
+}
+
+.page-index .summary-kv td {
+    padding: 5px 0;
+    border-top: 1px solid var(--c-border-soft);
+    transition: color 150ms var(--e-quart), transform 200ms var(--e-expo);
+}
+
+.page-index .summary-kv tr:first-child td { border-top: none; }
+
+.page-index .summary-kv td:first-child {
+    color: var(--c-text-muted);
+    font-weight: 500;
+    transform-origin: left center;
+}
+
+.page-index .summary-kv td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--c-text);
+    transform-origin: right center;
+}
+
+.page-index .summary-kv tr:hover td:first-child {
+    color: var(--c-ochre);
+    font-weight: 600;
+    transform: translateX(3px);
+}
+
+.page-index .summary-kv tr:hover td:last-child {
+    color: var(--c-ochre);
+    transform: scale(1.08);
+}
+
+.page-index .status-message {
+    display: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-border-soft);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--c-text);
+    background: var(--c-surface-soft);
+}
+
+.page-index .status-message.is-info,
+.page-index .status-message.is-error,
+.page-index .status-message.is-success {
+    display: block;
+}
+
+.page-index .status-message.is-info {
+    border-left: 3px solid var(--c-slate-stripe);
+}
+
+.page-index .status-message.is-success {
+    border-left: 3px solid var(--c-forest-stripe);
+}
+
+.page-index .status-message.is-error {
+    border-left: 3px solid var(--c-russet-stripe);
+    color: var(--c-russet);
+}
+
+.page-index #progress-container {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--radius-md);
+}
+
+.page-index .progress-bar-bg {
+    height: 6px;
+    background: color-mix(in srgb, var(--c-bg-linen) 60%, var(--c-border) 40%);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.page-index .progress-bar-fill {
+    height: 100%;
+    background: var(--c-ochre);
+    width: 0%;
+    transition: width 320ms var(--e-expo);
+}
+
+.page-index .progress-text {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+}
+
+/* ── Basemap switcher (landslide LayersPanel style) ─────────────── */
+.sh-basemap {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    padding: 10px 12px 12px;
+    font-family: var(--font-stack);
+    color: var(--c-text);
+    min-width: 220px;
+}
+
+.sh-basemap__head {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text-soft);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin-bottom: 8px;
+}
+
+.sh-basemap__row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.sh-basemap__btn {
+    appearance: none;
+    background: var(--c-surface-soft);
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-basemap__btn:hover {
+    color: var(--c-text);
+    border-color: var(--c-ochre-stripe);
+    transform: translateY(-1px);
+}
+
+.sh-basemap__btn:active { transform: translateY(0) scale(0.96); }
+
+.sh-basemap__btn[data-active="true"] {
+    color: var(--c-ochre);
+    background: var(--c-ochre-bg);
+    border-color: var(--c-ochre-stripe);
+}
+
+/* Override Leaflet's default control appearance so the panel matches
+   the page chrome rather than the off-the-shelf white box. */
+.leaflet-control-attribution {
+    background: var(--c-surface) !important;
+    color: var(--c-text-muted) !important;
+    font-size: 10px !important;
+    border-top-left-radius: var(--radius-sm);
+}
+
+.leaflet-control-attribution a {
+    color: var(--c-text-soft) !important;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+    background: var(--c-surface) !important;
+    color: var(--c-text) !important;
+    border-bottom: 1px solid var(--c-border-soft) !important;
+}
+
+.leaflet-bar a:hover {
+    background: var(--c-surface-soft) !important;
+}

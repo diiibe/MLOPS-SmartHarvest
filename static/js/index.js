@@ -1,19 +1,84 @@
 // Initialize map
-var map = L.map('map').setView([45.0, 10.0], 6);
+var map = L.map('map', { zoomControl: true }).setView([45.0, 10.0], 6);
 
-// Base Layers
-var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
-var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
-var terrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+// Basemap registry — when a Mapbox token is configured we expose the
+// same four styles landslide-app does (Outdoors / Light / Satellite /
+// Dark). Otherwise we fall back to the original Esri + OSM tiles so
+// the demo path keeps working without an account.
+var MAPBOX_TOKEN = (window.SH_CONFIG && window.SH_CONFIG.mapboxToken) || '';
 
-var baseMaps = {
-    "Satellite": satellite,
-    "Street Map": osm,
-    "Terrain": terrain
-};
+function mapboxRaster(styleId) {
+    return L.tileLayer(
+        'https://api.mapbox.com/styles/v1/mapbox/' + styleId +
+        '/tiles/512/{z}/{x}/{y}@2x?access_token=' + MAPBOX_TOKEN,
+        {
+            tileSize: 512,
+            zoomOffset: -1,
+            attribution: '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/about/">OSM</a>',
+            maxZoom: 22
+        }
+    );
+}
 
-satellite.addTo(map);
-L.control.layers(baseMaps).addTo(map);
+var basemaps = MAPBOX_TOKEN
+    ? [
+        { id: 'outdoors',  label: 'Outdoors',  layer: mapboxRaster('outdoors-v12') },
+        { id: 'light',     label: 'Light',     layer: mapboxRaster('light-v11') },
+        { id: 'satellite', label: 'Satellite', layer: mapboxRaster('satellite-streets-v12') },
+        { id: 'dark',      label: 'Dark',      layer: mapboxRaster('dark-v11') }
+    ]
+    : [
+        { id: 'satellite', label: 'Satellite', layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 }) },
+        { id: 'osm',       label: 'Street',    layer: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }) },
+        { id: 'terrain',   label: 'Terrain',   layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 17 }) }
+    ];
+
+// Default basemap: Mapbox satellite-streets if available, otherwise Esri.
+var activeBasemap = basemaps.find(function (b) { return b.id === 'satellite'; }) || basemaps[0];
+activeBasemap.layer.addTo(map);
+
+function setBasemap(id) {
+    var next = basemaps.find(function (b) { return b.id === id; });
+    if (!next || next === activeBasemap) return;
+    map.removeLayer(activeBasemap.layer);
+    next.layer.addTo(map);
+    activeBasemap = next;
+    document.querySelectorAll('.sh-basemap__btn').forEach(function (btn) {
+        btn.dataset.active = btn.dataset.basemap === id ? 'true' : 'false';
+    });
+}
+
+// Landslide-style basemap switcher — small pill panel anchored to the
+// bottom-right of the map. Each pill is one of the registered
+// basemaps; the active one carries `data-active="true"` for the CSS
+// underline accent.
+function renderBasemapSwitcher() {
+    var BasemapControl = L.Control.extend({
+        options: { position: 'topright' },
+        onAdd: function () {
+            var container = L.DomUtil.create('div', 'sh-basemap');
+            container.setAttribute('aria-label', 'Basemap');
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.disableScrollPropagation(container);
+            var head = L.DomUtil.create('div', 'sh-basemap__head', container);
+            head.textContent = 'Basemap';
+            var row = L.DomUtil.create('div', 'sh-basemap__row', container);
+            basemaps.forEach(function (b) {
+                var btn = L.DomUtil.create('button', 'sh-basemap__btn', row);
+                btn.type = 'button';
+                btn.textContent = b.label;
+                btn.dataset.basemap = b.id;
+                btn.dataset.active = b === activeBasemap ? 'true' : 'false';
+                btn.addEventListener('click', function () {
+                    setBasemap(b.id);
+                });
+            });
+            return container;
+        }
+    });
+    new BasemapControl().addTo(map);
+}
+renderBasemapSwitcher();
 
 var ui = {
     statusMessage: document.getElementById('statusMessage'),
