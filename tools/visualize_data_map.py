@@ -49,10 +49,12 @@ def _parse_coords(geo_str):
 # wanted: pick one, the others come off automatically. Falls back to
 # Esri-only when there is no Mapbox token.
 _MAPBOX_BASEMAPS = [
+    # Order is significant — Folium auto-adds the first registered
+    # tile layer to the map, so it becomes the default basemap.
+    ("Dark",      "dark-v11"),
     ("Satellite", "satellite-streets-v12"),
     ("Outdoors",  "outdoors-v12"),
     ("Light",     "light-v11"),
-    ("Dark",      "dark-v11"),
 ]
 
 _MAPBOX_ATTR = (

@@ -22,10 +22,10 @@ function mapboxRaster(styleId) {
 
 var basemaps = MAPBOX_TOKEN
     ? [
-        { id: 'outdoors',  label: 'Outdoors',  layer: mapboxRaster('outdoors-v12') },
-        { id: 'light',     label: 'Light',     layer: mapboxRaster('light-v11') },
+        { id: 'dark',      label: 'Dark',      layer: mapboxRaster('dark-v11') },
         { id: 'satellite', label: 'Satellite', layer: mapboxRaster('satellite-streets-v12') },
-        { id: 'dark',      label: 'Dark',      layer: mapboxRaster('dark-v11') }
+        { id: 'outdoors',  label: 'Outdoors',  layer: mapboxRaster('outdoors-v12') },
+        { id: 'light',     label: 'Light',     layer: mapboxRaster('light-v11') }
     ]
     : [
         { id: 'satellite', label: 'Satellite', layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 }) },
@@ -33,8 +33,11 @@ var basemaps = MAPBOX_TOKEN
         { id: 'terrain',   label: 'Terrain',   layer: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 17 }) }
     ];
 
-// Default basemap: Mapbox satellite-streets if available, otherwise Esri.
-var activeBasemap = basemaps.find(function (b) { return b.id === 'satellite'; }) || basemaps[0];
+// Default basemap: Mapbox dark when a token is configured (matches the
+// dashboard iframes), otherwise the first available fallback.
+var activeBasemap = basemaps.find(function (b) { return b.id === 'dark'; })
+    || basemaps.find(function (b) { return b.id === 'satellite'; })
+    || basemaps[0];
 activeBasemap.layer.addTo(map);
 
 function setBasemap(id) {
