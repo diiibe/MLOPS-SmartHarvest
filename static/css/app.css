@@ -1,3 +1,5 @@
+@import url("./tokens.css");
+
 * {
     box-sizing: border-box;
 }
@@ -5,9 +7,11 @@
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    font-family: var(--font-stack);
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--c-bg-linen);
+    color: var(--c-text);
 }
 
 /* Index page */
@@ -980,3 +984,472 @@ body {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
+/* ──────────────────────────────────────────────────────────────────
+   Landslide-derived design layer
+   ──────────────────────────────────────────────────────────────────
+   The rules above are the legacy per-page styles. Everything below
+   pulls SmartHarvest into the design language distilled from
+   `diiibe/landslide-app`: shared font stack, naturalistic dark
+   palette, button/input micro-interactions, eyebrow section
+   headers with animated underline, KV row hover effects.
+
+   These rules are scoped to top-level surfaces and shared
+   primitives (button, input, h1/h2/h3 in known containers) so
+   they re-paint without disturbing the existing layout.
+*/
+
+button, input, select, textarea {
+    font-family: var(--font-stack);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────
+   Landslide's IconButton + small-button language. Transparent at
+   rest, linen wash + 1px border on hover, micro-translate, brief
+   scale punch on active. Easings come from the tokens file. */
+.page-index button,
+.page-dashboard button:not(.tab):not(.timeline-btn) {
+    background: transparent;
+    color: var(--c-text);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        box-shadow 180ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.page-index button:hover,
+.page-dashboard button:not(.tab):not(.timeline-btn):hover {
+    background: var(--c-surface);
+    border-color: var(--c-border);
+    color: var(--c-text);
+    transform: translateY(-1px);
+}
+
+.page-index button:active,
+.page-dashboard button:not(.tab):not(.timeline-btn):active {
+    transform: translateY(0) scale(0.96);
+    transition-duration: 90ms;
+}
+
+.page-index button:focus-visible,
+.page-dashboard button:not(.tab):not(.timeline-btn):focus-visible {
+    outline: 0;
+    border-color: var(--c-ochre);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ochre) 22%, transparent);
+}
+
+.page-index button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Variant: success / primary — the "Start Analysis" CTA */
+.page-index .btn-success,
+.page-dashboard .btn-download:not(:hover) {
+    background: var(--c-russet-bg);
+    color: var(--c-russet);
+    border-color: var(--c-russet-stripe);
+}
+
+.page-index .btn-success:hover,
+.page-dashboard .btn-download:hover {
+    background: color-mix(in srgb, var(--c-russet-bg) 70%, var(--c-russet) 30%);
+    border-color: var(--c-russet);
+    color: var(--c-text);
+}
+
+.page-index .btn-secondary {
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border-soft);
+}
+
+.page-index .btn-secondary:hover {
+    color: var(--c-text);
+    border-color: var(--c-border);
+    background: var(--c-surface);
+}
+
+.page-index .btn-new {
+    background: transparent;
+    color: var(--c-forest);
+    border: 1px solid var(--c-forest-stripe);
+}
+
+.page-index .btn-new:hover {
+    background: var(--c-forest-bg);
+    color: var(--c-forest);
+    border-color: var(--c-forest);
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────
+   Mirrors landslide-app's SearchLocality: 1px border, subtle bg,
+   focus-within glow tinted in ochre to match the warm palette. */
+.page-index input[type="text"],
+.page-index input[type="date"],
+.page-index input[type="number"],
+.page-index select,
+#sidebar select,
+#sidebar input[type="text"] {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    color: var(--c-text);
+    padding: 8px 10px;
+    transition:
+        border-color 180ms var(--e-quart),
+        background 180ms var(--e-quart),
+        box-shadow 180ms var(--e-quart);
+}
+
+.page-index input:hover,
+.page-index select:hover {
+    border-color: color-mix(in srgb, var(--c-border) 60%, var(--c-ochre) 40%);
+}
+
+.page-index input:focus,
+.page-index select:focus {
+    outline: 0;
+    border-color: var(--c-ochre);
+    background: var(--c-surface-soft);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ochre) 18%, transparent);
+}
+
+/* ── Sidebars + base surfaces ─────────────────────────────────── */
+.page-index #sidebar,
+.page-dashboard #sidebar {
+    background: var(--c-surface);
+    border-right: 1px solid var(--c-border);
+    color: var(--c-text);
+    box-shadow: none;
+}
+
+.page-index h1,
+.page-dashboard #sidebar .header h2 {
+    color: var(--c-text);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* ── Section headers (eyebrow pattern with animated underline) ──
+   The exact h3 treatment from landslide-app/widgets.module.css.
+   Targets the dashboard's #sidebar .card h3 — the only place a
+   h3 lives inside a panel. The Data Analysis tab keeps its own
+   document-style headers so we deliberately do NOT touch
+   `.analysis-section header h3`. */
+.page-dashboard #sidebar .card h3 {
+    margin: 0 auto 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    position: relative;
+    display: block;
+    padding-bottom: 6px;
+    transition:
+        letter-spacing 250ms var(--e-expo),
+        color 180ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card h3::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 0;
+    height: 1.5px;
+    background: var(--c-ochre);
+    transform: translateX(-50%);
+    opacity: 0;
+    transition:
+        width 300ms var(--e-expo),
+        opacity 220ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card:hover h3 {
+    letter-spacing: 0.22em;
+    color: var(--c-ochre);
+}
+
+.page-dashboard #sidebar .card:hover h3::after {
+    width: 28px;
+    opacity: 0.7;
+}
+
+/* ── KV rows ─────────────────────────────────────────────────────
+   Sidebar stat list adopts landslide's KV-table behaviour: hover
+   shifts label +3px, scales the value 1.08, both adopt the ochre
+   accent. Tabular-nums for the numeric column. */
+.page-dashboard #sidebar .stat-list .stat-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--c-border-soft);
+    transition: background 180ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:first-child {
+    border-top: 0;
+}
+
+.page-dashboard #sidebar .stat-list .stat-label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 500;
+    transition:
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+    transform-origin: left center;
+}
+
+.page-dashboard #sidebar .stat-list .stat-val {
+    font-size: 13px;
+    color: var(--c-text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    transition:
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+    transform-origin: right center;
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:hover .stat-label {
+    color: var(--c-ochre);
+    font-weight: 600;
+    transform: translateX(3px);
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:hover .stat-val {
+    color: var(--c-ochre);
+    transform: scale(1.08);
+}
+
+/* ── Cards ───────────────────────────────────────────────────────
+   Sidebar `.card` becomes the section primitive: 3px left stripe in
+   the ochre accent, faintly tinted bg, soft separation borders. No
+   shadows, no large radii. */
+.page-dashboard #sidebar .card {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--c-ochre-stripe);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    color: var(--c-text);
+    transition: filter 200ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card:hover {
+    filter: brightness(1.04);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────
+   Underline indicator instead of the previous filled-pill look. */
+.page-dashboard .tabs {
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+}
+
+.page-dashboard .tab {
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition:
+        color 180ms var(--e-quart),
+        border-color 180ms var(--e-quart),
+        background 180ms var(--e-quart);
+}
+
+.page-dashboard .tab:hover {
+    color: var(--c-text);
+    background: color-mix(in srgb, var(--c-surface) 60%, var(--c-bg-linen) 40%);
+}
+
+.page-dashboard .tab.active {
+    color: var(--c-text);
+    border-bottom-color: var(--c-ochre);
+    background: transparent;
+}
+
+/* ── Tinker panel ─ floating dev widget for live token tweaks ──
+   Lives in a fixed pill bottom-right; expands into a drawer with
+   colour pickers for the dominant tokens. Persists to localStorage
+   so a reload keeps the experimental palette. */
+.sh-tinker {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9999;
+    font-family: var(--font-stack);
+}
+
+.sh-tinker__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    background: var(--c-surface);
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    transition:
+        background 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-tinker__toggle:hover {
+    color: var(--c-ochre);
+    border-color: var(--c-ochre-stripe);
+    transform: translateY(-1px);
+}
+
+.sh-tinker__toggle:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.sh-tinker__toggle::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c-ochre);
+    box-shadow: 0 0 0 1px var(--c-surface);
+}
+
+.sh-tinker__panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 14px 16px 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sh-tinker[data-open="true"] .sh-tinker__panel {
+    display: flex;
+    animation: shTinkerIn 220ms var(--e-expo);
+}
+
+@keyframes shTinkerIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sh-tinker__title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin: 0 0 4px;
+}
+
+.sh-tinker__row {
+    display: grid;
+    grid-template-columns: 96px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+}
+
+.sh-tinker__row label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--c-text-soft);
+}
+
+.sh-tinker__row input[type="color"] {
+    width: 100%;
+    height: 24px;
+    background: transparent;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: 1px;
+    cursor: pointer;
+}
+
+.sh-tinker__row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.sh-tinker__row input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+
+.sh-tinker__row code {
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    color: var(--c-text-muted);
+    text-align: right;
+}
+
+.sh-tinker__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--c-border-soft);
+}
+
+.sh-tinker__actions button {
+    flex: 1;
+    height: 28px;
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-tinker__actions button:hover {
+    color: var(--c-text);
+    border-color: var(--c-ochre-stripe);
+    background: color-mix(in srgb, var(--c-surface) 70%, var(--c-ochre-bg) 30%);
+    transform: translateY(-1px);
+}
+
+.sh-tinker__actions button:active { transform: translateY(0) scale(0.96); }

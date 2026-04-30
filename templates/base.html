@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <title>{% block title %}SmartHarvest{% endblock %}</title>
@@ -12,6 +12,7 @@
 <body class="{% block body_class %}{% endblock %}">
     {% block content %}{% endblock %}
     {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/ui-tinker.js') }}" defer></script>
 </body>
 
 </html>
