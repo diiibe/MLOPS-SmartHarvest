@@ -1197,11 +1197,13 @@ button, input, select, textarea {
     gap: 0;
 }
 
-/* Stats card no longer stretches — denser sidebar means the
-   sensors-card grows to fill the leftover space and project stats
-   stays at intrinsic height. */
-.page-dashboard .content > .card { flex-shrink: 0; }
-.page-dashboard .content > .sensors-card { flex: 1 1 auto; min-height: 0; }
+/* All sidebar cards stack at intrinsic height — no flex-grow on
+   the sensors-card, no flex-shrink on the others. The earlier
+   stretch rule was causing rows in the sensors-card to overflow
+   into the sibling Export card whenever the sidebar got tall
+   enough; reverting to natural block flow inside `.content`'s
+   scroll container fixes the bleed. */
+.page-dashboard .content > .card { flex: 0 0 auto; }
 
 /* Project Stats — same chip-row pattern as Sensors & Variables.
    Each stat becomes a compact row with a soft border, hover lifts
@@ -1251,6 +1253,11 @@ button, input, select, textarea {
 .page-dashboard .sensor-row {
     --accent: var(--c-text-soft);
     --accent-bg: var(--c-surface-soft);
+    /* `position: relative` makes this the containing block for the
+       chip tooltips: each `.chip[data-tooltip]::after` opens
+       centred above this row rather than above the chip itself,
+       so all variables in a sensor group share the same anchor. */
+    position: relative;
     padding: 6px 8px 8px;
     border: 1px solid var(--c-border-soft);
     border-left: 3px solid var(--accent);
@@ -1310,7 +1317,11 @@ button, input, select, textarea {
 .page-dashboard .chip {
     display: inline-flex;
     align-items: center;
-    position: relative;
+    /* `position: static` here is intentional — the tooltip
+       (`::after`) needs to escape the chip's local stacking
+       context so it can anchor to the parent `.sensor-row`
+       (which is `position: relative`) and stay centred above the
+       whole sensor group instead of jumping per-chip. */
     height: 18px;
     padding: 0 6px;
     border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--c-border-soft) 65%);
@@ -1394,34 +1405,10 @@ button, input, select, textarea {
     transform: translateX(-50%) translateY(0);
 }
 
-/* Edge-aware variants — `dashboard.js` flips `data-align` to
-   `start` or `end` when the bubble would otherwise spill off the
-   viewport. We override `left`, `right`, and `transform` so the
-   bubble pins to the chip's left or right edge instead of its
-   centre. */
-.page-dashboard .chip[data-tooltip][data-align="start"]::after {
-    left: 0;
-    right: auto;
-    transform: translateX(0) translateY(2px);
-}
-
-.page-dashboard .chip[data-tooltip][data-align="start"]:hover::after,
-.page-dashboard .chip[data-tooltip][data-align="start"]:focus-visible::after,
-.page-dashboard .chip[data-tooltip][data-align="start"][data-pinned="true"]::after {
-    transform: translateX(0) translateY(0);
-}
-
-.page-dashboard .chip[data-tooltip][data-align="end"]::after {
-    left: auto;
-    right: 0;
-    transform: translateX(0) translateY(2px);
-}
-
-.page-dashboard .chip[data-tooltip][data-align="end"]:hover::after,
-.page-dashboard .chip[data-tooltip][data-align="end"]:focus-visible::after,
-.page-dashboard .chip[data-tooltip][data-align="end"][data-pinned="true"]::after {
-    transform: translateX(0) translateY(0);
-}
+/* The previous per-chip `data-align` variants are obsolete: with
+   the tooltip anchored to `.sensor-row` (300 px sidebar - 24 px
+   card padding = ~270 px row width), the 240 px bubble always
+   fits inside the column without spilling off the viewport. */
 
 /* ── Export card ─────────────────────────────────────────────────
    Two compact rows instead of stacked chunky buttons. Keeps the
