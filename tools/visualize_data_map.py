@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1021,21 +1021,29 @@ def create_verification_map(
         # navigator works on ISO weeks now: weeks without any
         # observation are skipped, weeks with multiple acquisitions
         # are averaged per pixel by the API.
-        block = df[df[col].notna()][["date", col]].copy()
+        block = df[df[col].notna()][["date", "lat", "lon", col]].copy()
         block["date_dt"] = pd.to_datetime(block["date"])
         # `%G-W%V` is the ISO 8601 year-week ("2025-W45"). It survives
         # the year boundary correctly (a Jan-1 in week 53 of the
         # previous year stays in that week's bucket).
         block["week"] = block["date_dt"].dt.strftime("%G-W%V")
-        per_week_counts = block.groupby("week").size()
-        variable_weeks = sorted(per_week_counts.index.tolist())
-        # `max_pixels` is the largest single-week observation
-        # footprint — used by the cloud-coverage hint as the
-        # denominator. With weekly averaging the weekly count never
-        # exceeds the number of unique pixels imaged in that week,
-        # so this is the right scale.
+        # `max_pixels` is the largest *unique-pixel* footprint in any
+        # single week — the cloud-coverage hint uses it as the
+        # denominator for "% of ROI observed". Counting raw rows here
+        # (the previous shape) over-counts whenever a week has
+        # several acquisitions: each pixel shows up once per pass,
+        # so the denominator was N× the true unique count and the
+        # hint was permanently saying "more clouds than reality".
+        unique_pixels_per_week = (
+            block.drop_duplicates(["week", "lat", "lon"])
+                 .groupby("week")
+                 .size()
+        )
+        variable_weeks = sorted(unique_pixels_per_week.index.tolist())
         max_pixels = (
-            int(per_week_counts.max()) if len(per_week_counts) else 0
+            int(unique_pixels_per_week.max())
+            if len(unique_pixels_per_week)
+            else 0
         )
         latest_week = variable_weeks[-1] if variable_weeks else None
         sensor = schema.COLUMN_SATELLITE.get(col)
@@ -1261,7 +1269,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
