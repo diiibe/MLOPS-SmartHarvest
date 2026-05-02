@@ -205,10 +205,16 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # SmartHarvest popup cards + layer-control section titles. Reuses
     # the same blocks the data-map iframe injects so the two iframes
     # stay visually identical.
-    from tools.visualize_data_map import _SH_POPUP_CSS, _SH_LAYER_TITLES_JS
+    from tools.visualize_data_map import _SH_POPUP_CSS
+    from tools.basemap_switcher import basemap_switcher_html
 
     m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
-    m.get_root().html.add_child(folium.Element(_SH_LAYER_TITLES_JS))
+    # Same Map / Variables split as the data map: standalone floating
+    # panel for the basemap, Folium's layer control for the cluster /
+    # heatmap overlays.
+    switcher = basemap_switcher_html(mapbox_token, default="dark")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
 
     # Self-heal sentinel — `app.py /ml_map` regenerates the cached
     # HTML when this string is missing from the head. Bumped to
@@ -217,7 +223,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # also emit the literal here so a 32 KB head-scan reliably finds
     # it without depending on script parse order.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_MAP_SPLIT = true;</script>"
     ))
 
     # Save map

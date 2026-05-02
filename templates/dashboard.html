@@ -16,10 +16,49 @@
             <h3>Project Stats</h3>
             <div class="stat-list">
                 {% for stat in stats %}
+                {% if stat.kind == 'window' %}
+                <div class="stat-item stat-item--window">
+                    <div class="stat-label">{{ stat.label }}</div>
+                    {% if stat.start and stat.end %}
+                    <div class="stat-window">
+                        <span class="stat-window__date">{{ stat.start }}</span>
+                        <span class="stat-window__sep" aria-hidden="true">→</span>
+                        <span class="stat-window__date">{{ stat.end }}</span>
+                    </div>
+                    {% else %}
+                    <div class="stat-val">{{ stat.value }}</div>
+                    {% endif %}
+                </div>
+                {% elif stat.kind == 'sensor' %}
+                <div class="stat-item stat-item--sensor"
+                     data-source="{{ stat.source_class }}">
+                    <div class="stat-sensor__row">
+                        <span class="stat-sensor__label">{{ stat.label }}</span>
+                        <span class="stat-sensor__counts">
+                            <span class="stat-sensor__kept">{{ stat.retained }}</span>
+                            <span class="stat-sensor__total">/ {{ stat.total }}</span>
+                        </span>
+                    </div>
+                    <div class="stat-sensor__bar"
+                         role="progressbar"
+                         aria-valuenow="{{ stat.retained_pct }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         aria-label="{{ stat.retained }} of {{ stat.total }} acquisitions kept">
+                        <span class="stat-sensor__bar-fill"
+                              style="--ratio: {{ stat.retained_pct }}%"></span>
+                    </div>
+                    <div class="stat-sensor__legend">
+                        <span class="stat-sensor__legend-kept">{{ stat.retained_pct }}% kept</span>
+                        <span class="stat-sensor__legend-cut">{{ stat.discarded }} discarded</span>
+                    </div>
+                </div>
+                {% else %}
                 <div class="stat-item">
                     <div class="stat-label">{{ stat.label }}</div>
                     <div class="stat-val">{{ stat.value }}</div>
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
         </div>

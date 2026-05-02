@@ -409,11 +409,10 @@ def dashboard(project_name):
             with open(metadata_path, "r") as f:
                 meta_list = json.load(f)
                 # Separate list for image counts to ensure specific ordering.
-                # `topo_stat` and `hparam_stats` are appended after the image
-                # tally so the sidebar reads: area / window / sensors / topo /
-                # run hyperparameters — primary numbers above the fold.
+                # SRTM is intentionally NOT shown as a "Topography" row —
+                # it's a static reference, listed under Sensors & Variables
+                # already, and the user wanted it off this card.
                 image_stats = []
-                topo_stat = None
                 hparam_stats = []
 
                 for item in meta_list:
@@ -447,25 +446,13 @@ def dashboard(project_name):
                                     "label": "Grid resolution (m)",
                                     "value": str(item["target_scale"]),
                                 })
-                        elif item["source"] == "SRTM":
-                            topo_stat = {
-                                "label": "Topography",
-                                "value": "Static (SRTM)",
-                            }
                         elif "image_count" in item:
                             if item["source"] != "SRTM":
                                 image_stats.append(_sensor_stat(item))
 
-                # Append image stats
+                # Append image stats below area/window, hyperparameters
+                # at the very bottom.
                 stats.extend(image_stats)
-
-                # Append Topography last among the data-source rows.
-                if topo_stat:
-                    stats.append(topo_stat)
-
-                # Hyperparameters at the very bottom of the stats block so
-                # the primary numbers (area, window, image counts) stay
-                # above the fold.
                 stats.extend(hparam_stats)
 
         except Exception as e:
@@ -661,7 +648,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_MAXPX_FIX" not in head:
+                    if "__SH_MAP_SPLIT" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -998,7 +985,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_MAXPX_FIX" not in head:
+            if "__SH_MAP_SPLIT" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True

@@ -1209,34 +1209,222 @@ button, input, select, textarea {
    Each stat becomes a compact row with a soft border, hover lifts
    the label and right-aligns the value in ochre. The card itself
    inherits the 3 px ochre left stripe from the base `.card` rule. */
-.page-dashboard .stats-card .stat-list {
-    gap: 4px;
+/* ─── Project Stats — refined ───────────────────────────────────
+   Three row primitives share the same neutral container but
+   express different information densities:
+     · default   — Area + similar one-shot key/value pairs
+     · window    — Analysis range, two-line tabular dates
+     · sensor    — kept-vs-discarded acquisitions with a 4 px
+                   progress bar tinted by sensor family
+   The card's left stripe stays ochre so the whole stack reads as
+   one panel; per-row accent comes from a `--row-accent` variable
+   each `[data-source]` overrides. Hover lifts the accent without
+   changing layout. */
+.page-dashboard #sidebar .stats-card .stat-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
 }
 
-.page-dashboard .stats-card .stat-item {
+.page-dashboard #sidebar .stats-card .stat-item {
+    --row-accent: var(--c-ochre);
+    --row-accent-stripe: var(--c-ochre-stripe);
+    --row-tint: 6%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    padding: 5px 8px;
+    gap: 8px;
+    padding: 6px 9px;
     border: 1px solid var(--c-border-soft);
+    border-left: 2px solid color-mix(in srgb, var(--row-accent-stripe) 70%, transparent);
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--c-ochre) 6%, var(--c-surface) 94%);
+    background: color-mix(in srgb, var(--row-accent) var(--row-tint), var(--c-surface));
     transition:
         background 180ms var(--e-quart),
         border-color 180ms var(--e-quart);
 }
 
-.page-dashboard .stats-card .stat-item:hover {
-    border-color: color-mix(
-        in srgb, var(--c-ochre-stripe) 50%, var(--c-border-soft) 50%
+.page-dashboard #sidebar .stats-card .stat-item:hover {
+    border-color: color-mix(in srgb, var(--row-accent-stripe) 55%, var(--c-border-soft));
+    border-left-color: var(--row-accent);
+    background: color-mix(in srgb, var(--row-accent) calc(var(--row-tint) + 6%), var(--c-surface));
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-label {
+    color: var(--row-accent);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-val {
+    color: var(--row-accent);
+}
+
+/* `kind="window"` row — Analysis Window. Dates stack on a thin
+   second line so the 9-character `YYYY-MM-DD` strings always fit
+   the column even at the smallest sidebar width. The arrow is a
+   muted glyph, not a heavy chevron, so it doesn't compete. */
+.page-dashboard #sidebar .stats-card .stat-item--window {
+    --row-accent: var(--c-slate);
+    --row-accent-stripe: var(--c-slate-stripe);
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 4px;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-text-soft);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text);
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date:last-child {
+    text-align: right;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__sep {
+    color: color-mix(in srgb, var(--c-slate) 70%, var(--c-text-muted));
+    flex: 0 0 auto;
+    font-weight: 500;
+    font-size: 10px;
+}
+
+/* `kind="sensor"` row — kept / total + ratio bar. The fill colour
+   is the family accent: russet for Sentinel-2, sage for
+   Sentinel-1, ochre for Landsat 8/9. The discarded share is a
+   muted track tinted toward the same family so the rejection
+   visual stays cohesive instead of a contrasting red. */
+.page-dashboard #sidebar .stats-card .stat-item--sensor {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 5px;
+    padding: 7px 9px 8px;
+}
+
+/* `_sensor_class()` lowercases + strips spaces / slashes and folds
+   "sentinel-" into "s", so the actual `data-source` values flowing
+   through the template are `s2`, `s1`, `landsat`. Match those. */
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s2"] {
+    --row-accent: var(--c-russet);
+    --row-accent-stripe: var(--c-russet-stripe);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s1"] {
+    --row-accent: var(--c-sage);
+    --row-accent-stripe: var(--c-sage);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="landsat"] {
+    --row-accent: var(--c-ochre);
+    --row-accent-stripe: var(--c-ochre-stripe);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-sensor__label {
+    color: var(--row-accent);
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__counts {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__kept {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--row-accent);
+    letter-spacing: -0.01em;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__total {
+    font-size: 10px;
+    color: var(--c-text-muted);
+    font-weight: 500;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar {
+    position: relative;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--row-accent) 14%, var(--c-surface));
+    overflow: hidden;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--ratio, 0%);
+    background: linear-gradient(
+        90deg,
+        var(--row-accent) 0%,
+        color-mix(in srgb, var(--row-accent) 75%, var(--row-accent-stripe)) 100%
     );
-    background: color-mix(in srgb, var(--c-ochre) 12%, var(--c-surface) 88%);
+    border-radius: 2px;
+    transform-origin: left center;
+    animation: stat-bar-grow 540ms var(--e-expo) both;
 }
 
-.page-dashboard .stats-card .stat-item:hover .stat-label {
-    color: var(--c-ochre);
+@keyframes stat-bar-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
 }
 
-.page-dashboard .stats-card .stat-item:hover .stat-val {
-    color: var(--c-ochre);
+@media (prefers-reduced-motion: reduce) {
+    .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar-fill {
+        animation: none;
+    }
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 9.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-kept {
+    color: var(--row-accent);
+    font-weight: 600;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-cut {
+    color: var(--c-text-muted);
 }
 
 /* ── Sensors & Variables card ────────────────────────────────────

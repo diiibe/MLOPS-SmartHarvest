@@ -195,10 +195,12 @@ _PANEL_JS = """
 
 
 _DEFAULT_STYLES = [
+    # Order matches the index page + the dashboard's preferred dark
+    # default: Dark first, Satellite second, then the lighter styles.
+    {"id": "dark",      "label": "Dark",      "styleId": "dark-v11"},
+    {"id": "satellite", "label": "Satellite", "styleId": "satellite-streets-v12"},
     {"id": "outdoors",  "label": "Outdoors",  "styleId": "outdoors-v12"},
     {"id": "light",     "label": "Light",     "styleId": "light-v11"},
-    {"id": "satellite", "label": "Satellite", "styleId": "satellite-streets-v12"},
-    {"id": "dark",      "label": "Dark",      "styleId": "dark-v11"},
 ]
 
 

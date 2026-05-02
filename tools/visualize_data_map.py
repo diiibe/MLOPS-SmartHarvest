@@ -81,7 +81,11 @@ def _add_basemap_layers(m: "folium.Map", mapbox_token: Optional[str]) -> None:
                 tiles=url,
                 name=name,
                 attr=_MAPBOX_ATTR,
-                control=True,
+                # `control=False` keeps the basemap OUT of Folium's
+                # layer panel — the user wants Map and Variables in
+                # two distinct overlays. Basemap selection is rendered
+                # by the standalone floating panel injected below.
+                control=False,
                 overlay=False,
                 max_zoom=22,
                 tile_size=512,
@@ -91,7 +95,7 @@ def _add_basemap_layers(m: "folium.Map", mapbox_token: Optional[str]) -> None:
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         name="Esri Satellite",
         attr="Tiles &copy; Esri",
-        control=True,
+        control=False,  # basemap lives in the standalone panel
         overlay=False,
         max_zoom=19,
     ).add_to(m)
@@ -201,19 +205,12 @@ _SH_POPUP_CSS = """
         border: 1px solid #3A352A;
     }
 
-    /* --- Layer-control section titles --------------------------- */
-    .sh-layer-section-title {
-        font-size: 9.5px;
-        font-weight: 700;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: #9C988B;
-        padding: 4px 0;
-        margin-bottom: 4px;
-    }
+    /* Map and Variables now live in two separate floating panels —
+       the basemap section title that used to sit in the same
+       layer-control was removed. The Folium control still draws an
+       internal separator if there are base layers; we hide it. */
     .leaflet-control-layers-separator {
-        border-top: 1px solid #322E25 !important;
-        margin: 8px 0 !important;
+        display: none !important;
     }
     /* Kill the default hover tint + cursor on overlay rows so the
        layer control reads as a quiet panel, not a clickable link
@@ -236,7 +233,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_MAP_SPLIT = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1250,11 +1247,18 @@ def create_verification_map(
     """
     m.get_root().html.add_child(folium.Element(dark_css))
 
-    # SmartHarvest popup cards + layer-control section titles. The
-    # JS block sets `window.__SH_POPUP_CARDS = true` which doubles as
-    # the self-heal sentinel checked by `app.py`.
+    # SmartHarvest popup cards. The `_SH_POPUP_CSS` block doubles as
+    # the carrier of the `__SH_POPUP_CARDS` self-heal sentinel.
     m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
-    m.get_root().html.add_child(folium.Element(_SH_LAYER_TITLES_JS))
+
+    # Basemap selection lives in its own floating panel (top-right of
+    # the map) — Folium's layer control now only carries the Variables
+    # checkboxes, so the user gets two visually distinct overlays.
+    from tools.basemap_switcher import basemap_switcher_html
+
+    switcher = basemap_switcher_html(mapbox_token, default="dark")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
 
     # Date-navigator: only makes sense when we know the API origin
     # (which the Flask route supplies via project_name).
@@ -1269,7 +1273,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_MAP_SPLIT = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
