@@ -30,8 +30,11 @@ from typing import Optional
 _PANEL_CSS = """
 <style>
 .sh-basemap {
+    /* Bottom-right of the iframe so it never collides with the
+       Folium-rendered legend (top-right) or the layer control
+       (top-left). */
     position: absolute;
-    top: 12px;
+    bottom: 12px;
     right: 12px;
     z-index: 1000;
     background: #25221C;
