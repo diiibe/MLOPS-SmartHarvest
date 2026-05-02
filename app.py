@@ -611,7 +611,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_LEGEND_ADAPT" not in head:
+                    if "__SH_LEGEND_BULK" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -815,6 +815,74 @@ def variable_week(project_name, variable, week_id):
     })
 
 
+@app.route("/api/week_stats/<project_name>/<week_id>")
+def week_stats(project_name, week_id):
+    """
+    Per-variable vmin / vmax / count for a single ISO week.
+
+    The map's date navigator scrubs the entire legend in lock-step
+    with the active layer: when the user steps to a new week the
+    JS calls this endpoint once and the legend's vmin / vmax labels
+    re-write for every variable, even the ones currently hidden.
+    Variables with no observation in that week come back as
+    `{vmin: null, vmax: null, count: 0}` so the client can render
+    a dash without making a separate "is this variable available?"
+    call.
+    """
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join("output", project_name_safe)
+    csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
+    if not os.path.exists(csv_path):
+        return jsonify({"error": "CSV not found", "variables": {}}), 404
+
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        return jsonify({"error": str(e), "variables": {}}), 500
+
+    if "date" not in df.columns:
+        return jsonify({"error": "CSV is missing date column", "variables": {}}), 500
+
+    df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
+    df["week"] = df["date_dt"].dt.strftime("%G-W%V")
+    week_df = df[df["week"] == week_id]
+
+    # Iterate the canonical schema list rather than column-introspect
+    # so the response keys are stable even when a CSV happens to
+    # carry an extra non-schema numeric column (e.g. spatial_id).
+    import schema as _schema
+
+    candidates = [c for c in _schema.STATS_COLUMNS if c in df.columns]
+    out = {}
+    for col in candidates:
+        block = week_df[week_df[col].notna()][["lat", "lon", col]]
+        if block.empty:
+            out[col] = {"vmin": None, "vmax": None, "count": 0}
+            continue
+        avg = block.groupby(["lat", "lon"], as_index=False)[col].mean()
+        if avg.empty or avg[col].notna().sum() == 0:
+            out[col] = {"vmin": None, "vmax": None, "count": 0}
+            continue
+        vmin = float(avg[col].min())
+        vmax = float(avg[col].max())
+        # Constant week → null bounds so the client falls back to the
+        # embedded global scale for colour mapping.
+        if vmin == vmax:
+            out[col] = {"vmin": None, "vmax": None, "count": int(len(avg))}
+        else:
+            out[col] = {
+                "vmin": vmin,
+                "vmax": vmax,
+                "count": int(len(avg)),
+            }
+
+    return jsonify({
+        "project": project_name_safe,
+        "week": week_id,
+        "variables": out,
+    })
+
+
 @app.route("/download/<project_name>")
 def download_csv(project_name):
     project_name_safe = _get_project_safe_name(project_name)
@@ -880,7 +948,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_LEGEND_ADAPT" not in head:
+            if "__SH_LEGEND_BULK" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True

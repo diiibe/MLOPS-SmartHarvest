@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -511,6 +511,62 @@ _DATE_NAV_JS = """
         }
 
         var inflight = 0;
+        var statsInflight = 0;
+
+        // Pre-build a lookup from `col` to the matching variable label
+        // so the bulk stats endpoint (`/api/week_stats/...`) can update
+        // each `meta` entry by column code in O(1).
+        var varByCol = {};
+        Object.keys(variables).forEach(function (label) {
+            varByCol[variables[label].col] = label;
+        });
+
+        // Pulls vmin / vmax for every variable in one round trip and
+        // applies them to (a) `meta.vmin` / `meta.vmax`, so the next
+        // colour pass uses the right scale, and (b) the legend row's
+        // text labels, so the user reads the bounds for the active
+        // week even on variables they have never toggled on.
+        function refreshAllLegendStats(week) {
+            var ticket = ++statsInflight;
+            var url = "/api/week_stats/" + encodeURIComponent(cfg.project) +
+                      "/" + encodeURIComponent(week);
+            fetch(url).then(function (r) {
+                if (!r.ok) throw new Error("HTTP " + r.status);
+                return r.json();
+            }).then(function (payload) {
+                if (ticket !== statsInflight) return;  // a newer step won
+                var stats = (payload && payload.variables) || {};
+                Object.keys(stats).forEach(function (col) {
+                    var label = varByCol[col];
+                    if (!label) return;
+                    var meta = variables[label];
+                    var s = stats[col];
+                    var row = document.querySelector(
+                        ".sh-legend-row[data-var='" + col + "']"
+                    );
+                    if (!row) return;
+                    var minEl = row.querySelector(".sh-legend-vmin");
+                    var maxEl = row.querySelector(".sh-legend-vmax");
+                    if (s && typeof s.vmin === "number" && typeof s.vmax === "number") {
+                        meta.vmin = s.vmin;
+                        meta.vmax = s.vmax;
+                        if (minEl) minEl.textContent = formatLegendValue(s.vmin);
+                        if (maxEl) maxEl.textContent = formatLegendValue(s.vmax);
+                        row.style.opacity = "1";
+                    } else {
+                        // No data this week — keep the global meta
+                        // bounds so colour mapping keeps working when
+                        // the user toggles this layer on, but visually
+                        // dim the row + show dashes.
+                        if (minEl) minEl.textContent = "—";
+                        if (maxEl) maxEl.textContent = "—";
+                        row.style.opacity = "0.45";
+                    }
+                });
+            }).catch(function (err) {
+                console.error("[SH-date-nav] week_stats failed", err);
+            });
+        }
 
         function formatLegendValue(v) {
             // Mirrors Python's `:.2f` formatting so the JS-driven
@@ -589,6 +645,11 @@ _DATE_NAV_JS = """
                 currentCount[label] = rows.length;
                 loadedOnce[label] = true;
                 render();
+                // Bring every other variable's legend row in line
+                // with the same week — the user wants the whole
+                // statistics panel to scrub together, not just the
+                // active layer's row.
+                refreshAllLegendStats(week);
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
             });
@@ -1200,7 +1261,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
