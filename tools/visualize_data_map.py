@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -343,12 +343,19 @@ _DATE_NAV_JS = """
         if (!cfg || !cfg.variables) return;
 
         var variables = cfg.variables;
-        // `currentDate[label]` = date string currently displayed for that
-        // variable. Seeded with the latest, which matches what Python
-        // rendered into the initial FG.
-        var currentDate = {};
+        // `currentWeek[label]` = ISO week id currently displayed for
+        // that variable (e.g. "2025-W45"). Seeded with the variable's
+        // latest week, which is also what the Python initial render
+        // averaged for the default-on layer.
+        var currentWeek = {};
+        // `currentRange[label]` = human-readable date range covered
+        // by the currently-loaded frame, populated after the first
+        // fetch for that variable. Used in the popups so a click on
+        // a pixel shows "2025-11-03 → 2025-11-09" rather than the
+        // bare week id.
+        var currentRange = {};
         Object.keys(variables).forEach(function (k) {
-            currentDate[k] = variables[k].latest;
+            currentWeek[k] = variables[k].latest_week;
         });
 
         // Stack of active overlay labels, most-recent-on-top. Used to
@@ -378,12 +385,13 @@ _DATE_NAV_JS = """
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
             div.innerHTML =
-                '<div class="sh-dn-label">Acquisition date</div>' +
+                '<div class="sh-dn-label">Week</div>' +
                 '<div class="sh-dn-row">' +
-                '  <button class="sh-dn-btn sh-dn-prev" title="Previous acquisition">&#9664;</button>' +
+                '  <button class="sh-dn-btn sh-dn-prev" title="Previous week">&#9664;</button>' +
                 '  <div class="sh-dn-date">—</div>' +
-                '  <button class="sh-dn-btn sh-dn-next" title="Next acquisition">&#9654;</button>' +
+                '  <button class="sh-dn-btn sh-dn-next" title="Next week">&#9654;</button>' +
                 '</div>' +
+                '<div class="sh-dn-range"></div>' +
                 '<div class="sh-dn-var"></div>' +
                 '<div class="sh-dn-count"></div>' +
                 '<div class="sh-dn-cloud"></div>';
@@ -393,6 +401,7 @@ _DATE_NAV_JS = """
 
         var rootEl = control.getContainer();
         var dateEl = rootEl.querySelector(".sh-dn-date");
+        var rangeEl = rootEl.querySelector(".sh-dn-range");
         var varEl = rootEl.querySelector(".sh-dn-var");
         var countEl = rootEl.querySelector(".sh-dn-count");
         var cloudEl = rootEl.querySelector(".sh-dn-cloud");
@@ -416,6 +425,7 @@ _DATE_NAV_JS = """
             var label = activeLabel();
             if (!label) {
                 dateEl.textContent = "—";
+                rangeEl.textContent = "";
                 varEl.textContent = "No layer active";
                 varEl.classList.add("sh-dn-empty");
                 countEl.textContent = "";
@@ -426,18 +436,20 @@ _DATE_NAV_JS = """
             }
             varEl.classList.remove("sh-dn-empty");
             var meta = variables[label];
-            var date = currentDate[label];
-            var idx = meta.dates.indexOf(date);
-            dateEl.textContent = date || "—";
-            varEl.textContent = label;
+            var week = currentWeek[label];
+            var idx = meta.weeks.indexOf(week);
+            dateEl.textContent = week || "—";
+            rangeEl.textContent = currentRange[label] || "";
+            varEl.textContent = label + " · weekly mean";
             var n = currentCount[label];
             countEl.textContent = (n == null)
                 ? ""
                 : n.toLocaleString() + " pixel" + (n === 1 ? "" : "s");
             // Optical / thermal sensors: estimate cloud coverage from
-            // how much of the variable's peak footprint is missing on
-            // this frame. Radar / topography are not cloud-affected so
-            // we just report coverage without the "cloud" framing.
+            // how much of the variable's peak weekly footprint is
+            // missing on this frame. Radar / topography are not
+            // cloud-affected so we just report coverage without the
+            // "cloud" framing.
             if (n == null || !meta.max_pixels) {
                 cloudEl.textContent = "";
             } else {
@@ -456,7 +468,7 @@ _DATE_NAV_JS = """
                 }
             }
             prevBtn.disabled = idx <= 0;
-            nextBtn.disabled = idx === -1 || idx >= meta.dates.length - 1;
+            nextBtn.disabled = idx === -1 || idx >= meta.weeks.length - 1;
         }
 
         function colorFor(val, meta) {
@@ -500,15 +512,15 @@ _DATE_NAV_JS = """
 
         var inflight = 0;
 
-        function loadFrame(label, date) {
+        function loadFrame(label, week) {
             var meta = variables[label];
             var fg = window[meta.fg_name];
             if (!fg) return;
 
             var ticket = ++inflight;
-            var url = "/api/variable_frame/" + encodeURIComponent(cfg.project) +
+            var url = "/api/variable_week/" + encodeURIComponent(cfg.project) +
                       "/" + encodeURIComponent(meta.col) +
-                      "/" + encodeURIComponent(date);
+                      "/" + encodeURIComponent(week);
             fetch(url).then(function (r) {
                 if (!r.ok) throw new Error("HTTP " + r.status);
                 return r.json();
@@ -516,6 +528,7 @@ _DATE_NAV_JS = """
                 if (ticket !== inflight) return;  // superseded
                 fg.clearLayers();
                 var rows = payload.points || [];
+                var rangeText = payload.date_range || week;
                 rows.forEach(function (p) {
                     var color = colorFor(p.value, meta);
                     var m = L.circleMarker([p.lat, p.lon], {
@@ -526,14 +539,24 @@ _DATE_NAV_JS = """
                         weight: 1,
                     });
                     m.bindPopup(
-                        "<b>" + label + "</b><br>" +
-                        "Value: " + (p.value != null ? p.value.toFixed(4) : "n/a") + "<br>" +
-                        "Date: " + date + "<br>" +
-                        "Lat: " + p.lat.toFixed(5) + ", Lon: " + p.lon.toFixed(5)
+                        "<div class='sh-popup'>" +
+                            "<div class='sh-popup__title'>" + label + "</div>" +
+                            "<div class='sh-popup__sub'>Week " + week + "</div>" +
+                            "<table class='sh-popup__kv'>" +
+                                "<tr><td>Mean</td><td>" +
+                                    (p.value != null ? p.value.toFixed(4) : "n/a") +
+                                "</td></tr>" +
+                                "<tr><td>Range</td><td>" + rangeText + "</td></tr>" +
+                                "<tr><td>Lat / Lon</td><td>" +
+                                    p.lat.toFixed(5) + " / " + p.lon.toFixed(5) +
+                                "</td></tr>" +
+                            "</table>" +
+                        "</div>"
                     );
                     m.addTo(fg);
                 });
-                currentDate[label] = date;
+                currentWeek[label] = week;
+                currentRange[label] = rangeText;
                 currentCount[label] = rows.length;
                 loadedOnce[label] = true;
                 render();
@@ -545,22 +568,22 @@ _DATE_NAV_JS = """
         // Lazy-load helper used by both the boot path (active layers
         // at first paint) and overlayadd (newly toggled layer with
         // an empty FG). No-op once the layer has been populated at
-        // least once — subsequent date scrubs go through `loadFrame`
+        // least once — subsequent week scrubs go through `loadFrame`
         // directly.
         function ensureLoaded(label) {
             if (!label || loadedOnce[label]) return;
-            loadFrame(label, currentDate[label] || variables[label].latest);
+            loadFrame(label, currentWeek[label] || variables[label].latest_week);
         }
 
         function step(direction) {
             var label = activeLabel();
             if (!label) return;
             var meta = variables[label];
-            var idx = meta.dates.indexOf(currentDate[label]);
+            var idx = meta.weeks.indexOf(currentWeek[label]);
             if (idx === -1) return;
             var next = idx + direction;
-            if (next < 0 || next >= meta.dates.length) return;
-            loadFrame(label, meta.dates[next]);
+            if (next < 0 || next >= meta.weeks.length) return;
+            loadFrame(label, meta.weeks[next]);
         }
 
         prevBtn.addEventListener("click", function () { step(-1); });
@@ -887,16 +910,27 @@ def create_verification_map(
         fg.add_to(m)
 
         # Record the timeline so the date-navigator can page through
-        # this variable's acquisitions without a full map reload.
-        # `max_pixels` is the largest per-date observation footprint
-        # across all acquisitions; combined with the current frame's
-        # count it lets the UI estimate cloud-masked fraction for
-        # optical/thermal variables.
-        per_date_counts = (
-            df[df[col].notna()].groupby("date").size()
+        # this variable's history without a full map reload. The
+        # navigator works on ISO weeks now: weeks without any
+        # observation are skipped, weeks with multiple acquisitions
+        # are averaged per pixel by the API.
+        block = df[df[col].notna()][["date", col]].copy()
+        block["date_dt"] = pd.to_datetime(block["date"])
+        # `%G-W%V` is the ISO 8601 year-week ("2025-W45"). It survives
+        # the year boundary correctly (a Jan-1 in week 53 of the
+        # previous year stays in that week's bucket).
+        block["week"] = block["date_dt"].dt.strftime("%G-W%V")
+        per_week_counts = block.groupby("week").size()
+        variable_weeks = sorted(per_week_counts.index.tolist())
+        # `max_pixels` is the largest single-week observation
+        # footprint — used by the cloud-coverage hint as the
+        # denominator. With weekly averaging the weekly count never
+        # exceeds the number of unique pixels imaged in that week,
+        # so this is the right scale.
+        max_pixels = (
+            int(per_week_counts.max()) if len(per_week_counts) else 0
         )
-        variable_dates = sorted(per_date_counts.index.tolist())
-        max_pixels = int(per_date_counts.max()) if len(per_date_counts) else 0
+        latest_week = variable_weeks[-1] if variable_weeks else None
         sensor = schema.COLUMN_SATELLITE.get(col)
         cloud_sensitive = sensor in ("S2", "L8")
         variable_index[label] = {
@@ -905,8 +939,9 @@ def create_verification_map(
             "vmin": vmin,
             "vmax": vmax,
             "colors": _resolve_to_hex(colors),
-            "dates": variable_dates,
-            "latest": display_date,
+            "weeks": variable_weeks,
+            "latest_week": latest_week,
+            "latest_date": display_date,
             "initial_count": int(len(col_df)),
             "max_pixels": max_pixels,
             "cloud_sensitive": cloud_sensitive,
@@ -1072,6 +1107,13 @@ def create_verification_map(
             font-style: italic;
             text-align: center;
         }
+        .sh-date-nav .sh-dn-range {
+            font-size: 10px;
+            color: #b4b4b4;
+            text-align: center;
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
+        }
         .sh-date-nav .sh-dn-count {
             font-size: 9px;
             color: #8c8c8c;
@@ -1112,7 +1154,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

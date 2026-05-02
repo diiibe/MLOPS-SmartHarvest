@@ -611,7 +611,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_POPUP_CARDS" not in head:
+                    if "__SH_WEEKLY_NAV" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -710,6 +710,100 @@ def variable_frame(project_name, variable, date):
     })
 
 
+@app.route("/api/variable_week/<project_name>/<variable>/<week_id>")
+def variable_week(project_name, variable, week_id):
+    """
+    Per-pixel weekly mean for one variable.
+
+    The Interactive Map's date navigator now steps in ISO weeks, so
+    a click on the prev / next arrow asks for an entire week's
+    aggregate instead of a single acquisition. Pixels observed
+    multiple times in the same week are averaged; pixels not
+    observed at all in that week are simply absent — the user-
+    visible effect is a stable "weekly view" that does not flicker
+    when one of the dates inside the week is cloud-masked.
+
+    `week_id` is the ISO 8601 year-week token, e.g. ``2025-W45``.
+
+    Response shape:
+        {"project": "...", "variable": "...", "week": "2025-W45",
+         "date_range": "2025-11-03 to 2025-11-09",
+         "obs_dates": ["2025-11-04", "2025-11-08"],
+         "points": [{"lat": ..., "lon": ..., "value": ...}, ...]}
+    """
+    project_name_safe = _get_project_safe_name(project_name)
+    output_dir = os.path.join("output", project_name_safe)
+    csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
+    if not os.path.exists(csv_path):
+        return jsonify({"error": "CSV not found", "points": []}), 404
+
+    try:
+        df = pd.read_csv(csv_path, usecols=lambda c: c in (
+            "date", "lat", "lon", ".geo", variable
+        ))
+    except ValueError:
+        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
+    if variable not in df.columns:
+        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
+
+    if ("lat" not in df.columns or "lon" not in df.columns) and ".geo" in df.columns:
+        import json as _json
+
+        def _parse(g):
+            try:
+                data = _json.loads(g) if isinstance(g, str) else g
+                return data["coordinates"]
+            except Exception:
+                return [None, None]
+
+        coords = df[".geo"].apply(_parse)
+        df["lon"] = coords.apply(lambda x: x[0])
+        df["lat"] = coords.apply(lambda x: x[1])
+
+    df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
+    # `%G-W%V` is the ISO 8601 year-week and stays consistent at the
+    # year boundary (Jan-1 in week 53 of the previous year keeps
+    # bucketing into that week).
+    df["week"] = df["date_dt"].dt.strftime("%G-W%V")
+
+    block = df[(df["week"] == week_id) & df[variable].notna()].copy()
+
+    if not len(block):
+        return jsonify({
+            "project": project_name_safe,
+            "variable": variable,
+            "week": week_id,
+            "date_range": "",
+            "obs_dates": [],
+            "points": [],
+        })
+
+    frame = block.groupby(["lat", "lon"], as_index=False)[variable].mean()
+    points = [
+        {"lat": float(r["lat"]), "lon": float(r["lon"]), "value": float(r[variable])}
+        for _, r in frame.iterrows()
+        if pd.notna(r["lat"]) and pd.notna(r["lon"])
+    ]
+
+    obs_dates = sorted(block["date"].dropna().unique().tolist())
+    if obs_dates:
+        if obs_dates[0] == obs_dates[-1]:
+            date_range = obs_dates[0]
+        else:
+            date_range = f"{obs_dates[0]} → {obs_dates[-1]}"
+    else:
+        date_range = ""
+
+    return jsonify({
+        "project": project_name_safe,
+        "variable": variable,
+        "week": week_id,
+        "date_range": date_range,
+        "obs_dates": obs_dates,
+        "points": points,
+    })
+
+
 @app.route("/download/<project_name>")
 def download_csv(project_name):
     project_name_safe = _get_project_safe_name(project_name)
@@ -775,7 +869,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_POPUP_CARDS" not in head:
+            if "__SH_WEEKLY_NAV" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True
