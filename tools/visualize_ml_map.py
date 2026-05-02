@@ -202,12 +202,22 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     """
     m.get_root().html.add_child(folium.Element(dark_css))
 
+    # SmartHarvest popup cards + layer-control section titles. Reuses
+    # the same blocks the data-map iframe injects so the two iframes
+    # stay visually identical.
+    from tools.visualize_data_map import _SH_POPUP_CSS, _SH_LAYER_TITLES_JS
+
+    m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
+    m.get_root().html.add_child(folium.Element(_SH_LAYER_TITLES_JS))
+
     # Self-heal sentinel — `app.py /ml_map` regenerates the cached
-    # HTML when this string is missing from the head. Bump the
-    # token whenever we change the iframe's contract so old caches
-    # don't keep serving a stale version.
+    # HTML when this string is missing from the head. Bumped to
+    # `__SH_POPUP_CARDS` for the popup-restyle pass; the layer-titles
+    # JS block already sets `window.__SH_POPUP_CARDS = true`, but we
+    # also emit the literal here so a 32 KB head-scan reliably finds
+    # it without depending on script parse order.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_BASEMAP_RADIO = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true;</script>"
     ))
 
     # Save map
@@ -249,22 +259,27 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
     # Size by pixel count (logarithmic scale)
     marker_size = 8 + int(np.log1p(pixel_count) * 2)
 
-    # Popup HTML
-    popup_html = f"""
-    <div style="font-family: Arial; font-size: 12px; min-width: 200px;">
-        <b style="font-size: 14px;">Cluster {cluster_label}</b><br>
-        <hr style="margin: 5px 0;">
-        <b>Week:</b> {week_id}<br>
-        <b>Track ID:</b> {track_id}<br>
-        <b>Status:</b> <span style="background-color: {fill_color}; padding: 2px 6px; border-radius: 3px; color: black; font-weight: bold;">{status.upper()}</span><br>
-        <b>Anomalous:</b> {'Yes' if is_anomalous else 'No'}<br>
-        <b>Outlier Score:</b> {outlier_score:.3f}<br>
-        <b>Pixel Count:</b> {pixel_count}<br>
-        <b>Location:</b> {lat:.5f}°N, {lon:.5f}°E<br>
-        <hr style="margin: 5px 0;">
-        <small style="color: #888;">Click for details in sidebar</small>
-    </div>
-    """
+    # Map cluster_status → SmartHarvest badge class
+    status_key = (status or "unknown").lower()
+    badge_cls = {
+        "new": "sh-badge sh-badge--new",
+        "continued": "sh-badge sh-badge--continued",
+    }.get(status_key, "sh-badge sh-badge--unknown")
+    status_label = (status or "unknown").upper()
+
+    popup_html = (
+        '<div class="sh-popup">'
+        f'<div class="sh-popup__title">Cluster #{cluster_label}</div>'
+        f'<div class="sh-popup__sub">Week {week_id} &middot; Track #{track_id}</div>'
+        '<table class="sh-popup__kv">'
+        f'<tr><td>Status</td><td><span class="{badge_cls}">{status_label}</span></td></tr>'
+        f'<tr><td>Anomalous</td><td>{"Yes" if is_anomalous else "No"}</td></tr>'
+        f'<tr><td>Outlier score</td><td>{outlier_score:.3f}</td></tr>'
+        f'<tr><td>Pixel count</td><td>{int(pixel_count):,}</td></tr>'
+        f'<tr><td>Lat / Lon</td><td>{lat:.5f}° / {lon:.5f}°</td></tr>'
+        '</table>'
+        '</div>'
+    )
 
     folium.CircleMarker(
         location=[lat, lon],
@@ -274,7 +289,7 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
         fill_color=fill_color,
         fill_opacity=0.7,
         weight=2,
-        popup=folium.Popup(popup_html, max_width=250),
+        popup=folium.Popup(popup_html, max_width=260),
         tooltip=f"Cluster {cluster_label} (Track {track_id})",
     ).add_to(feature_group)
 

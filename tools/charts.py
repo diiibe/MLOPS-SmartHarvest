@@ -892,57 +892,69 @@ def create_thermal_vs_vigour(df: pd.DataFrame) -> Optional[str]:
 # in a browser's native title popup without being truncated.
 VARIABLE_GLOSSARY: Dict[str, str] = {
     "NDVI": (
-        "Normalized Difference Vegetation Index — (NIR − Red) / (NIR + Red). "
-        "Canopy photosynthetic activity. Range [−1, 1]; healthy "
-        "vegetation typically > 0.6."
+        "Normalized Difference Vegetation Index — how vigorous and green the "
+        "canopy is. Values run from −1 to 1; bare soil sits near 0 and a "
+        "healthy vineyard canopy is typically above 0.6. Computed from "
+        "Sentinel-2 as (NIR − Red) / (NIR + Red)."
     ),
     "NDRE": (
-        "Normalized Difference Red-Edge Index — (NIR − RedEdge) / "
-        "(NIR + RedEdge). Saturates later than NDVI; better signal "
-        "on dense mature canopies."
+        "Normalized Difference Red-Edge Index — chlorophyll and nitrogen "
+        "status of the canopy. Behaves like NDVI but keeps responding when "
+        "leaves get dense, so it is the better vigor signal late in the "
+        "season. Formula: (NIR − RedEdge) / (NIR + RedEdge)."
     ),
     "NDWI": (
-        "Normalized Difference Water Index (McFeeters) — "
-        "(Green − NIR) / (Green + NIR). Surface water on soil; on "
-        "vegetation proxies leaf-water content."
+        "Normalized Difference Water Index — how much water is in the leaves "
+        "(or standing on the soil). Higher values mean wetter, well-hydrated "
+        "canopies; low values flag drying vegetation. McFeeters formula: "
+        "(Green − NIR) / (Green + NIR)."
     ),
     "MNDWI": (
-        "Modified NDWI (Xu) — (Green − SWIR1) / (Green + SWIR1). "
-        "Better water-vs-built discrimination than NDWI; sensitive "
-        "to wet soil."
+        "Modified Normalized Difference Water Index — soil and surface "
+        "wetness, more reliable than NDWI when there are bare rows or roads. "
+        "High values mark waterlogged or recently irrigated patches. Xu "
+        "formula: (Green − SWIR1) / (Green + SWIR1)."
     ),
     "IRECI": (
-        "Inverted Red-Edge Chlorophyll Index — (NIR − Red) / "
-        "(RE1 / RE2). Non-linear chlorophyll / nitrogen proxy used "
-        "in grapevine literature."
+        "Inverted Red-Edge Chlorophyll Index — chlorophyll load, the same "
+        "trait nitrogen leaf tests measure. Higher values point to richer, "
+        "well-fed canopies; low values can warn of nitrogen deficit. "
+        "Formula: (NIR − Red) / (RE1 / RE2) on Sentinel-2 red-edge bands."
     ),
     "S2REP": (
-        "Sentinel-2 Red-Edge Position — inflection of the red-edge "
-        "reflectance curve in nm. Tracks chlorophyll and nitrogen "
-        "dynamics through the season."
+        "Sentinel-2 Red-Edge Position — wavelength (nm) where canopy "
+        "reflectance bends in the red-edge. It shifts up as leaves gain "
+        "chlorophyll and nitrogen and slides back down at senescence, so it "
+        "tracks phenology through the season."
     ),
     "VH": (
-        "Sentinel-1 VH backscatter (dB) — cross-polarized return. "
-        "Sensitive to canopy structure and volume-scattering elements "
-        "like leaves and clusters."
+        "Sentinel-1 VH radar backscatter (dB) — how much canopy mass is "
+        "there, day or night, through clouds. Higher (less negative) values "
+        "mean denser leaves and clusters; low values mean sparse or bare "
+        "rows. Cross-polarized C-band return."
     ),
     "VV": (
-        "Sentinel-1 VV backscatter (dB) — co-polarized return. "
-        "Dominated by surface roughness and soil-moisture dielectric."
+        "Sentinel-1 VV radar backscatter (dB) — surface roughness and soil "
+        "moisture under the canopy. Rises with wetter soil and rougher "
+        "ground, drops on dry smooth surfaces. Co-polarized C-band return."
     ),
     "Ratio": (
-        "VH / VV ratio (dB) — structure-vs-surface contrast. More "
-        "negative values indicate sparser canopies or bare rows."
+        "VH/VV radar ratio (dB) — canopy structure versus bare ground. Less "
+        "negative values mean a fuller, leafier canopy dominating the "
+        "signal; more negative values flag sparser rows or exposed soil. "
+        "Ratio of Sentinel-1 VH to VV."
     ),
     "LST": (
-        "Land Surface Temperature (°C) from Landsat 8/9 thermal. "
-        "Lower than air temperature on transpiring canopies; spikes "
-        "during water stress."
+        "Land Surface Temperature (°C) — how hot the canopy surface is. A "
+        "transpiring, well-watered vineyard runs cooler than the air; sharp "
+        "rises above air temperature are an early warning of water stress. "
+        "From the Landsat 8/9 thermal band."
     ),
     "Slope": (
-        "Terrain slope in degrees from the SRTM DEM. Static variable "
-        "driving water retention, sun exposure, and mechanization "
-        "feasibility."
+        "Terrain slope (degrees) — how steep the parcel is. Drives water "
+        "runoff, sun exposure, frost pooling and whether mechanization is "
+        "feasible. It does not change in time. Derived from the SRTM "
+        "digital elevation model."
     ),
 }
 

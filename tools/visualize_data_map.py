@@ -97,6 +97,212 @@ def _add_basemap_layers(m: "folium.Map", mapbox_token: Optional[str]) -> None:
     ).add_to(m)
 
 
+# Shared SmartHarvest dashboard chrome injected into both the
+# Interactive Map and the Anomaly Detection iframe so the popups +
+# layer control match the parent dashboard's dark/ochre palette.
+# Colours are hard-coded on purpose: the iframe doesn't share
+# `data-theme` with the host document, so importing tokens.css would
+# only paint half of the surface.
+_SH_POPUP_CSS = """
+<style>
+    /* --- Leaflet popup chrome ----------------------------------- */
+    .leaflet-popup-content-wrapper {
+        background: #25221C !important;
+        color: #ECE4D2 !important;
+        border: 1px solid #3A352A !important;
+        border-left: 3px solid #C09137 !important;
+        border-radius: 6px !important;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.45) !important;
+        padding: 0 !important;
+        max-width: 260px !important;
+    }
+    .leaflet-popup-content {
+        margin: 0 !important;
+        padding: 12px 14px !important;
+        font-family: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+        line-height: 1.4 !important;
+    }
+    .leaflet-popup-tip {
+        background: #25221C !important;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.45) !important;
+    }
+    .leaflet-popup-close-button {
+        color: #9C988B !important;
+        padding: 6px 8px 0 0 !important;
+    }
+    .leaflet-popup-close-button:hover {
+        color: #ECE4D2 !important;
+    }
+
+    /* --- Card markup -------------------------------------------- */
+    .sh-popup { color: #ECE4D2; }
+    .sh-popup__title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #ECE4D2;
+        margin: 0 0 2px 0;
+    }
+    .sh-popup__sub {
+        font-size: 10px;
+        color: #9C988B;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        margin: 0 0 8px 0;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #322E25;
+    }
+    .sh-popup__kv {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+        font-family: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+    .sh-popup__kv td {
+        padding: 3px 0;
+        border-top: 1px solid #322E25;
+    }
+    .sh-popup__kv tr:first-child td {
+        border-top: none;
+    }
+    .sh-popup__kv td:first-child {
+        color: #9C988B;
+        font-weight: 500;
+        text-align: left;
+    }
+    .sh-popup__kv td:last-child {
+        color: #ECE4D2;
+        font-weight: 600;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    .sh-badge {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .sh-badge--new {
+        background: #251F12;
+        color: #E2B95C;
+        border: 1px solid #3a2f18;
+    }
+    .sh-badge--continued {
+        background: #1A1F27;
+        color: #9DBADD;
+        border: 1px solid #243140;
+    }
+    .sh-badge--unknown {
+        background: #2A2620;
+        color: #9C988B;
+        border: 1px solid #3A352A;
+    }
+
+    /* --- Layer-control section titles --------------------------- */
+    .sh-layer-section-title {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #9C988B;
+        padding: 4px 0;
+        margin-bottom: 4px;
+    }
+    .leaflet-control-layers-separator {
+        border-top: 1px solid #322E25 !important;
+        margin: 8px 0 !important;
+    }
+    /* Kill the default hover tint + cursor on overlay rows so the
+       layer control reads as a quiet panel, not a clickable link
+       list. The radio rows still use the browser default. */
+    .leaflet-control-layers-overlays label,
+    .leaflet-control-layers-overlays label:hover {
+        cursor: default !important;
+        background: transparent !important;
+    }
+</style>
+"""
+
+
+# Vanilla JS that injects "MAP" / "VARIABLES" titles into the existing
+# Folium layer control by locating the separator the control already
+# emits between basemaps and overlays. Also clears any leftover
+# `data-tooltip` attribute on overlay labels so the help-cursor
+# tooltip from earlier iterations doesn't fire. The function is
+# idempotent (guarded by a data flag) and survives layer-control
+# rebuilds via a MutationObserver.
+_SH_LAYER_TITLES_JS = """
+<script>
+window.__SH_POPUP_CARDS = true;
+(function () {
+    function decorate(panel) {
+        if (!panel || panel.dataset.shDecorated === '1') return;
+        var basesList = panel.querySelector('.leaflet-control-layers-base');
+        var overlaysList = panel.querySelector('.leaflet-control-layers-overlays');
+        var separator = panel.querySelector('.leaflet-control-layers-separator');
+        if (!basesList && !overlaysList) return;
+
+        if (basesList && !panel.querySelector('.sh-layer-section-title[data-section="map"]')) {
+            var mapTitle = document.createElement('div');
+            mapTitle.className = 'sh-layer-section-title';
+            mapTitle.dataset.section = 'map';
+            mapTitle.textContent = 'Map';
+            basesList.parentNode.insertBefore(mapTitle, basesList);
+        }
+        if (overlaysList && !panel.querySelector('.sh-layer-section-title[data-section="variables"]')) {
+            var varsTitle = document.createElement('div');
+            varsTitle.className = 'sh-layer-section-title';
+            varsTitle.dataset.section = 'variables';
+            varsTitle.textContent = 'Variables';
+            var anchor = separator && separator.parentNode === overlaysList.parentNode
+                ? separator.nextSibling
+                : overlaysList;
+            overlaysList.parentNode.insertBefore(varsTitle, overlaysList);
+        }
+        // Strip any stale data-tooltip attribute and force a default
+        // cursor on overlay rows.
+        if (overlaysList) {
+            var labels = overlaysList.querySelectorAll('label');
+            for (var i = 0; i < labels.length; i++) {
+                labels[i].removeAttribute('data-tooltip');
+                labels[i].style.cursor = 'default';
+            }
+        }
+        panel.dataset.shDecorated = '1';
+    }
+
+    function tick() {
+        var panels = document.querySelectorAll('.leaflet-control-layers');
+        for (var i = 0; i < panels.length; i++) decorate(panels[i]);
+    }
+
+    function init() {
+        tick();
+        // The layer control is rebuilt whenever Folium re-runs add_to
+        // (e.g. on overlay toggle in some plugins) so observe the
+        // body subtree and re-decorate on demand.
+        var obs = new MutationObserver(tick);
+        obs.observe(document.body, { childList: true, subtree: true });
+        // Belt-and-braces retry in case the control mounts after the
+        // observer attaches (Folium initialises async on slow
+        // devices).
+        setTimeout(tick, 200);
+        setTimeout(tick, 800);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
+"""
+
+
 # Client-side date navigator injected into the map HTML.
 #
 # Contract with the surrounding Python code:
@@ -478,13 +684,20 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
 
         color = cluster_colors.get(cluster_label, "#7f8c8d")
 
+        # Pixel count is per-cluster, computed once outside the row loop
+        # would be cleaner but keeping this inline avoids a second pass.
+        pixel_count = int((cluster_df["cluster_label"] == cluster_label).sum())
+
         popup_text = (
-            f"<b>ML Cluster</b><br>"
-            f"Week: {latest_week}<br>"
-            f"Cluster: {cluster_label}<br>"
-            f"Track ID: {track_id}<br>"
-            f"Outlier Score: {outlier_score:.3f}<br>"
-            f"Lat: {row['lat']:.5f}, Lon: {row['lon']:.5f}"
+            '<div class="sh-popup">'
+            f'<div class="sh-popup__title">Cluster #{cluster_label}</div>'
+            f'<div class="sh-popup__sub">Week {latest_week} &middot; Track #{track_id}</div>'
+            '<table class="sh-popup__kv">'
+            f'<tr><td>Outlier score</td><td>{outlier_score:.3f}</td></tr>'
+            f'<tr><td>Pixel count</td><td>{pixel_count:,}</td></tr>'
+            f"<tr><td>Lat / Lon</td><td>{row['lat']:.5f}° / {row['lon']:.5f}°</td></tr>"
+            '</table>'
+            '</div>'
         )
 
         # Size based on outlier score (larger = more anomalous)
@@ -498,7 +711,7 @@ def _add_ml_anomaly_heatmap_layer(m, ml_dir, df):
             fill_color=color,
             fill_opacity=0.7,
             weight=1,
-            popup=folium.Popup(popup_text, max_width=220),
+            popup=folium.Popup(popup_text, max_width=260),
         ).add_to(fg)
 
     fg.add_to(m)
@@ -880,6 +1093,12 @@ def create_verification_map(
     """
     m.get_root().html.add_child(folium.Element(dark_css))
 
+    # SmartHarvest popup cards + layer-control section titles. The
+    # JS block sets `window.__SH_POPUP_CARDS = true` which doubles as
+    # the self-heal sentinel checked by `app.py`.
+    m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
+    m.get_root().html.add_child(folium.Element(_SH_LAYER_TITLES_JS))
+
     # Date-navigator: only makes sense when we know the API origin
     # (which the Flask route supplies via project_name).
     if project_name and variable_index:
@@ -893,7 +1112,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_BASEMAP_RADIO = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
