@@ -210,12 +210,6 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
         "<script>window.__SH_LAZY_LAYERS = true; window.__SH_BASEMAP_RADIO = true;</script>"
     ))
 
-    # Layer-control tooltips: same hover affordance as the
-    # Interactive Map iframe.
-    from tools.layer_tooltips import layer_tooltip_payload
-
-    m.get_root().html.add_child(folium.Element(layer_tooltip_payload()))
-
     # Save map
     m.save(output_file)
     print(f"[ML Map] Saved to {output_file}")

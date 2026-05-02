@@ -44,7 +44,13 @@
                     </div>
                     <div class="sensor-row__chips">
                         {% for var in group.variables %}
-                        <span class="chip">{{ var }}</span>
+                        <span class="chip"
+                              tabindex="0"
+                              role="button"
+                              aria-label="{{ var }} — open definition"
+                              {% if variable_glossary and variable_glossary.get(var) %}
+                              data-tooltip="{{ variable_glossary.get(var) }}"
+                              {% endif %}>{{ var }}</span>
                         {% endfor %}
                     </div>
                 </div>
