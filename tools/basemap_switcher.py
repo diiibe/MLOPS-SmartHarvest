@@ -30,16 +30,19 @@ from typing import Optional
 _PANEL_CSS = """
 <style>
 .sh-basemap {
-    /* Mounted as a Leaflet `L.control` at "bottomleft", so the
-       container handles its own corner offset and stacks
-       cleanly with sibling controls (e.g. the Week navigator).
-       Width matches `.sh-date-nav` so the two panels read as a
-       single column. */
+    /* Mounted as a Leaflet `L.control` at "topleft", below the
+       Variables and Week panels. Width matches the other two so
+       the column reads cohesive. Padding and inner sizing kept
+       tight (head-only `padding-top: 8 px`, header `margin-bottom:
+       6 px`) so the four basemap pills + header stack in a
+       compact ~110 px tall card — the user wanted the basemap
+       footprint as short as possible to leave room for Variables
+       and the Week navigator above it. */
     background: #25221C;
     border: 1px solid #3A352A;
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    padding: 10px 12px 12px;
+    padding: 8px 10px 10px;
     font-family: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #ECE4D2;
     width: 240px;
@@ -52,16 +55,17 @@ _PANEL_CSS = """
     text-transform: uppercase;
     text-align: center;
     color: #9C988B;
-    padding-bottom: 8px;
+    padding-bottom: 6px;
     border-bottom: 1px solid #322E25;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 .sh-basemap__row {
-    /* Single column — basemap pills stack vertically so the panel
-       reads as a tall list rather than a 2-up grid. */
+    /* 2-column grid keeps the basemap card half the height of a
+       4-row vertical stack — necessary now that all three panels
+       (Variables / Week / Maps) share the top-left corner. */
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
 }
 .sh-basemap__btn {
     appearance: none;
@@ -69,11 +73,12 @@ _PANEL_CSS = """
     color: #9C988B;
     border: 1px solid #322E25;
     border-radius: 4px;
-    padding: 6px 8px;
+    padding: 5px 6px;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     letter-spacing: 0.04em;
+    line-height: 1.2;
     cursor: pointer;
     transition:
         background 150ms cubic-bezier(0.25, 1, 0.5, 1),
@@ -166,7 +171,7 @@ _PANEL_JS = """
         // Adding this control AFTER the navigator places it lower in
         // the corner — the basemap pill stack ends up directly above
         // the bottom edge of the iframe.
-        var control = L.control({ position: "bottomleft" });
+        var control = L.control({ position: "topleft" });
         control.onAdd = function () {
             var div = L.DomUtil.create("div", "sh-basemap leaflet-bar");
             L.DomEvent.disableClickPropagation(div);

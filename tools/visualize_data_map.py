@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_MAP_SPLIT = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_STACK = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -379,7 +379,7 @@ _DATE_NAV_JS = """
         });
 
         // Build the DOM control.
-        var control = L.control({ position: "bottomleft" });
+        var control = L.control({ position: "topleft" });
         control.onAdd = function () {
             var div = L.DomUtil.create("div", "sh-date-nav leaflet-bar");
             L.DomEvent.disableClickPropagation(div);
@@ -1128,22 +1128,27 @@ def create_verification_map(
     <style>
         /* Variables overlay panel — same shell + eyebrow + spacing
            tokens as `.sh-basemap` and `.sh-date-nav` so the three
-           floating controls in the iframe (top-left variables,
-           bottom-left week + maps) read as one design family. */
+           floating controls in the iframe stack at the top-left
+           edge as one design family. `max-height` capped at 42vh
+           so the Week + Maps panels below stay visible without
+           overlap; the inner list scrolls when the variable count
+           exceeds the cap. Padding tightened (`8px 10px 10px`)
+           to match the basemap shell exactly. */
         .leaflet-control-layers.leaflet-control-layers-expanded {
             background: #25221C !important;
             color: #ECE4D2 !important;
             border: 1px solid #3A352A !important;
             border-radius: 6px !important;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-            padding: 10px 12px 12px !important;
+            padding: 8px 10px 10px !important;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif !important;
             font-size: 11px !important;
-            max-height: 80vh !important;
+            max-height: 42vh !important;
             width: 240px !important;
             box-sizing: border-box !important;
             overflow-y: auto !important;
+            margin-bottom: 6px !important;
         }
 
         /* Eyebrow header — `::before` on the overlays section reads
@@ -1166,9 +1171,9 @@ def create_verification_map(
             text-transform: uppercase;
             color: #9C988B;
             text-align: center;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
             border-bottom: 1px solid #322E25;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .leaflet-control-layers-overlays label {
@@ -1176,7 +1181,7 @@ def create_verification_map(
             align-items: center;
             gap: 7px;
             margin: 0 !important;
-            padding: 4px 0;
+            padding: 3px 0;
             font-size: 11px !important;
             color: #C9C5B5 !important;
             font-weight: 500;
@@ -1223,26 +1228,24 @@ def create_verification_map(
             display: none !important;
         }
         /* Week navigator — adopts the same shell + eyebrow header
-           + button language as the basemap panel so the two
-           floating controls read as a single design family. The
-           information block below the arrows is unique to this
-           panel but uses the same surface tokens.
-           Sits just under Folium's layer control on the top-left
-           edge of the iframe. */
+           + button language as the basemap panel so the three
+           floating controls (Variables / Week / Maps) read as a
+           single design family. Sits between Variables (above) and
+           Maps (below) in the top-left auto-stack. */
         .sh-date-nav {
-            /* Mounted as a Leaflet control at "bottomleft" alongside
-               the basemap panel. Width is fixed (matches
-               `.sh-basemap`) so the two stacked panels read as one
-               column. `margin-bottom` spaces the navigator above the
-               basemap panel; without it the corner stack reads as a
-               single block instead of two distinct controls. */
+            /* Mounted as a Leaflet control at "topleft", below the
+               Variables panel and above the basemap panel. Padding
+               matches `.sh-basemap` (8/10/10) so all three panels
+               share an identical inner rhythm; `margin-bottom: 6 px`
+               leaves a thin gap so the panels read as distinct
+               controls rather than one stacked block. */
             background: #25221C;
             color: #ECE4D2;
             border: 1px solid #3A352A;
             border-radius: 6px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-            padding: 10px 12px 12px;
-            margin-bottom: 12px;
+            padding: 8px 10px 10px;
+            margin-bottom: 6px;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif;
             font-size: 11px;
@@ -1250,7 +1253,7 @@ def create_verification_map(
             box-sizing: border-box;
         }
         /* Eyebrow header — matches `.sh-basemap__head` exactly so
-           the two panels share the same visual rhythm. */
+           the three panels share the same visual rhythm. */
         .sh-date-nav .sh-dn-label {
             font-size: 9.5px;
             font-weight: 700;
@@ -1258,9 +1261,9 @@ def create_verification_map(
             text-transform: uppercase;
             color: #9C988B;
             text-align: center;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
             border-bottom: 1px solid #322E25;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         .sh-date-nav .sh-dn-row {
             display: flex;
@@ -1323,15 +1326,15 @@ def create_verification_map(
             font-size: 10px;
             color: #B4B4B4;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 3px;
             font-variant-numeric: tabular-nums;
         }
         .sh-date-nav .sh-dn-var {
             font-size: 9.5px;
             color: #C09137;
             text-align: center;
-            margin-top: 6px;
-            padding-top: 6px;
+            margin-top: 5px;
+            padding-top: 5px;
             border-top: 1px solid #322E25;
             text-transform: uppercase;
             letter-spacing: 0.12em;
@@ -1344,7 +1347,7 @@ def create_verification_map(
             font-size: 10px;
             color: #9C988B;
             text-align: center;
-            margin-top: 3px;
+            margin-top: 2px;
             font-variant-numeric: tabular-nums;
         }
         .sh-date-nav .sh-dn-cloud {
@@ -1396,7 +1399,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_MAP_SPLIT = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_STACK = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
