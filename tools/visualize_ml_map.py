@@ -183,20 +183,77 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     legend_html = _create_legend(week_id)
     m.get_root().html.add_child(folium.Element(legend_html))
 
-    # Dark mode CSS
+    # Layer panel — same shell + eyebrow + spacing tokens as the
+    # data-map iframe and the basemap / week panels, with a
+    # "Layers" eyebrow (the ML iframe's overlays are clusters +
+    # heatmap, not variables, so the more generic word reads true).
     dark_css = """
     <style>
-        .leaflet-control-layers {
-            background-color: rgba(25,25,25,0.92) !important;
-            color: #eee !important;
-            border: none !important;
-            border-radius: 8px !important;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-        }
-        .leaflet-control-layers-base label,
-        .leaflet-control-layers-overlays label {
-            color: #eee !important;
+        .leaflet-control-layers.leaflet-control-layers-expanded {
+            background: #25221C !important;
+            color: #ECE4D2 !important;
+            border: 1px solid #3A352A !important;
+            border-radius: 6px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+            padding: 10px 12px 12px !important;
+            font-family: system-ui, -apple-system, "Helvetica Neue",
+                         Helvetica, Arial, sans-serif !important;
             font-size: 11px !important;
+            max-height: 80vh !important;
+            width: 240px !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+        }
+        .leaflet-control-layers-base { display: none !important; }
+        .leaflet-control-layers-overlays { display: block !important; }
+        .leaflet-control-layers-overlays::before {
+            content: "Layers";
+            display: block;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #9C988B;
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #322E25;
+            margin-bottom: 8px;
+        }
+        .leaflet-control-layers-overlays label {
+            display: flex !important;
+            align-items: center;
+            gap: 7px;
+            margin: 0 !important;
+            padding: 4px 0;
+            font-size: 11px !important;
+            color: #C9C5B5 !important;
+            font-weight: 500;
+            line-height: 1.3;
+            transition: color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .leaflet-control-layers-overlays label:hover {
+            color: #ECE4D2 !important;
+        }
+        .leaflet-control-layers-overlays label > span {
+            flex: 1 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaflet-control-layers-overlays input[type="checkbox"] {
+            accent-color: #C09137;
+            margin: 0;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+        .leaflet-control-layers-toggle { display: none !important; }
+        .leaflet-control-layers::-webkit-scrollbar { width: 6px; }
+        .leaflet-control-layers::-webkit-scrollbar-thumb {
+            background: #322E25 !important;
+            border-radius: 3px;
+        }
+        .leaflet-control-layers::-webkit-scrollbar-track {
+            background: transparent;
         }
     </style>
     """

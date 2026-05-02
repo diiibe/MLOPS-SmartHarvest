@@ -1126,34 +1126,101 @@ def create_verification_map(
     # Temperature (°C)") and the date-navigator widget sit comfortably.
     dark_css = """
     <style>
-        .leaflet-control-layers {
-            background-color: rgba(25,25,25,0.92) !important;
-            color: #eee !important;
-            border: none !important;
-            border-radius: 8px !important;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-            padding: 6px !important;
-            font-family: 'Segoe UI', sans-serif !important;
-            max-height: 85vh !important;
-            min-width: 220px !important;
+        /* Variables overlay panel — same shell + eyebrow + spacing
+           tokens as `.sh-basemap` and `.sh-date-nav` so the three
+           floating controls in the iframe (top-left variables,
+           bottom-left week + maps) read as one design family. */
+        .leaflet-control-layers.leaflet-control-layers-expanded {
+            background: #25221C !important;
+            color: #ECE4D2 !important;
+            border: 1px solid #3A352A !important;
+            border-radius: 6px !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+            padding: 10px 12px 12px !important;
+            font-family: system-ui, -apple-system, "Helvetica Neue",
+                         Helvetica, Arial, sans-serif !important;
+            font-size: 11px !important;
+            max-height: 80vh !important;
+            width: 240px !important;
+            box-sizing: border-box !important;
             overflow-y: auto !important;
         }
-        .leaflet-control-layers-base label,
-        .leaflet-control-layers-overlays label {
-            margin-bottom: 2px !important;
-            font-size: 10px !important;
+
+        /* Eyebrow header — `::before` on the overlays section reads
+           "Variables" with the same 0.22em letter-spacing + ochre
+           muted colour as the other panels' heads. The `base` block
+           is empty (basemaps moved to the dedicated bottom-left
+           panel) so we hide it. */
+        .leaflet-control-layers-base {
+            display: none !important;
         }
-        /* Visible scrollbar so the ML Clusters entry at the bottom of the
-           list is discoverable even on short viewports. */
+        .leaflet-control-layers-overlays {
+            display: block !important;
+        }
+        .leaflet-control-layers-overlays::before {
+            content: "Variables";
+            display: block;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #9C988B;
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #322E25;
+            margin-bottom: 8px;
+        }
+
+        .leaflet-control-layers-overlays label {
+            display: flex !important;
+            align-items: center;
+            gap: 7px;
+            margin: 0 !important;
+            padding: 4px 0;
+            font-size: 11px !important;
+            color: #C9C5B5 !important;
+            font-weight: 500;
+            line-height: 1.3;
+            transition: color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .leaflet-control-layers-overlays label:hover {
+            color: #ECE4D2 !important;
+        }
+        .leaflet-control-layers-overlays label > span {
+            flex: 1 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaflet-control-layers-overlays input[type="checkbox"] {
+            accent-color: #C09137;
+            margin: 0;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+
+        /* Custom scrollbar matches the basemap panel — webkit only,
+           but the fallback (default scrollbar) is fine on other
+           engines. */
         .leaflet-control-layers::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
         .leaflet-control-layers::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.25) !important;
-            border-radius: 4px;
+            background: #322E25 !important;
+            border-radius: 3px;
+        }
+        .leaflet-control-layers::-webkit-scrollbar-thumb:hover {
+            background: #3A352A !important;
         }
         .leaflet-control-layers::-webkit-scrollbar-track {
             background: transparent;
+        }
+
+        /* Folium ships a tiny toggle <a> + "+" icon when the panel
+           is collapsed. We always boot expanded (collapsed=False)
+           so hide it. */
+        .leaflet-control-layers-toggle {
+            display: none !important;
         }
         /* Week navigator — adopts the same shell + eyebrow header
            + button language as the basemap panel so the two
