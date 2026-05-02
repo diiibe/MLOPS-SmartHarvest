@@ -816,13 +816,16 @@ def create_verification_map(
     if selected_date:
         print(f"Adding layers for date: {selected_date}")
     else:
-        print("Adding layers with latest available date per variable...")
+        print("Adding layers with latest weekly mean per variable...")
 
-    # Build legend HTML
+    # Build legend HTML — when no `selected_date` is supplied the
+    # navigator drives a weekly view, so the legend reflects the
+    # latest week's averaged values per variable rather than a
+    # single acquisition.
     if selected_date:
         legend_title = f"Statistics — {selected_date}"
     else:
-        legend_title = "Statistics — Latest per Variable"
+        legend_title = "Statistics — Latest week per variable"
 
     legend_html = f"""
         <h4 style='margin-top:0;margin-bottom:10px;font-size:13px;
@@ -846,28 +849,40 @@ def create_verification_map(
         if col not in df.columns:
             continue
 
-        # Strict single-date filter for this variable's initial layer:
-        # show every pixel observed on exactly `display_date`. No
-        # subsampling, no forward-fill — matches the
-        # `/api/variable_frame` endpoint so the Python-rendered layer
-        # and the JS-fetched frames agree on pixel counts.
+        # When the caller supplies an explicit `selected_date` we
+        # honour the strict single-date filter (the optional date
+        # picker still routes through this branch). Otherwise we
+        # mirror the navigator's contract: the layer ships the
+        # latest *week* averaged per pixel, so the legend's
+        # vmin/vmax describe the same range the user will see on
+        # the default frame.
         if selected_date:
             col_df = df[df["date"] == selected_date][
                 ["lat", "lon", ".geo", "date", col]
             ].copy()
+            col_df = col_df.groupby(
+                [".geo", "lat", "lon"], as_index=False
+            )[col].mean()
             display_date = selected_date
         else:
             col_data_df = df[df[col].notna()].copy()
             if col_data_df.empty:
                 continue
-            display_date = col_data_df["date"].max()
-            col_df = col_data_df[col_data_df["date"] == display_date][
-                ["lat", "lon", ".geo", "date", col]
-            ].copy()
-
-        # Dedupe tile-boundary duplicates at the same location on the
-        # same day; does not reduce unique pixel coverage.
-        col_df = col_df.groupby([".geo", "lat", "lon"], as_index=False)[col].mean()
+            col_data_df["date_dt"] = pd.to_datetime(
+                col_data_df["date"], errors="coerce"
+            )
+            col_data_df["week"] = col_data_df["date_dt"].dt.strftime("%G-W%V")
+            latest_week_id = col_data_df["week"].max()
+            week_block = col_data_df[col_data_df["week"] == latest_week_id]
+            if week_block.empty:
+                continue
+            col_df = week_block.groupby(
+                [".geo", "lat", "lon"], as_index=False
+            )[col].mean()
+            # `display_date` keeps an honest "most recent date" value
+            # for the metadata field, separate from the week token
+            # used by the legend below.
+            display_date = str(week_block["date"].max())
 
         col_data = col_df[col].dropna()
         if col_data.empty:
