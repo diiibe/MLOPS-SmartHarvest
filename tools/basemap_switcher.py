@@ -30,15 +30,11 @@ from typing import Optional
 _PANEL_CSS = """
 <style>
 .sh-basemap {
-    /* Bottom-left of the iframe — the four corners are now:
-         · top-left:    Folium layer control (variables)
-         · top-right:   stats legend
-         · bottom-right: Leaflet attribution
-         · bottom-left:  basemap selector (this) */
-    position: absolute;
-    bottom: 12px;
-    left: 12px;
-    z-index: 1000;
+    /* Mounted as a Leaflet `L.control` at "bottomleft", so the
+       container handles its own corner offset and stacks
+       cleanly with sibling controls (e.g. the Week navigator).
+       Width matches `.sh-date-nav` so the two panels read as a
+       single column. */
     background: #25221C;
     border: 1px solid #3A352A;
     border-radius: 6px;
@@ -46,7 +42,8 @@ _PANEL_CSS = """
     padding: 10px 12px 12px;
     font-family: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #ECE4D2;
-    min-width: 220px;
+    width: 240px;
+    box-sizing: border-box;
 }
 .sh-basemap__head {
     font-size: 9.5px;
@@ -102,12 +99,7 @@ _PANEL_CSS = """
 """
 
 
-_PANEL_HTML = """
-<div class="sh-basemap" id="sh-basemap">
-    <div class="sh-basemap__head">Basemap</div>
-    <div class="sh-basemap__row" id="sh-basemap-row"></div>
-</div>
-"""
+_PANEL_HTML = """"""
 
 
 # Bootstrap script. Reads the embedded `__SH_BASEMAP_CONFIG` (token +
@@ -169,8 +161,25 @@ _PANEL_JS = """
         layers[defaultId].addTo(map);
         var active = defaultId;
 
-        var row = document.getElementById("sh-basemap-row");
-        if (!row) return;
+        // Mount the panel as a Leaflet control at bottom-left so it
+        // auto-stacks with the Week navigator (also bottom-left).
+        // Adding this control AFTER the navigator places it lower in
+        // the corner — the basemap pill stack ends up directly above
+        // the bottom edge of the iframe.
+        var control = L.control({ position: "bottomleft" });
+        control.onAdd = function () {
+            var div = L.DomUtil.create("div", "sh-basemap leaflet-bar");
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            div.innerHTML =
+                '<div class="sh-basemap__head">Basemap</div>' +
+                '<div class="sh-basemap__row"></div>';
+            return div;
+        };
+        control.addTo(map);
+
+        var rootEl = control.getContainer();
+        var row = rootEl.querySelector(".sh-basemap__row");
         cfg.styles.forEach(function (s) {
             var btn = document.createElement("button");
             btn.type = "button";

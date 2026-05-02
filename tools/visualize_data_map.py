@@ -379,7 +379,7 @@ _DATE_NAV_JS = """
         });
 
         // Build the DOM control.
-        var control = L.control({ position: "topleft" });
+        var control = L.control({ position: "bottomleft" });
         control.onAdd = function () {
             var div = L.DomUtil.create("div", "sh-date-nav leaflet-bar");
             L.DomEvent.disableClickPropagation(div);
@@ -440,7 +440,7 @@ _DATE_NAV_JS = """
             var idx = meta.weeks.indexOf(week);
             dateEl.textContent = week || "—";
             rangeEl.textContent = currentRange[label] || "";
-            varEl.textContent = label + " · weekly mean";
+            varEl.textContent = label;
             var n = currentCount[label];
             countEl.textContent = (n == null)
                 ? ""
@@ -1163,17 +1163,24 @@ def create_verification_map(
            Sits just under Folium's layer control on the top-left
            edge of the iframe. */
         .sh-date-nav {
+            /* Mounted as a Leaflet control at "bottomleft" alongside
+               the basemap panel. Width is fixed (matches
+               `.sh-basemap`) so the two stacked panels read as one
+               column. `margin-bottom` spaces the navigator above the
+               basemap panel; without it the corner stack reads as a
+               single block instead of two distinct controls. */
             background: #25221C;
             color: #ECE4D2;
             border: 1px solid #3A352A;
             border-radius: 6px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
             padding: 10px 12px 12px;
-            margin-top: 8px;
+            margin-bottom: 12px;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif;
             font-size: 11px;
-            min-width: 220px;
+            width: 240px;
+            box-sizing: border-box;
         }
         /* Eyebrow header — matches `.sh-basemap__head` exactly so
            the two panels share the same visual rhythm. */
