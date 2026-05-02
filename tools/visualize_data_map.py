@@ -1152,25 +1152,38 @@ def create_verification_map(
         .leaflet-control-layers::-webkit-scrollbar-track {
             background: transparent;
         }
-        /* Date navigator — sits just under the layer control, same width
-           so the two feel like a single stacked panel. */
+        /* Week navigator — adopts the same shell + eyebrow header
+           + button language as the basemap panel so the two
+           floating controls read as a single design family. The
+           information block below the arrows is unique to this
+           panel but uses the same surface tokens.
+           Sits just under Folium's layer control on the top-left
+           edge of the iframe. */
         .sh-date-nav {
-            background-color: rgba(25,25,25,0.92);
-            color: #eee;
-            border-radius: 8px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-            padding: 8px 10px;
-            margin-top: 6px;
-            font-family: 'Segoe UI', sans-serif;
+            background: #25221C;
+            color: #ECE4D2;
+            border: 1px solid #3A352A;
+            border-radius: 6px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            padding: 10px 12px 12px;
+            margin-top: 8px;
+            font-family: system-ui, -apple-system, "Helvetica Neue",
+                         Helvetica, Arial, sans-serif;
             font-size: 11px;
             min-width: 220px;
         }
+        /* Eyebrow header — matches `.sh-basemap__head` exactly so
+           the two panels share the same visual rhythm. */
         .sh-date-nav .sh-dn-label {
-            font-size: 9px;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #9aa;
-            margin-bottom: 4px;
+            color: #9C988B;
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #322E25;
+            margin-bottom: 8px;
         }
         .sh-date-nav .sh-dn-row {
             display: flex;
@@ -1178,70 +1191,103 @@ def create_verification_map(
             justify-content: space-between;
             gap: 6px;
         }
+        /* Arrow buttons — same surface / border / hover treatment
+           as `.sh-basemap__btn`, just narrower. */
         .sh-date-nav .sh-dn-btn {
-            background: rgba(255,255,255,0.08);
-            color: #eee;
-            border: 1px solid rgba(255,255,255,0.15);
+            appearance: none;
+            background: #2C2820;
+            color: #9C988B;
+            border: 1px solid #322E25;
             border-radius: 4px;
-            cursor: pointer;
-            width: 26px;
-            height: 22px;
-            font-size: 12px;
-            line-height: 1;
             padding: 0;
+            width: 26px;
+            height: 24px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            cursor: pointer;
+            transition:
+                background 150ms cubic-bezier(0.25, 1, 0.5, 1),
+                color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+                border-color 150ms cubic-bezier(0.25, 1, 0.5, 1),
+                transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .sh-date-nav .sh-dn-btn:hover:not(:disabled) {
-            background: rgba(255,255,255,0.18);
+            color: #ECE4D2;
+            border-color: #C09137;
+            transform: translateY(-1px);
+        }
+        .sh-date-nav .sh-dn-btn:active:not(:disabled) {
+            transform: translateY(0) scale(0.96);
         }
         .sh-date-nav .sh-dn-btn:disabled {
-            opacity: 0.35;
+            opacity: 0.32;
             cursor: not-allowed;
         }
+        /* Active week — the headline number of the panel. Slightly
+           larger + tabular nums so the digits don't shimmy as the
+           user pages forward and back. */
         .sh-date-nav .sh-dn-date {
             flex-grow: 1;
             text-align: center;
             font-variant-numeric: tabular-nums;
-            font-weight: 600;
-            font-size: 12px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #ECE4D2;
+            letter-spacing: 0.02em;
+        }
+        /* Range, variable, count, cloud — secondary information,
+           grouped below the arrows. Each line keeps its own colour
+           role: range stays white-ish, variable picks up the
+           ochre accent from the rest of the dashboard, count is
+           muted, cloud sits in a soft slate. Same `prefers-reduced
+           -motion` discipline as the basemap panel. */
+        .sh-date-nav .sh-dn-range {
+            font-size: 10px;
+            color: #B4B4B4;
+            text-align: center;
+            margin-top: 4px;
+            font-variant-numeric: tabular-nums;
         }
         .sh-date-nav .sh-dn-var {
-            font-size: 9px;
-            color: #8ab4ff;
+            font-size: 9.5px;
+            color: #C09137;
+            text-align: center;
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #322E25;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sh-date-nav .sh-dn-count {
+            font-size: 10px;
+            color: #9C988B;
             text-align: center;
             margin-top: 3px;
+            font-variant-numeric: tabular-nums;
+        }
+        .sh-date-nav .sh-dn-cloud {
+            font-size: 9.5px;
+            color: #91ABBE;
+            text-align: center;
+            margin-top: 2px;
+            font-variant-numeric: tabular-nums;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .sh-date-nav .sh-dn-empty {
             font-size: 10px;
-            color: #888;
+            color: #7E7B6E;
             font-style: italic;
             text-align: center;
         }
-        .sh-date-nav .sh-dn-range {
-            font-size: 10px;
-            color: #b4b4b4;
-            text-align: center;
-            margin-top: 2px;
-            font-variant-numeric: tabular-nums;
-        }
-        .sh-date-nav .sh-dn-count {
-            font-size: 9px;
-            color: #8c8c8c;
-            text-align: center;
-            margin-top: 2px;
-            font-variant-numeric: tabular-nums;
-        }
-        .sh-date-nav .sh-dn-cloud {
-            font-size: 9px;
-            color: #c8d5ff;
-            text-align: center;
-            margin-top: 1px;
-            font-variant-numeric: tabular-nums;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        @media (prefers-reduced-motion: reduce) {
+            .sh-date-nav .sh-dn-btn { transition-duration: 0.01ms; }
         }
     </style>
     """
