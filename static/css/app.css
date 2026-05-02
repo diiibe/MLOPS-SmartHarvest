@@ -1134,6 +1134,244 @@ button, input, select, textarea {
     box-shadow: none;
 }
 
+/* Density pass on the dashboard sidebar — widen the column slightly,
+   tighten paddings, and let the cards stretch to fill the available
+   height instead of clustering at the top with empty space below. */
+.page-dashboard #sidebar {
+    width: 300px;
+}
+
+.page-dashboard .header {
+    padding: 16px 18px;
+    background: var(--c-surface-soft);
+    border-bottom: 1px solid var(--c-border-soft);
+}
+
+.page-dashboard .header h2 {
+    font-size: 15px;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard .header p {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--c-text-soft);
+    opacity: 1;
+    margin-top: 4px;
+}
+
+.page-dashboard .content {
+    padding: 14px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.page-dashboard #sidebar .card {
+    margin-bottom: 0;
+    padding: 10px 12px 12px;
+}
+
+.page-dashboard #sidebar .stat-list .stat-item {
+    padding: 4px 0;
+}
+
+.page-dashboard #sidebar .stat-list .stat-label { font-size: 11.5px; }
+.page-dashboard #sidebar .stat-list .stat-val   { font-size: 12.5px; }
+
+.page-dashboard #sidebar .stat-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+/* Stats card stretches its inner list when there is leftover space so
+   the card fills the column instead of leaving a void below. */
+.page-dashboard .content > .card:first-child { flex-shrink: 0; }
+.page-dashboard .content > .sensors-card { flex: 1 1 auto; }
+
+/* ── Sensors & Variables card ────────────────────────────────────
+   One row per sensor group: a coloured dot, sensor name, image
+   count on the right, then the variable chips wrapping below. The
+   accent comes from `data-accent` so the same row primitive can
+   render russet (S2), sage (S1), ochre (L8), or slate (SRTM). */
+.page-dashboard .sensors-card .sensor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.page-dashboard .sensor-row {
+    --accent: var(--c-text-soft);
+    --accent-bg: var(--c-surface-soft);
+    padding: 6px 8px 8px;
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--accent-bg);
+    transition: filter 200ms var(--e-quart);
+}
+
+.page-dashboard .sensor-row:hover { filter: brightness(1.06); }
+
+.page-dashboard .sensor-row[data-accent="russet"]      { --accent: var(--c-russet);      --accent-bg: var(--c-russet-bg); }
+.page-dashboard .sensor-row[data-accent="sage"]        { --accent: var(--c-sage);        --accent-bg: var(--c-sage-bg); }
+.page-dashboard .sensor-row[data-accent="ochre"]       { --accent: var(--c-ochre);       --accent-bg: var(--c-ochre-bg); }
+.page-dashboard .sensor-row[data-accent="slate"]       { --accent: var(--c-slate);       --accent-bg: var(--c-slate-bg); }
+
+.page-dashboard .sensor-row[data-available="false"] {
+    filter: grayscale(0.6) brightness(0.85);
+}
+
+.page-dashboard .sensor-row__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.page-dashboard .sensor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+
+.page-dashboard .sensor-label {
+    flex: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard .sensor-count {
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+}
+
+.page-dashboard .sensor-row__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.page-dashboard .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--c-border-soft) 65%);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 10%, var(--c-surface) 90%);
+    color: var(--c-text);
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition:
+        background 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        color 150ms var(--e-quart);
+}
+
+.page-dashboard .chip:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, var(--c-surface) 84%);
+    border-color: var(--accent);
+}
+
+/* ── Export card ─────────────────────────────────────────────────
+   Two compact rows instead of stacked chunky buttons. Keeps the
+   primary action visible without eating the column. */
+.page-dashboard .export-card .export-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.page-dashboard .export-card .btn-download {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    padding: 7px 10px;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    background: var(--c-russet-bg);
+    color: var(--c-russet);
+    border: 1px solid var(--c-russet-stripe);
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.page-dashboard .export-card .btn-download:hover {
+    background: color-mix(in srgb, var(--c-russet-bg) 70%, var(--c-russet) 30%);
+    color: var(--c-text);
+    border-color: var(--c-russet);
+    transform: translateY(-1px);
+}
+
+.page-dashboard .export-card .btn-download:active { transform: translateY(0) scale(0.96); }
+
+.page-dashboard .export-card .btn-download__main {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard .export-card .btn-download__meta {
+    font-family: var(--font-numeric);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.page-dashboard .btn-new {
+    display: block;
+    margin: 0 14px 14px;
+    padding: 9px 14px;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--c-forest);
+    background: transparent;
+    border: 1px solid var(--c-forest-stripe);
+    border-radius: var(--radius-md);
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.page-dashboard .btn-new:hover {
+    background: var(--c-forest-bg);
+    color: var(--c-forest);
+    border-color: var(--c-forest);
+    transform: translateY(-1px);
+}
+
+.page-dashboard .btn-new:active { transform: translateY(0) scale(0.97); }
+
 .page-index h1,
 .page-dashboard #sidebar .header h2 {
     color: var(--c-text);

@@ -418,6 +418,56 @@ def dashboard(project_name):
         except Exception as e:
             print(f"Error reading metadata: {e}")
 
+    # Per-sensor breakdown (used by the Sensors card in the sidebar).
+    # Each group carries the variable codes the dashboard renders, the
+    # accent token already wired into the rest of the UI, and the
+    # `image_count` from the metadata when available — so the card
+    # reads as a compact tally instead of a prose blurb.
+    SENSOR_GROUPS_SPEC = [
+        {
+            "code": "S2",
+            "label": "Sentinel-2",
+            "accent": "russet",
+            "variables": ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"],
+            "metadata_key": "Sentinel-2",
+        },
+        {
+            "code": "S1",
+            "label": "Sentinel-1",
+            "accent": "sage",
+            "variables": ["VH", "VV", "Ratio"],
+            "metadata_key": "Sentinel-1",
+        },
+        {
+            "code": "L8",
+            "label": "Landsat 8/9",
+            "accent": "ochre",
+            "variables": ["LST"],
+            "metadata_key": "Landsat 8/9",
+        },
+        {
+            "code": "SRTM",
+            "label": "SRTM Topography",
+            "accent": "slate",
+            "variables": ["Slope"],
+            "metadata_key": "SRTM",
+        },
+    ]
+    sensor_groups = []
+    for spec in SENSOR_GROUPS_SPEC:
+        meta = next(
+            (m for m in meta_list if m.get("source") == spec["metadata_key"]),
+            None,
+        )
+        sensor_groups.append({
+            "code": spec["code"],
+            "label": spec["label"],
+            "accent": spec["accent"],
+            "variables": spec["variables"],
+            "image_count": (meta or {}).get("image_count"),
+            "available": True if meta else None,
+        })
+
     # Fallback: read from CSV if no stats from metadata
     if not stats and os.path.exists(csv_path):
         try:
@@ -507,6 +557,7 @@ def dashboard(project_name):
         "dashboard.html",
         project_name=project_name_safe,
         stats=stats,
+        sensor_groups=sensor_groups,
         report_html=report_html,
         ts_data=ts_data,
         available_dates=available_dates,

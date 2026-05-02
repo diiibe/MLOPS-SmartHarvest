@@ -13,7 +13,7 @@
 
     <div class="content">
         <div class="card">
-            <h3>Data Collection Stats</h3>
+            <h3>Project Stats</h3>
             <div class="stat-list">
                 {% for stat in stats %}
                 <div class="stat-item">
@@ -24,29 +24,46 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card sensors-card">
+            <h3>Sensors &amp; Variables</h3>
+            <div class="sensor-list">
+                {% for group in sensor_groups %}
+                <div class="sensor-row" data-accent="{{ group.accent }}" data-available="{{ 'true' if group.available else 'false' }}">
+                    <div class="sensor-row__head">
+                        <span class="sensor-dot" aria-hidden="true"></span>
+                        <span class="sensor-label">{{ group.label }}</span>
+                        <span class="sensor-count">
+                            {%- if group.image_count is not none -%}
+                                {{ group.image_count }} img
+                            {%- elif group.code == 'SRTM' -%}
+                                static
+                            {%- else -%}
+                                —
+                            {%- endif -%}
+                        </span>
+                    </div>
+                    <div class="sensor-row__chips">
+                        {% for var in group.variables %}
+                        <span class="chip">{{ var }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card export-card">
             <h3>Export</h3>
-            <a href="/download/{{ project_name }}" class="btn btn-download">Download Dataset (CSV)</a>
-            <a href="/download_report/{{ project_name }}" class="btn btn-download" style="margin-top: 10px;">Download
-                Report (MD)</a>
-        </div>
-
-        <div class="card">
-            <h3>Map View</h3>
-            <p style="font-size:12px;color:#ccc;line-height:1.6;">
-                Showing latest available data for each variable.
-                Each layer displays its most recent acquisition date.
-            </p>
-        </div>
-
-        <div class="card">
-            <h3>Variables</h3>
-            <p style="font-size: 12px; color: #aaa; line-height: 1.7;">
-                <b>S2:</b> NDVI, NDWI, MNDWI, NDRE, IRECI, S2REP<br>
-                <b>S1:</b> VH, VV, Ratio<br>
-                <b>L8:</b> LST (°C)<br>
-                <b>Topo:</b> Slope
-            </p>
+            <div class="export-list">
+                <a href="/download/{{ project_name }}" class="btn btn-download">
+                    <span class="btn-download__main">Dataset</span>
+                    <span class="btn-download__meta">CSV</span>
+                </a>
+                <a href="/download_report/{{ project_name }}" class="btn btn-download">
+                    <span class="btn-download__main">Report</span>
+                    <span class="btn-download__meta">MD</span>
+                </a>
+            </div>
         </div>
     </div>
 
