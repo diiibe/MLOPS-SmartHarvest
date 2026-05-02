@@ -900,6 +900,14 @@ def create_verification_map(
         )
         m.get_root().html.add_child(folium.Element(nav_script))
 
+    # Layer-control tooltips: hover a checkbox row → glossary text
+    # appears beside it. Pulls labels from `tools.layer_tooltips` so
+    # variable overlays + basemaps + ML cluster layers all share
+    # the same hover affordance.
+    from tools.layer_tooltips import layer_tooltip_payload
+
+    m.get_root().html.add_child(folium.Element(layer_tooltip_payload()))
+
     m.save(output_file)
     print(f"Map saved to {output_file}")
     return output_file

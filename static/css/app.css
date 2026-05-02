@@ -1343,7 +1343,13 @@ button, input, select, textarea {
 }
 
 .page-dashboard .btn-new {
+    /* `width: auto` is needed because the legacy `.page-dashboard
+       .btn` rule above forces 100% width; combined with the 14 px
+       horizontal margins below, that pushed the element past the
+       sidebar's 300 px and surfaced as a visible right-edge clip. */
     display: block;
+    width: auto;
+    box-sizing: border-box;
     margin: 0 14px 14px;
     padding: 9px 14px;
     text-align: center;
