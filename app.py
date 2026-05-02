@@ -611,7 +611,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_WEEKLY_LEGEND" not in head:
+                    if "__SH_LEGEND_ADAPT" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -794,12 +794,23 @@ def variable_week(project_name, variable, week_id):
     else:
         date_range = ""
 
+    # Per-week range so the navigator can drive the legend's
+    # gradient endpoints — colours adapt to what was actually
+    # observed in that week instead of staying on the global scale.
+    if frame[variable].notna().any():
+        vmin_week = float(frame[variable].min())
+        vmax_week = float(frame[variable].max())
+    else:
+        vmin_week = vmax_week = None
+
     return jsonify({
         "project": project_name_safe,
         "variable": variable,
         "week": week_id,
         "date_range": date_range,
         "obs_dates": obs_dates,
+        "vmin": vmin_week,
+        "vmax": vmax_week,
         "points": points,
     })
 
@@ -869,7 +880,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_WEEKLY_LEGEND" not in head:
+            if "__SH_LEGEND_ADAPT" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True

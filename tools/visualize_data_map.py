@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -512,6 +512,17 @@ _DATE_NAV_JS = """
 
         var inflight = 0;
 
+        function formatLegendValue(v) {
+            // Mirrors Python's `:.2f` formatting so the JS-driven
+            // updates stay visually consistent with the server-rendered
+            // initial labels. Falls back to scientific notation only
+            // when the value is large enough that 2 decimals would
+            // make the cell too wide to fit the 38 px slot.
+            if (v == null || isNaN(v)) return "—";
+            if (Math.abs(v) >= 10000) return v.toExponential(1);
+            return v.toFixed(2);
+        }
+
         function loadFrame(label, week) {
             var meta = variables[label];
             var fg = window[meta.fg_name];
@@ -529,6 +540,24 @@ _DATE_NAV_JS = """
                 fg.clearLayers();
                 var rows = payload.points || [];
                 var rangeText = payload.date_range || week;
+                // Update the legend gradient endpoints + `meta.vmin/vmax`
+                // BEFORE we colour any markers, so the new scale flows
+                // into `colorFor`. Falls back to the original (global)
+                // bounds when the week didn't expose a finite range.
+                if (typeof payload.vmin === "number" && typeof payload.vmax === "number"
+                    && payload.vmin !== payload.vmax) {
+                    meta.vmin = payload.vmin;
+                    meta.vmax = payload.vmax;
+                    var legendRow = document.querySelector(
+                        ".sh-legend-row[data-var='" + meta.col + "']"
+                    );
+                    if (legendRow) {
+                        var minEl = legendRow.querySelector(".sh-legend-vmin");
+                        var maxEl = legendRow.querySelector(".sh-legend-vmax");
+                        if (minEl) minEl.textContent = formatLegendValue(payload.vmin);
+                        if (maxEl) maxEl.textContent = formatLegendValue(payload.vmax);
+                    }
+                }
                 rows.forEach(function (p) {
                     var color = colorFor(p.value, meta);
                     var m = L.circleMarker([p.lat, p.lon], {
@@ -898,15 +927,17 @@ def create_verification_map(
         colormap = cm.LinearColormap(colors=colors, vmin=vmin, vmax=vmax)
 
         gradient_str = ", ".join(colors)
+        # `data-var` lets the date-navigator JS find the row when the
+        # active week changes so it can rewrite vmin / vmax labels.
         legend_html += f"""
-        <div style='margin-bottom:5px;'>
+        <div class='sh-legend-row' data-var='{col}' style='margin-bottom:5px;'>
             <div style='font-weight:600;font-size:10px;color:#ddd;'>{label}</div>
             <div style='display:flex;align-items:center;'>
-                <span style='font-size:8px;color:#aaa;width:22px;'>{vmin:.2f}</span>
+                <span class='sh-legend-vmin' style='font-size:8px;color:#aaa;width:38px;'>{vmin:.2f}</span>
                 <div style='flex-grow:1;height:6px;
                     background:linear-gradient(to right,{gradient_str});
                     border-radius:2px;margin:0 4px;border:1px solid #555;'></div>
-                <span style='font-size:8px;color:#aaa;width:22px;text-align:right;'>{vmax:.2f}</span>
+                <span class='sh-legend-vmax' style='font-size:8px;color:#aaa;width:38px;text-align:right;'>{vmax:.2f}</span>
             </div>
         </div>
         """
@@ -1169,7 +1200,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
