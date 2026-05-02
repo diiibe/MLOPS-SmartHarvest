@@ -42,7 +42,7 @@ _PANEL_CSS = """
     border: 1px solid #3A352A;
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    padding: 8px 10px 10px;
+    padding: 6px 10px 8px;
     font-family: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
     color: #ECE4D2;
     width: 240px;

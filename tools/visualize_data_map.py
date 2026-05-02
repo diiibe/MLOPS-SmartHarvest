@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_STACK = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_TIGHT = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1129,26 +1129,26 @@ def create_verification_map(
         /* Variables overlay panel — same shell + eyebrow + spacing
            tokens as `.sh-basemap` and `.sh-date-nav` so the three
            floating controls in the iframe stack at the top-left
-           edge as one design family. `max-height` capped at 42vh
-           so the Week + Maps panels below stay visible without
-           overlap; the inner list scrolls when the variable count
-           exceeds the cap. Padding tightened (`8px 10px 10px`)
-           to match the basemap shell exactly. */
+           edge as one design family. `max-height` raised to 62vh
+           and inter-panel gap tightened to 3 px so the typical 11
+           variables fit without an inner scrollbar. Padding
+           tightened (`6px 10px 8px`) to match the smaller basemap
+           shell exactly. */
         .leaflet-control-layers.leaflet-control-layers-expanded {
             background: #25221C !important;
             color: #ECE4D2 !important;
             border: 1px solid #3A352A !important;
             border-radius: 6px !important;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-            padding: 8px 10px 10px !important;
+            padding: 6px 10px 8px !important;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif !important;
             font-size: 11px !important;
-            max-height: 42vh !important;
+            max-height: 62vh !important;
             width: 240px !important;
             box-sizing: border-box !important;
             overflow-y: auto !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 3px !important;
         }
 
         /* Eyebrow header — `::before` on the overlays section reads
@@ -1181,7 +1181,7 @@ def create_verification_map(
             align-items: center;
             gap: 7px;
             margin: 0 !important;
-            padding: 3px 0;
+            padding: 2px 0;
             font-size: 11px !important;
             color: #C9C5B5 !important;
             font-weight: 500;
@@ -1244,8 +1244,8 @@ def create_verification_map(
             border: 1px solid #3A352A;
             border-radius: 6px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-            padding: 8px 10px 10px;
-            margin-bottom: 6px;
+            padding: 6px 10px 8px;
+            margin-bottom: 3px;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif;
             font-size: 11px;
@@ -1399,7 +1399,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_STACK = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_TIGHT = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

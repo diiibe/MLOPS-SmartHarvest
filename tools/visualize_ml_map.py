@@ -195,15 +195,15 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
             border: 1px solid #3A352A !important;
             border-radius: 6px !important;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-            padding: 8px 10px 10px !important;
+            padding: 6px 10px 8px !important;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif !important;
             font-size: 11px !important;
-            max-height: 42vh !important;
+            max-height: 62vh !important;
             width: 240px !important;
             box-sizing: border-box !important;
             overflow-y: auto !important;
-            margin-bottom: 6px !important;
+            margin-bottom: 3px !important;
         }
         .leaflet-control-layers-base { display: none !important; }
         .leaflet-control-layers-overlays { display: block !important; }
@@ -225,7 +225,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
             align-items: center;
             gap: 7px;
             margin: 0 !important;
-            padding: 3px 0;
+            padding: 2px 0;
             font-size: 11px !important;
             color: #C9C5B5 !important;
             font-weight: 500;
@@ -281,7 +281,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # also emit the literal here so a 32 KB head-scan reliably finds
     # it without depending on script parse order.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_STACK = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_TIGHT = true;</script>"
     ))
 
     # Save map
