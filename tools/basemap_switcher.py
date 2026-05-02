@@ -202,10 +202,12 @@ _PANEL_JS = """
 
 
 _DEFAULT_STYLES = [
-    # Order matches the index page + the dashboard's preferred dark
-    # default: Dark first, Satellite second, then the lighter styles.
-    {"id": "dark",      "label": "Dark",      "styleId": "dark-v11"},
+    # Satellite leads so the dashboard iframe boots on its preferred
+    # default (Mapbox `satellite-streets-v12`). Order also drives
+    # the visual stack of buttons inside the panel — Satellite at
+    # the top makes the active pill the easiest to click first.
     {"id": "satellite", "label": "Satellite", "styleId": "satellite-streets-v12"},
+    {"id": "dark",      "label": "Dark",      "styleId": "dark-v11"},
     {"id": "outdoors",  "label": "Outdoors",  "styleId": "outdoors-v12"},
     {"id": "light",     "label": "Light",     "styleId": "light-v11"},
 ]

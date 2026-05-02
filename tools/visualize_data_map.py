@@ -51,8 +51,11 @@ def _parse_coords(geo_str):
 _MAPBOX_BASEMAPS = [
     # Order is significant — Folium auto-adds the first registered
     # tile layer to the map, so it becomes the default basemap.
-    ("Dark",      "dark-v11"),
+    # Satellite leads so the iframe paints once on the chosen
+    # default and the basemap switcher's `default="satellite"`
+    # config doesn't have to swap layers right after first paint.
     ("Satellite", "satellite-streets-v12"),
+    ("Dark",      "dark-v11"),
     ("Outdoors",  "outdoors-v12"),
     ("Light",     "light-v11"),
 ]
@@ -1302,7 +1305,7 @@ def create_verification_map(
     # checkboxes, so the user gets two visually distinct overlays.
     from tools.basemap_switcher import basemap_switcher_html
 
-    switcher = basemap_switcher_html(mapbox_token, default="dark")
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
     if switcher:
         m.get_root().html.add_child(folium.Element(switcher))
 

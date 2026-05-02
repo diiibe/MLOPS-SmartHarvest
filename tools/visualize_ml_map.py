@@ -212,7 +212,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # Same Map / Variables split as the data map: standalone floating
     # panel for the basemap, Folium's layer control for the cluster /
     # heatmap overlays.
-    switcher = basemap_switcher_html(mapbox_token, default="dark")
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
     if switcher:
         m.get_root().html.add_child(folium.Element(switcher))
 
