@@ -30,12 +30,14 @@ from typing import Optional
 _PANEL_CSS = """
 <style>
 .sh-basemap {
-    /* Bottom-right of the iframe so it never collides with the
-       Folium-rendered legend (top-right) or the layer control
-       (top-left). */
+    /* Bottom-left of the iframe — the four corners are now:
+         · top-left:    Folium layer control (variables)
+         · top-right:   stats legend
+         · bottom-right: Leaflet attribution
+         · bottom-left:  basemap selector (this) */
     position: absolute;
     bottom: 12px;
-    right: 12px;
+    left: 12px;
     z-index: 1000;
     background: #25221C;
     border: 1px solid #3A352A;
@@ -58,8 +60,10 @@ _PANEL_CSS = """
     margin-bottom: 8px;
 }
 .sh-basemap__row {
+    /* Single column — basemap pills stack vertically so the panel
+       reads as a tall list rather than a 2-up grid. */
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 6px;
 }
 .sh-basemap__btn {
