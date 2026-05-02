@@ -42,6 +42,63 @@ def _get_project_safe_name(project_name):
     return safe
 
 
+def _to_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _analysis_window_stat(value):
+    date_range = str(value or "N/A")
+    start, end = None, None
+    if " to " in date_range:
+        start, end = date_range.split(" to ", 1)
+    return {
+        "label": "Analysis Window",
+        "value": date_range,
+        "kind": "window",
+        "start": start,
+        "end": end,
+    }
+
+
+def _sensor_class(source):
+    return (
+        str(source)
+        .lower()
+        .replace("/", "")
+        .replace(" ", "-")
+        .replace("sentinel-", "s")
+        .replace("landsat-89", "landsat")
+    )
+
+
+def _sensor_stat(item):
+    retained = _to_int(item.get("image_count"), 0)
+    discarded = _to_int(item.get("discarded_images"), 0)
+    total = _to_int(item.get("total_images"), retained + discarded)
+    if total <= 0:
+        total = retained + discarded
+
+    retained_pct = (retained / total * 100) if total else 0
+    discarded_pct = item.get("discarded_pct")
+    if discarded_pct is None:
+        discarded_pct = (discarded / total * 100) if total else 0
+
+    return {
+        "label": item["source"],
+        "value": f"{retained} kept / {discarded} discarded",
+        "kind": "sensor",
+        "source_class": _sensor_class(item["source"]),
+        "retained": retained,
+        "discarded": discarded,
+        "total": total,
+        "retained_pct": f"{retained_pct:.0f}",
+        "discarded_pct": f"{float(discarded_pct):.1f}",
+    }
+
+
 @app.route("/")
 def index():
     # Pull the Mapbox token from the env so the New Project page can
@@ -351,7 +408,10 @@ def dashboard(project_name):
         try:
             with open(metadata_path, "r") as f:
                 meta_list = json.load(f)
-                # Separate list for image counts to ensure specific ordering
+                # Separate list for image counts to ensure specific ordering.
+                # `topo_stat` and `hparam_stats` are appended after the image
+                # tally so the sidebar reads: area / window / sensors / topo /
+                # run hyperparameters — primary numbers above the fold.
                 image_stats = []
                 topo_stat = None
                 hparam_stats = []
@@ -366,10 +426,7 @@ def dashboard(project_name):
                                 }
                             )
                             stats.append(
-                                {
-                                    "label": "Analysis Window",
-                                    "value": item.get("analysis_range", "N/A"),
-                                }
+                                _analysis_window_stat(item.get("analysis_range"))
                             )
                         elif item["source"] == "Hyperparameters":
                             # Show only the effective values the run used,
@@ -396,23 +453,19 @@ def dashboard(project_name):
                                 "value": "Static (SRTM)",
                             }
                         elif "image_count" in item:
-                            image_stats.append(
-                                {
-                                    "label": f"{item['source']} Images",
-                                    "value": str(item["image_count"]),
-                                }
-                            )
+                            if item["source"] != "SRTM":
+                                image_stats.append(_sensor_stat(item))
 
                 # Append image stats
                 stats.extend(image_stats)
 
-                # Append Topography last
+                # Append Topography last among the data-source rows.
                 if topo_stat:
                     stats.append(topo_stat)
 
-                # Hyperparameters go at the bottom of the sidebar so the
-                # primary numbers (area, window, image counts) stay above
-                # the fold.
+                # Hyperparameters at the very bottom of the stats block so
+                # the primary numbers (area, window, image counts) stay
+                # above the fold.
                 stats.extend(hparam_stats)
 
         except Exception as e:
@@ -478,10 +531,7 @@ def dashboard(project_name):
                     {"label": "Unique Dates", "value": str(df["date"].nunique())}
                 )
                 stats.append(
-                    {
-                        "label": "Date Range",
-                        "value": f"{df['date'].min()} to {df['date'].max()}",
-                    }
+                    _analysis_window_stat(f"{df['date'].min()} to {df['date'].max()}")
                 )
             if "satellite" in df.columns:
                 sats = set()
