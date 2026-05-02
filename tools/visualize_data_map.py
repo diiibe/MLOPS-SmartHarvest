@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_TIGHT = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ORDER = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1377,14 +1377,12 @@ def create_verification_map(
     # the carrier of the `__SH_POPUP_CARDS` self-heal sentinel.
     m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
 
-    # Basemap selection lives in its own floating panel (top-right of
-    # the map) — Folium's layer control now only carries the Variables
-    # checkboxes, so the user gets two visually distinct overlays.
-    from tools.basemap_switcher import basemap_switcher_html
-
-    switcher = basemap_switcher_html(mapbox_token, default="satellite")
-    if switcher:
-        m.get_root().html.add_child(folium.Element(switcher))
+    # Inject order matters: Leaflet stacks controls in the corner in
+    # the order their `.addTo(map)` runs. We want the top-left column
+    # to read Variables → Week → Maps, so the date-navigator script
+    # (Week) is injected BEFORE the basemap switcher (Maps); the
+    # Variables panel itself comes from Folium's own LayerControl,
+    # which always lands first.
 
     # Date-navigator: only makes sense when we know the API origin
     # (which the Flask route supplies via project_name).
@@ -1399,12 +1397,22 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_TIGHT = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ORDER = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
         )
         m.get_root().html.add_child(folium.Element(nav_script))
+
+    # Basemap selection lives in its own floating panel — Folium's
+    # layer control now only carries the Variables checkboxes, so the
+    # user gets three visually distinct overlays. Injected last so
+    # it stacks at the bottom of the top-left column.
+    from tools.basemap_switcher import basemap_switcher_html
+
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
 
     m.save(output_file)
     print(f"Map saved to {output_file}")
