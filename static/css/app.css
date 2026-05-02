@@ -457,9 +457,13 @@ body {
 
 .page-dashboard .card h3 {
     margin-top: 0;
-    color: #fff;
-    border-bottom: 2px solid #f1c40f;
-    padding-bottom: 10px;
+    color: var(--c-text);
+    /* The long ochre rule below was a legacy `border-bottom: 2px solid
+       #f1c40f` from the pre-token design. Kill it here so the
+       landslide-style centred animated underline (`::after` defined
+       in the design layer) is the only hairline under the title. */
+    border-bottom: 0;
+    padding-bottom: 6px;
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1593,6 +1597,19 @@ button, input, select, textarea {
     transform: translateX(-50%) translateY(0);
 }
 
+/* Pinned chip is the "active" variable — light it up so the user
+   can see at a glance which chip's tooltip is currently open. The
+   glow uses the chip's own `--accent` (set by `.sensor-row[data-
+   accent]`), so S2 chips burn russet, S1 chips sage, etc. */
+.page-dashboard .chip[data-pinned="true"] {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 30%, var(--c-surface));
+    border-color: var(--accent);
+    box-shadow:
+        0 0 0 1px var(--accent),
+        0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 /* The previous per-chip `data-align` variants are obsolete: with
    the tooltip anchored to `.sensor-row` (300 px sidebar - 24 px
    card padding = ~270 px row width), the 240 px bubble always
@@ -1650,47 +1667,141 @@ button, input, select, textarea {
     color: color-mix(in srgb, currentColor 60%, transparent);
 }
 
+/* /animate — Start New Project.
+   The footer button now reads as a deliberate exit point: a
+   forest-tinted surface with `--shadow-btn` elevation and an
+   inner glow that sweeps across on hover (a thin diagonal
+   highlight via `::before`, masked to the button's border-radius
+   with `overflow: hidden`). Hover lifts the button 2 px and
+   intensifies the shadow; active punches it back down with a
+   short scale step. The arrow `::after` slides 4 px to the right
+   on hover so the label gains directionality without needing
+   extra DOM. */
 .page-dashboard .btn-new {
-    /* `width: auto` is needed because the legacy `.page-dashboard
-       .btn` rule above forces 100% width; combined with the 14 px
-       horizontal margins below, that pushed the element past the
-       sidebar's 300 px and surfaced as a visible right-edge clip. */
-    display: block;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     width: auto;
     box-sizing: border-box;
     margin: 0 14px 14px;
-    padding: 9px 14px;
+    padding: 11px 16px;
     text-align: center;
     font-size: 11.5px;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     text-decoration: none;
     color: var(--c-forest);
-    background: transparent;
-    border: 1px solid var(--c-forest-stripe);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--c-forest-bg) 80%, var(--c-surface)) 0%,
+        var(--c-forest-bg) 100%
+    );
+    border: 1px solid color-mix(in srgb, var(--c-forest-stripe) 70%, var(--c-border));
     border-radius: var(--radius-md);
+    box-shadow:
+        var(--shadow-btn),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
     transition:
-        background 150ms var(--e-quart),
-        color 150ms var(--e-quart),
-        border-color 150ms var(--e-quart),
-        transform 200ms var(--e-expo);
+        background 220ms var(--e-quart),
+        color 180ms var(--e-quart),
+        border-color 180ms var(--e-quart),
+        transform 240ms var(--e-expo),
+        box-shadow 240ms var(--e-quart);
 }
+
+.page-dashboard .btn-new::before {
+    /* Diagonal highlight that sweeps left → right on hover. Sits
+       under the label thanks to z-index 0; the text rides on
+       its own stacking context via z-index: 1 in the rule below. */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        110deg,
+        transparent 0%,
+        transparent 40%,
+        color-mix(in srgb, var(--c-forest) 22%, transparent) 50%,
+        transparent 60%,
+        transparent 100%
+    );
+    transform: translateX(-110%);
+    transition: transform 540ms var(--e-expo);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.page-dashboard .btn-new::after {
+    content: "→";
+    font-family: var(--font-stack);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0;
+    color: currentColor;
+    transition: transform 220ms var(--e-expo);
+    z-index: 1;
+}
+
+.page-dashboard .btn-new > * { position: relative; z-index: 1; }
 
 .page-dashboard .btn-new:hover {
-    background: var(--c-forest-bg);
-    color: var(--c-forest);
+    color: color-mix(in srgb, var(--c-forest) 25%, var(--c-text));
     border-color: var(--c-forest);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.55),
+        0 2px 4px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-.page-dashboard .btn-new:active { transform: translateY(0) scale(0.97); }
+.page-dashboard .btn-new:hover::before { transform: translateX(110%); }
+.page-dashboard .btn-new:hover::after  { transform: translateX(4px); }
 
-.page-index h1,
-.page-dashboard #sidebar .header h2 {
+.page-dashboard .btn-new:focus-visible {
+    outline: 0;
+    border-color: var(--c-forest);
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--c-forest) 30%, transparent),
+        var(--shadow-btn);
+}
+
+.page-dashboard .btn-new:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 90ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-dashboard .btn-new::before { display: none; }
+    .page-dashboard .btn-new::after,
+    .page-dashboard .btn-new {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.page-index h1 {
     color: var(--c-text);
     font-weight: 600;
     letter-spacing: -0.01em;
+}
+
+/* The dashboard's project title goes through Cormorant Garamond —
+   transitional serif, italic-friendly, sits well as the header of
+   a wine-house dashboard without feeling templated. The eyebrow
+   subtitle (`<p>SmartHarvest</p>`) keeps the system stack so the
+   serif/sans contrast underlines the brand mark. */
+.page-dashboard #sidebar .header h2 {
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.005em;
+    color: var(--c-text);
+    margin: 0 0 2px;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* ── Section headers (eyebrow pattern with animated underline) ──
@@ -1792,22 +1903,30 @@ button, input, select, textarea {
 }
 
 /* ── Cards ───────────────────────────────────────────────────────
-   Sidebar `.card` becomes the section primitive: 3px left stripe in
-   the ochre accent, faintly tinted bg, soft separation borders. No
-   shadows, no large radii. */
+   Sidebar `.card` is now elevated off the canvas with `--shadow-card`
+   so the deeper background reads as a base plane and the cards as
+   surfaces above it. The 3 px ochre left stripe and faint bg tint
+   stay; the radius bumps a touch (8 px → matches the
+   `--radius-lg` token) so the lift looks intentional. */
 .page-dashboard #sidebar .card {
     background: var(--c-surface-soft);
     border: 1px solid var(--c-border-soft);
     border-left: 3px solid var(--c-ochre-stripe);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: 12px 14px;
     margin-bottom: 12px;
     color: var(--c-text);
-    transition: filter 200ms var(--e-quart);
+    box-shadow: var(--shadow-card);
+    transition:
+        filter 200ms var(--e-quart),
+        box-shadow 200ms var(--e-quart);
 }
 
 .page-dashboard #sidebar .card:hover {
     filter: brightness(1.04);
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Tabs ────────────────────────────────────────────────────────
@@ -1884,15 +2003,21 @@ button, input, select, textarea {
 
 .page-dashboard .tab.active {
     color: var(--c-text);
-    /* Border-bottom on the legacy rule remains transparent — the
-       animated `::after` is now the only indicator so the slide
-       behaviour is symmetric across hover and active states. */
     border-bottom-color: transparent;
+    background: color-mix(in srgb, var(--c-surface) 70%, var(--c-bg-linen));
+    /* Active tab is now visually elevated off the toolbar — a soft
+       inset shadow at the top makes the surrounding tabs read as
+       "background", with the active tab as the foreground card. */
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--c-ochre) 35%, transparent),
+        0 -1px 0 color-mix(in srgb, var(--c-ochre) 18%, transparent);
 }
 
 .page-dashboard .tab.active::after {
     width: 100%;
     opacity: 1;
+    height: 2px;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--c-ochre) 50%, transparent);
 }
 
 /* ── Tinker panel ─ floating dev widget for live token tweaks ──
