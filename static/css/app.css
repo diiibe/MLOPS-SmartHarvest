@@ -1209,222 +1209,202 @@ button, input, select, textarea {
    scroll container fixes the bleed. */
 .page-dashboard .content > .card { flex: 0 0 auto; }
 
-/* Project Stats — same chip-row pattern as Sensors & Variables.
-   Each stat becomes a compact row with a soft border, hover lifts
-   the label and right-aligns the value in ochre. The card itself
-   inherits the 3 px ochre left stripe from the base `.card` rule. */
-/* ─── Project Stats — refined ───────────────────────────────────
-   Three row primitives share the same neutral container but
-   express different information densities:
-     · default   — Area + similar one-shot key/value pairs
-     · window    — Analysis range, two-line tabular dates
-     · sensor    — kept-vs-discarded acquisitions with a 4 px
-                   progress bar tinted by sensor family
-   The card's left stripe stays ochre so the whole stack reads as
-   one panel; per-row accent comes from a `--row-accent` variable
-   each `[data-source]` overrides. Hover lifts the accent without
-   changing layout. */
+/* Project Stats — plain key / value list. No per-row coloured
+   stripes, no gradient progress bars, no hover transforms. The
+   card frames the data; the data carries itself. The `.card.stats-
+   card` chain bumps the specificity above the global `.page-
+   dashboard #sidebar .card` rule (same number of classes but later
+   in cascade order matters less than specificity for these). */
+.page-dashboard #sidebar .card.stats-card {
+    /* Drop the ochre left stripe inherited from `.card` so the
+       Project Stats panel reads as a regular bordered container,
+       not a decorative ribbon. */
+    border-left: 1px solid var(--c-border-soft);
+    padding: 14px 16px;
+}
+
+.page-dashboard #sidebar .card.stats-card h3 {
+    /* Override the global eyebrow / animated-underline treatment
+       for sidebar h3s. Plain title cap, no letter-spacing tricks,
+       no `::after` ochre underline. */
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+    color: var(--c-text);
+    padding-bottom: 0;
+    transition: none;
+}
+.page-dashboard #sidebar .card.stats-card h3::after {
+    content: none;
+}
+.page-dashboard #sidebar .card.stats-card:hover h3 {
+    letter-spacing: 0;
+    color: var(--c-text);
+}
+
 .page-dashboard #sidebar .stats-card .stat-list {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 5px;
+    display: flex;
+    flex-direction: column;
 }
 
 .page-dashboard #sidebar .stats-card .stat-item {
-    --row-accent: var(--c-ochre);
-    --row-accent-stripe: var(--c-ochre-stripe);
-    --row-tint: 6%;
+    --row-accent: initial;
+    --row-accent-stripe: initial;
+    --row-tint: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 9px;
-    border: 1px solid var(--c-border-soft);
-    border-left: 2px solid color-mix(in srgb, var(--row-accent-stripe) 70%, transparent);
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--row-accent) var(--row-tint), var(--c-surface));
-    transition:
-        background 180ms var(--e-quart),
-        border-color 180ms var(--e-quart);
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 0;
+    border: 0;
+    border-top: 1px solid var(--c-border-soft);
+    border-radius: 0;
+    background: transparent;
+    transition: none;
 }
 
-.page-dashboard #sidebar .stats-card .stat-item:hover {
-    border-color: color-mix(in srgb, var(--row-accent-stripe) 55%, var(--c-border-soft));
-    border-left-color: var(--row-accent);
-    background: color-mix(in srgb, var(--row-accent) calc(var(--row-tint) + 6%), var(--c-surface));
+.page-dashboard #sidebar .stats-card .stat-item:first-child {
+    border-top: 0;
+    padding-top: 0;
 }
 
-.page-dashboard #sidebar .stats-card .stat-item:hover .stat-label {
-    color: var(--row-accent);
+.page-dashboard #sidebar .stats-card .stat-item:last-child {
+    padding-bottom: 0;
 }
 
-.page-dashboard #sidebar .stats-card .stat-item:hover .stat-val {
-    color: var(--row-accent);
-}
-
-/* `kind="window"` row — Analysis Window. Dates stack on a thin
-   second line so the 9-character `YYYY-MM-DD` strings always fit
-   the column even at the smallest sidebar width. The arrow is a
-   muted glyph, not a heavy chevron, so it doesn't compete. */
-.page-dashboard #sidebar .stats-card .stat-item--window {
-    --row-accent: var(--c-slate);
-    --row-accent-stripe: var(--c-slate-stripe);
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 4px;
-}
-
-.page-dashboard #sidebar .stats-card .stat-item--window .stat-label {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--c-text-soft);
-}
-
-.page-dashboard #sidebar .stats-card .stat-item--window .stat-window {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
+.page-dashboard #sidebar .stats-card .stat-item:hover,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-label,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-val,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-sensor__label {
+    background: transparent;
     color: var(--c-text);
-    font-weight: 600;
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
+    transform: none;
+    border-color: var(--c-border-soft);
 }
 
-.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date {
-    flex: 1 1 auto;
-    min-width: 0;
+.page-dashboard #sidebar .stats-card .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--c-text-muted);
 }
 
-.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date:last-child {
+.page-dashboard #sidebar .stats-card .stat-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
     text-align: right;
 }
 
-.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__sep {
-    color: color-mix(in srgb, var(--c-slate) 70%, var(--c-text-muted));
-    flex: 0 0 auto;
+/* Window row — label + dash-separated date range on one line. */
+.page-dashboard #sidebar .stats-card .stat-item--window {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 12px;
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-label {
+    font-size: 12px;
     font-weight: 500;
-    font-size: 10px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--c-text-muted);
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text);
+    font-weight: 500;
+    white-space: nowrap;
+    text-align: right;
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date {
+    color: var(--c-text);
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__sep {
+    color: var(--c-text-muted);
+    font-weight: 400;
+    font-size: 11px;
 }
 
-/* `kind="sensor"` row — kept / total + ratio bar. The fill colour
-   is the family accent: russet for Sentinel-2, sage for
-   Sentinel-1, ochre for Landsat 8/9. The discarded share is a
-   muted track tinted toward the same family so the rejection
-   visual stays cohesive instead of a contrasting red. */
+/* Sensor row — name on the left, kept / total on the right,
+   neutral progress bar below, plain caption underneath.
+   No per-sensor colour, no gradient fill, no entrance animation. */
 .page-dashboard #sidebar .stats-card .stat-item--sensor {
     grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 5px;
-    padding: 7px 9px 8px;
+    gap: 6px;
 }
-
-/* `_sensor_class()` lowercases + strips spaces / slashes and folds
-   "sentinel-" into "s", so the actual `data-source` values flowing
-   through the template are `s2`, `s1`, `landsat`. Match those. */
-.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s2"] {
-    --row-accent: var(--c-russet);
-    --row-accent-stripe: var(--c-russet-stripe);
-}
-
-.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s1"] {
-    --row-accent: var(--c-sage);
-    --row-accent-stripe: var(--c-sage);
-}
-
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s2"],
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s1"],
 .page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="landsat"] {
-    --row-accent: var(--c-ochre);
-    --row-accent-stripe: var(--c-ochre-stripe);
+    --row-accent: var(--c-text);
+    --row-accent-stripe: var(--c-text);
 }
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 6px;
+    gap: 8px;
 }
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__label {
-    font-size: 11.5px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
     color: var(--c-text);
-    letter-spacing: 0.01em;
 }
-
-.page-dashboard #sidebar .stats-card .stat-item:hover .stat-sensor__label {
-    color: var(--row-accent);
-}
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__counts {
     display: inline-flex;
     align-items: baseline;
-    gap: 3px;
+    gap: 2px;
     font-variant-numeric: tabular-nums;
 }
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__kept {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--row-accent);
-    letter-spacing: -0.01em;
-}
-
-.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__total {
-    font-size: 10px;
-    color: var(--c-text-muted);
+    font-size: 12px;
     font-weight: 500;
+    color: var(--c-text);
+    letter-spacing: 0;
 }
-
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__total {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 400;
+}
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar {
     position: relative;
-    height: 4px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--row-accent) 14%, var(--c-surface));
+    height: 3px;
+    border-radius: 0;
+    background: var(--c-border-soft);
     overflow: hidden;
 }
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar-fill {
     position: absolute;
     inset: 0 auto 0 0;
     width: var(--ratio, 0%);
-    background: linear-gradient(
-        90deg,
-        var(--row-accent) 0%,
-        color-mix(in srgb, var(--row-accent) 75%, var(--row-accent-stripe)) 100%
-    );
-    border-radius: 2px;
+    background: var(--c-text-muted);
+    border-radius: 0;
     transform-origin: left center;
-    animation: stat-bar-grow 540ms var(--e-expo) both;
+    animation: none;
 }
-
-@keyframes stat-bar-grow {
-    from { transform: scaleX(0); }
-    to   { transform: scaleX(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar-fill {
-        animation: none;
-    }
-}
-
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: 9.5px;
+    font-size: 11px;
     font-variant-numeric: tabular-nums;
     color: var(--c-text-muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
 }
 
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-kept {
-    color: var(--row-accent);
-    font-weight: 600;
+    color: var(--c-text-muted);
+    font-weight: 500;
 }
 
 .page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-cut {
