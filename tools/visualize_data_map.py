@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ANIMATE = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_DEPTH = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1150,7 +1150,7 @@ def create_verification_map(
             color: #ECE4D2 !important;
             border: 1px solid #3A352A !important;
             border-radius: 6px !important;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.45) !important;
             padding: 6px 10px 8px !important;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif !important;
@@ -1254,7 +1254,7 @@ def create_verification_map(
             color: #ECE4D2;
             border: 1px solid #3A352A;
             border-radius: 6px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.45);
             padding: 6px 10px 8px;
             margin-bottom: 3px;
             font-family: system-ui, -apple-system, "Helvetica Neue",
@@ -1394,7 +1394,7 @@ def create_verification_map(
             border: 1px solid #3A352A;
             border-left: 3px solid #C09137;
             border-radius: 6px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.45);
             padding: 8px 12px 10px;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif;
@@ -1534,7 +1534,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ANIMATE = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_DEPTH = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

@@ -4,6 +4,25 @@
 
 {% block body_class %}page-dashboard{% endblock %}
 
+{% block head %}
+{# Apply persisted design preferences before first paint so the
+   chosen palette / depth / shadows render with the rest of the
+   page instead of flashing the defaults first. The full Settings
+   UI wiring loads later via `dashboard-settings.js`. #}
+<script>
+(function () {
+    try {
+        var raw = localStorage.getItem("smartharvest_design_prefs_v1");
+        var prefs = raw ? JSON.parse(raw) : {};
+        var html = document.documentElement;
+        html.setAttribute("data-palette",  prefs.palette        || "vino");
+        html.setAttribute("data-bg-depth", prefs["bg-depth"]    || "standard");
+        html.setAttribute("data-shadows",  prefs.shadows        || "standard");
+    } catch (e) {}
+})();
+</script>
+{% endblock %}
+
 {% block content %}
 <div id="sidebar">
     <div class="header">
@@ -95,6 +114,36 @@
                 </div>
                 {% endfor %}
             </div>
+        </div>
+
+        <div class="card settings-card" data-component="settings">
+            <h3>Settings</h3>
+            <div class="settings-group" data-setting="palette">
+                <div class="settings-group__label">Palette</div>
+                <div class="settings-group__row">
+                    <button type="button" class="settings-swatch" data-value="vino" aria-label="Vino palette" style="--swatch:#B85B6A"></button>
+                    <button type="button" class="settings-swatch" data-value="ocra" aria-label="Ocra palette" style="--swatch:#E2B95C"></button>
+                    <button type="button" class="settings-swatch" data-value="salvia" aria-label="Salvia palette" style="--swatch:#A8BD9A"></button>
+                    <button type="button" class="settings-swatch" data-value="notte" aria-label="Notte palette" style="--swatch:#91ABBE"></button>
+                </div>
+            </div>
+            <div class="settings-group" data-setting="bg-depth">
+                <div class="settings-group__label">Background</div>
+                <div class="settings-group__row settings-group__row--seg">
+                    <button type="button" class="settings-seg" data-value="deep">Deep</button>
+                    <button type="button" class="settings-seg" data-value="standard">Standard</button>
+                    <button type="button" class="settings-seg" data-value="soft">Soft</button>
+                </div>
+            </div>
+            <div class="settings-group" data-setting="shadows">
+                <div class="settings-group__label">Shadows</div>
+                <div class="settings-group__row settings-group__row--seg">
+                    <button type="button" class="settings-seg" data-value="subtle">Subtle</button>
+                    <button type="button" class="settings-seg" data-value="standard">Standard</button>
+                    <button type="button" class="settings-seg" data-value="heavy">Heavy</button>
+                </div>
+            </div>
+            <button type="button" class="settings-reset" data-action="reset">Reset</button>
         </div>
 
         <div class="card export-card">
@@ -305,5 +354,6 @@
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/ml_timeline.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/dashboard-settings.js') }}" defer></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ml_dashboard.css') }}">
 {% endblock %}

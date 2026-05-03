@@ -33,12 +33,16 @@
     --c-border:       #3A352A;
     --c-border-soft:  #322E25;
 
-    /* Card / button elevation shadow — inherited by anything that
-       needs to read as "lifted off the canvas". Single token so the
-       depth stays consistent across the dashboard. */
-    --shadow-card:    0 2px 8px rgba(0, 0, 0, 0.45),
-                      0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-btn:     0 4px 14px rgba(0, 0, 0, 0.45);
+    /* Card / button / overlay elevation. The dashboard now reads
+       three depth layers — base canvas, sidebar cards, floating
+       overlays — and each step gets a deeper shadow so the lift
+       is unambiguous against the deeper `--c-bg-linen`. */
+    --shadow-card:    0 6px 18px rgba(0, 0, 0, 0.55),
+                      0 2px 4px rgba(0, 0, 0, 0.45);
+    --shadow-btn:     0 8px 22px rgba(0, 0, 0, 0.55),
+                      0 2px 6px rgba(0, 0, 0, 0.40);
+    --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.65),
+                      0 4px 10px rgba(0, 0, 0, 0.50);
 
     --c-text:         #ECE4D2;
     --c-text-soft:    #9C988B;
@@ -120,6 +124,100 @@
     --c-group-head-border: #DCD2B9;
 
     color-scheme: light;
+}
+
+/* ────────── Palette presets ──────────────────────────────────────
+   The Settings card flips the document's `data-palette` attribute
+   to swap the primary accent without touching layout. Each preset
+   overrides the same `--c-accent` / `--c-accent-stripe` /
+   `--c-accent-bg` triplet plus the legacy `--c-ochre*` aliases so
+   any existing rule that references the ochre family follows the
+   chosen palette automatically.
+
+   Defaults map to the new "vino" palette (deep wine red); the
+   "ocra" preset preserves the previous landslide-app values for
+   users who prefer the original look. */
+:root {
+    --c-accent:        #B85B6A;
+    --c-accent-stripe: #6B1D2A;
+    --c-accent-bg:     #1F1115;
+    --c-accent-row:    #3A1B22;
+}
+:root,
+[data-palette="vino"] {
+    --c-accent:        #B85B6A;
+    --c-accent-stripe: #6B1D2A;
+    --c-accent-bg:     #1F1115;
+    --c-accent-row:    #3A1B22;
+    --c-ochre:         #B85B6A;
+    --c-ochre-stripe:  #6B1D2A;
+    --c-ochre-bg:      #1F1115;
+    --c-ochre-row:     #3A1B22;
+}
+[data-palette="ocra"] {
+    --c-accent:        #E2B95C;
+    --c-accent-stripe: #C09137;
+    --c-accent-bg:     #251F12;
+    --c-accent-row:    #3A2F1A;
+    --c-ochre:         #E2B95C;
+    --c-ochre-stripe:  #C09137;
+    --c-ochre-bg:      #251F12;
+    --c-ochre-row:     #3A2F1A;
+}
+[data-palette="salvia"] {
+    --c-accent:        #A8BD9A;
+    --c-accent-stripe: #5A8866;
+    --c-accent-bg:     #18201A;
+    --c-accent-row:    #2D3A2F;
+    --c-ochre:         #A8BD9A;
+    --c-ochre-stripe:  #5A8866;
+    --c-ochre-bg:      #18201A;
+    --c-ochre-row:     #2D3A2F;
+}
+[data-palette="notte"] {
+    --c-accent:        #91ABBE;
+    --c-accent-stripe: #6E8DA0;
+    --c-accent-bg:     #161D24;
+    --c-accent-row:    #2A343C;
+    --c-ochre:         #91ABBE;
+    --c-ochre-stripe:  #6E8DA0;
+    --c-ochre-bg:      #161D24;
+    --c-ochre-row:     #2A343C;
+}
+
+/* Background depth presets — drive the canvas darkness. The
+   default `standard` matches the existing `#14110D`. */
+[data-bg-depth="deep"] {
+    --c-bg-linen: #0C0907;
+}
+[data-bg-depth="standard"] {
+    --c-bg-linen: #14110D;
+}
+[data-bg-depth="soft"] {
+    --c-bg-linen: #1C1813;
+}
+
+/* Shadow strength presets — control the elevation depth. */
+[data-shadows="subtle"] {
+    --shadow-card:    0 2px 6px rgba(0, 0, 0, 0.35);
+    --shadow-btn:     0 3px 8px rgba(0, 0, 0, 0.35);
+    --shadow-overlay: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+[data-shadows="standard"] {
+    --shadow-card:    0 6px 18px rgba(0, 0, 0, 0.55),
+                      0 2px 4px rgba(0, 0, 0, 0.45);
+    --shadow-btn:     0 8px 22px rgba(0, 0, 0, 0.55),
+                      0 2px 6px rgba(0, 0, 0, 0.40);
+    --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.65),
+                      0 4px 10px rgba(0, 0, 0, 0.50);
+}
+[data-shadows="heavy"] {
+    --shadow-card:    0 10px 28px rgba(0, 0, 0, 0.7),
+                      0 3px 6px rgba(0, 0, 0, 0.55);
+    --shadow-btn:     0 12px 30px rgba(0, 0, 0, 0.7),
+                      0 3px 8px rgba(0, 0, 0, 0.50);
+    --shadow-overlay: 0 18px 44px rgba(0, 0, 0, 0.78),
+                      0 6px 14px rgba(0, 0, 0, 0.60);
 }
 
 @media (prefers-reduced-motion: reduce) {

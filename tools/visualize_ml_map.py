@@ -194,7 +194,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
             color: #ECE4D2 !important;
             border: 1px solid #3A352A !important;
             border-radius: 6px !important;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.45) !important;
             padding: 6px 10px 8px !important;
             font-family: system-ui, -apple-system, "Helvetica Neue",
                          Helvetica, Arial, sans-serif !important;
@@ -289,7 +289,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # also emit the literal here so a 32 KB head-scan reliably finds
     # it without depending on script parse order.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ANIMATE = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_DEPTH = true;</script>"
     ))
 
     # Save map
