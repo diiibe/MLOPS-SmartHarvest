@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_COLLAPSE = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ANIMATE = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -384,17 +384,22 @@ _DATE_NAV_JS = """
             var div = L.DomUtil.create("div", "sh-date-nav leaflet-bar");
             L.DomEvent.disableClickPropagation(div);
             L.DomEvent.disableScrollPropagation(div);
+            // Body is wrapped in `.sh-dn-body` so the collapse
+            // animation can target a single element with
+            // `max-height: 0` instead of N siblings.
             div.innerHTML =
                 '<div class="sh-dn-label">Week</div>' +
-                '<div class="sh-dn-row">' +
-                '  <button class="sh-dn-btn sh-dn-prev" title="Previous week">&#9664;</button>' +
-                '  <div class="sh-dn-date">—</div>' +
-                '  <button class="sh-dn-btn sh-dn-next" title="Next week">&#9654;</button>' +
-                '</div>' +
-                '<div class="sh-dn-range"></div>' +
-                '<div class="sh-dn-var"></div>' +
-                '<div class="sh-dn-count"></div>' +
-                '<div class="sh-dn-cloud"></div>';
+                '<div class="sh-dn-body">' +
+                  '<div class="sh-dn-row">' +
+                  '  <button class="sh-dn-btn sh-dn-prev" title="Previous week">&#9664;</button>' +
+                  '  <div class="sh-dn-date">—</div>' +
+                  '  <button class="sh-dn-btn sh-dn-next" title="Next week">&#9654;</button>' +
+                  '</div>' +
+                  '<div class="sh-dn-range"></div>' +
+                  '<div class="sh-dn-var"></div>' +
+                  '<div class="sh-dn-count"></div>' +
+                  '<div class="sh-dn-cloud"></div>' +
+                '</div>';
             return div;
         };
         control.addTo(map);
@@ -921,8 +926,12 @@ def create_verification_map(
     else:
         legend_subtitle = "Latest week per variable"
 
+    # The body wrapper lets the collapse animation target a single
+    # element (`max-height: 0` on `.sh-legend__body`) instead of
+    # iterating over the per-variable rows.
     legend_html = f"""
         <div class='sh-legend__head'>Statistics</div>
+        <div class='sh-legend__body'>
         <div class='sh-legend__sub'>{legend_subtitle}</div>
     """
 
@@ -1117,6 +1126,9 @@ def create_verification_map(
         except Exception as e:
             print(f"[Map] Could not add ML anomaly layer: {e}")
 
+    # Close the `.sh-legend__body` wrapper opened above the per-row
+    # legend entries, so the collapse animation has a single host.
+    legend_html += "</div>"
     m.add_child(CustomLegend(legend_html))
     folium.LayerControl(position="topleft", collapsed=False).add_to(m)
 
@@ -1522,7 +1534,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_COLLAPSE = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ANIMATE = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

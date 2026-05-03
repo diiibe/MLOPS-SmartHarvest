@@ -37,12 +37,9 @@ _PANEL_CSS = """
        6 px`) so the four basemap pills + header stack in a
        compact ~110 px tall card — the user wanted the basemap
        footprint as short as possible to leave room for Variables
-       and the Week navigator above it. The ochre `border-left`
-       accent matches the popup card + Statistics legend so all
-       four floating panels share the same wine-house signature. */
+       and the Week navigator above it. */
     background: #25221C;
     border: 1px solid #3A352A;
-    border-left: 3px solid #C09137;
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
     padding: 6px 10px 8px;
@@ -137,18 +134,11 @@ _PANEL_CSS = """
 
 _COLLAPSE_CSS = """
 <style>
-/* Ochre signature — same `border-left: 3px solid #C09137` accent
-   that the popup cards and the Statistics legend already wear. */
-.leaflet-control-layers.leaflet-control-layers-expanded {
-    border-left: 3px solid #C09137 !important;
-}
-.sh-date-nav {
-    border-left: 3px solid #C09137;
-}
-
 /* Chevron toggle — small caret pinned to the right edge of the
-   eyebrow head; rotates 90° when the panel collapses so the
-   affordance reads as "click to expand / collapse". */
+   eyebrow head; rotates -90° when the panel collapses so the
+   affordance reads as "click to expand / collapse". `cubic-bezier
+   (0.16, 1, 0.3, 1)` is a gentle ease-out-quint that decelerates
+   the rotation naturally without overshoot. */
 .sh-collapse {
     appearance: none;
     background: transparent;
@@ -164,7 +154,7 @@ _COLLAPSE_CSS = """
     top: 50%;
     transform: translateY(-50%);
     transition:
-        transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
         color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .sh-collapse:hover { color: #ECE4D2; }
@@ -175,15 +165,42 @@ _COLLAPSE_CSS = """
 }
 
 /* Rotated -90° in the collapsed state. The transform combines the
-   vertical centre alignment and the rotation. */
-[data-collapsed="true"] > .sh-collapse-host > .sh-collapse,
-[data-collapsed="true"] > .sh-collapse-host .sh-collapse,
+   vertical centre alignment and the rotation, so both must be
+   restated together — `translateY(-50%) rotate(-90deg)` rather
+   than just `rotate(-90deg)` (which would lose the centring). */
 [data-collapsed="true"] .sh-collapse {
     transform: translateY(-50%) rotate(-90deg);
 }
 
+/* --- Animated collapse body ----------------------------------- */
+/* Every panel's body uses `max-height + opacity + padding`
+   transitions so the collapse is a soft glide rather than a
+   pop. The max-height ceilings are chosen larger than any
+   realistic content height — overshooting only delays the
+   animation by a few ms once the body is already off screen,
+   which the eye can't see. */
+.sh-basemap__row,
+.sh-date-nav .sh-dn-body,
+.sh-legend__body,
+.leaflet-control-layers-list {
+    overflow: hidden;
+    transition:
+        max-height 320ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 220ms cubic-bezier(0.25, 1, 0.5, 1),
+        margin 320ms cubic-bezier(0.16, 1, 0.3, 1),
+        padding 320ms cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 600px;
+    opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .sh-collapse { transition-duration: 0.01ms; }
+    .sh-collapse,
+    .sh-basemap__row,
+    .sh-date-nav .sh-dn-body,
+    .sh-legend__body,
+    .leaflet-control-layers-list {
+        transition-duration: 0.01ms !important;
+    }
 }
 
 /* --- Variables / Layers panel (Folium LayerControl) ----------- */
@@ -210,15 +227,30 @@ _COLLAPSE_CSS = """
     margin-bottom: 6px;
     cursor: pointer;
     user-select: none;
+    /* Margin-bottom is animated alongside the body so it folds
+       cleanly when collapsing. */
+    transition: margin-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                padding-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                border-bottom-color 320ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .leaflet-control-layers-expanded[data-collapsed="true"] .sh-vars-head {
-    border-bottom: 0;
+    border-bottom-color: transparent;
     padding-bottom: 0;
     margin-bottom: 0;
 }
-.leaflet-control-layers-expanded[data-collapsed="true"] .leaflet-control-layers-list > *:not(.sh-vars-head),
-.leaflet-control-layers-expanded[data-collapsed="true"] .leaflet-control-layers-overlays > *:not(.sh-vars-head) {
-    display: none !important;
+/* Folium nests the variable labels and the (now-empty) base /
+   separator inside the `.leaflet-control-layers-list` wrapper.
+   The wrapper holds both the head we injected and the labels —
+   collapsing it with max-height: 0 hides the labels but the
+   head stays visible because we move the head OUT of the list
+   in the JS bootstrap. */
+.leaflet-control-layers-expanded[data-collapsed="true"] .leaflet-control-layers-list {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 .leaflet-control-layers-expanded[data-collapsed="true"] {
     overflow: visible !important;
@@ -233,14 +265,38 @@ _COLLAPSE_CSS = """
     justify-content: center;
     cursor: pointer;
     user-select: none;
-}
-.sh-date-nav[data-collapsed="true"] > *:not(.sh-dn-label) {
-    display: none;
+    transition: margin-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                padding-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                border-bottom-color 320ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 .sh-date-nav[data-collapsed="true"] .sh-dn-label {
-    border-bottom: 0;
+    border-bottom-color: transparent;
     padding-bottom: 0;
     margin-bottom: 0;
+}
+.sh-date-nav[data-collapsed="true"] .sh-dn-body {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+}
+
+/* --- Maps / basemap panel -------------------------------------- */
+.sh-basemap__head {
+    transition: margin-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                padding-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
+                border-bottom-color 320ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.sh-basemap[data-collapsed="true"] .sh-basemap__head {
+    border-bottom-color: transparent;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+.sh-basemap[data-collapsed="true"] .sh-basemap__row {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
 }
 
 /* --- Statistics legend ----------------------------------------- */
@@ -252,11 +308,16 @@ _COLLAPSE_CSS = """
     cursor: pointer;
     user-select: none;
 }
-.sh-legend[data-collapsed="true"] > *:not(.sh-legend__head) {
-    display: none;
+.sh-legend[data-collapsed="true"] .sh-legend__body {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
 }
-.sh-legend[data-collapsed="true"] .sh-legend__head {
-    padding-bottom: 0;
+.sh-legend[data-collapsed="true"] .sh-legend__sub {
+    /* Subtitle is in the body wrapper, but covered by the rule
+       above. The head padding-bottom collapses for free since
+       it's already 4 px and not animated explicitly. */
 }
 </style>
 """
@@ -298,13 +359,17 @@ _COLLAPSE_JS = """
         // chevron + click handler have a host element. The label
         // depends on the embed: data-map says "Variables", ml-map
         // says "Layers" — we read it from the global the embed sets.
+        // The head is injected as a direct child of the panel root
+        // (outside `.leaflet-control-layers-list`) so the list
+        // wrapper can be collapsed via `max-height: 0` while the
+        // head stays visible + clickable for the user to re-expand.
         var label = window.__SH_LAYERS_LABEL || "Variables";
-        document.querySelectorAll(".leaflet-control-layers-overlays").forEach(function (overlays) {
-            if (overlays.querySelector(".sh-vars-head")) return;
+        document.querySelectorAll(".leaflet-control-layers-expanded").forEach(function (panel) {
+            if (panel.querySelector(".sh-vars-head")) return;
             var head = document.createElement("div");
             head.className = "sh-vars-head";
             head.textContent = label;
-            overlays.insertBefore(head, overlays.firstChild);
+            panel.insertBefore(head, panel.firstChild);
         });
     }
 
