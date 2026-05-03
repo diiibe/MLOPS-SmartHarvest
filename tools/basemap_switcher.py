@@ -37,9 +37,12 @@ _PANEL_CSS = """
        6 px`) so the four basemap pills + header stack in a
        compact ~110 px tall card — the user wanted the basemap
        footprint as short as possible to leave room for Variables
-       and the Week navigator above it. */
+       and the Week navigator above it. The ochre `border-left`
+       accent matches the popup card + Statistics legend so all
+       four floating panels share the same wine-house signature. */
     background: #25221C;
     border: 1px solid #3A352A;
+    border-left: 3px solid #C09137;
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
     padding: 6px 10px 8px;
@@ -49,15 +52,22 @@ _PANEL_CSS = """
     box-sizing: border-box;
 }
 .sh-basemap__head {
+    /* `position: relative` + flex-center carries the chevron
+       button in `::after`-like absolute positioning without
+       knocking the centred eyebrow text off-axis. */
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    text-align: center;
     color: #9C988B;
     padding-bottom: 6px;
     border-bottom: 1px solid #322E25;
     margin-bottom: 6px;
+    cursor: pointer;
 }
 .sh-basemap__row {
     /* 2-column grid keeps the basemap card half the height of a
@@ -100,8 +110,256 @@ _PANEL_CSS = """
 @media (prefers-reduced-motion: reduce) {
     .sh-basemap__btn { transition-duration: 0.01ms; }
 }
+
+/* Collapsed state — body hidden, head loses its bottom divider
+   so the card collapses into a flat eyebrow strip. */
+.sh-basemap[data-collapsed="true"] .sh-basemap__row {
+    display: none;
+}
+.sh-basemap[data-collapsed="true"] .sh-basemap__head {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
 </style>
 """
+
+
+# ---------------------------------------------------------------------
+# Shared collapse + ochre-border bootstrap. Both the data-map iframe
+# (Variables / Week / Maps / Statistics) and the ml-map iframe (Layers
+# / Maps) call `panel_collapse_html()` to inject this block once. The
+# CSS adds the ochre `border-left` to the LayerControl + Week panels
+# (the basemap and Stats legend already include it), wires the small
+# chevron button look, and the JS bootstrap finds whichever panels
+# exist in the document and makes their head row clickable.
+# ---------------------------------------------------------------------
+
+_COLLAPSE_CSS = """
+<style>
+/* Ochre signature — same `border-left: 3px solid #C09137` accent
+   that the popup cards and the Statistics legend already wear. */
+.leaflet-control-layers.leaflet-control-layers-expanded {
+    border-left: 3px solid #C09137 !important;
+}
+.sh-date-nav {
+    border-left: 3px solid #C09137;
+}
+
+/* Chevron toggle — small caret pinned to the right edge of the
+   eyebrow head; rotates 90° when the panel collapses so the
+   affordance reads as "click to expand / collapse". */
+.sh-collapse {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: #9C988B;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 4px;
+    margin: 0;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    transition:
+        transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+        color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+.sh-collapse:hover { color: #ECE4D2; }
+.sh-collapse:focus-visible {
+    outline: 1px solid #C09137;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* Rotated -90° in the collapsed state. The transform combines the
+   vertical centre alignment and the rotation. */
+[data-collapsed="true"] > .sh-collapse-host > .sh-collapse,
+[data-collapsed="true"] > .sh-collapse-host .sh-collapse,
+[data-collapsed="true"] .sh-collapse {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sh-collapse { transition-duration: 0.01ms; }
+}
+
+/* --- Variables / Layers panel (Folium LayerControl) ----------- */
+/* Hide the original CSS pseudo-header — JS replaces it with a
+   real `<div class="sh-vars-head">` element that supports the
+   chevron button and click-to-collapse. */
+.leaflet-control-layers-overlays::before {
+    content: none !important;
+    display: none !important;
+}
+.sh-vars-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #9C988B;
+    text-align: center;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #322E25;
+    margin-bottom: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.leaflet-control-layers-expanded[data-collapsed="true"] .sh-vars-head {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+.leaflet-control-layers-expanded[data-collapsed="true"] .leaflet-control-layers-list > *:not(.sh-vars-head),
+.leaflet-control-layers-expanded[data-collapsed="true"] .leaflet-control-layers-overlays > *:not(.sh-vars-head) {
+    display: none !important;
+}
+.leaflet-control-layers-expanded[data-collapsed="true"] {
+    overflow: visible !important;
+    max-height: none !important;
+}
+
+/* --- Week navigator -------------------------------------------- */
+.sh-date-nav .sh-dn-label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+}
+.sh-date-nav[data-collapsed="true"] > *:not(.sh-dn-label) {
+    display: none;
+}
+.sh-date-nav[data-collapsed="true"] .sh-dn-label {
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+/* --- Statistics legend ----------------------------------------- */
+.sh-legend__head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+}
+.sh-legend[data-collapsed="true"] > *:not(.sh-legend__head) {
+    display: none;
+}
+.sh-legend[data-collapsed="true"] .sh-legend__head {
+    padding-bottom: 0;
+}
+</style>
+"""
+
+
+_COLLAPSE_JS = """
+<script>
+(function () {
+    function makeChevron() {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sh-collapse";
+        btn.setAttribute("aria-label", "Toggle panel");
+        btn.innerHTML = "▾"; // ▾
+        return btn;
+    }
+
+    function wire(panel, head) {
+        if (!panel || !head) return;
+        if (head.querySelector(".sh-collapse")) return;
+        head.appendChild(makeChevron());
+        function toggle(e) {
+            // Ignore clicks on form controls inside the head so the
+            // overlay checkboxes / arrow buttons keep working.
+            var t = e.target;
+            if (t.tagName === "INPUT" || t.tagName === "A" ||
+                (t.tagName === "BUTTON" && !t.classList.contains("sh-collapse"))) {
+                return;
+            }
+            var col = panel.getAttribute("data-collapsed") === "true";
+            panel.setAttribute("data-collapsed", col ? "false" : "true");
+        }
+        head.addEventListener("click", toggle);
+    }
+
+    function injectVarsHead() {
+        // Folium's LayerControl ships with a `::before` pseudo we
+        // already hid via CSS. Replace it with a real `<div>` so the
+        // chevron + click handler have a host element. The label
+        // depends on the embed: data-map says "Variables", ml-map
+        // says "Layers" — we read it from the global the embed sets.
+        var label = window.__SH_LAYERS_LABEL || "Variables";
+        document.querySelectorAll(".leaflet-control-layers-overlays").forEach(function (overlays) {
+            if (overlays.querySelector(".sh-vars-head")) return;
+            var head = document.createElement("div");
+            head.className = "sh-vars-head";
+            head.textContent = label;
+            overlays.insertBefore(head, overlays.firstChild);
+        });
+    }
+
+    function init() {
+        var anything = document.querySelector(
+            ".sh-basemap, .sh-date-nav, .sh-legend, .leaflet-control-layers-expanded"
+        );
+        if (!anything) {
+            setTimeout(init, 100);
+            return;
+        }
+
+        injectVarsHead();
+
+        document.querySelectorAll(".sh-basemap").forEach(function (panel) {
+            wire(panel, panel.querySelector(".sh-basemap__head"));
+        });
+        document.querySelectorAll(".sh-date-nav").forEach(function (panel) {
+            wire(panel, panel.querySelector(".sh-dn-label"));
+        });
+        document.querySelectorAll(".sh-legend").forEach(function (panel) {
+            wire(panel, panel.querySelector(".sh-legend__head"));
+        });
+        document.querySelectorAll(".leaflet-control-layers-expanded").forEach(function (panel) {
+            wire(panel, panel.querySelector(".sh-vars-head"));
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+            setTimeout(init, 50);
+        });
+    } else {
+        setTimeout(init, 50);
+    }
+})();
+</script>
+"""
+
+
+def panel_collapse_html(layers_label: str = "Variables") -> str:
+    """
+    Return the CSS + JS block that adds the unified collapse toggle
+    + ochre left accent to all floating Leaflet panels in the iframe.
+
+    `layers_label` is the eyebrow text injected on top of Folium's
+    `LayerControl` ("Variables" on the data-map, "Layers" on the
+    ml-anomaly map).
+    """
+    label_script = (
+        '<script>window.__SH_LAYERS_LABEL = '
+        + json.dumps(layers_label)
+        + ';</script>'
+    )
+    return _COLLAPSE_CSS + label_script + _COLLAPSE_JS
 
 
 _PANEL_HTML = """"""

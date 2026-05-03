@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LEGEND_REFINED = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_COLLAPSE = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -1522,7 +1522,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LEGEND_REFINED = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_COLLAPSE = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
@@ -1533,11 +1533,18 @@ def create_verification_map(
     # layer control now only carries the Variables checkboxes, so the
     # user gets three visually distinct overlays. Injected last so
     # it stacks at the bottom of the top-left column.
-    from tools.basemap_switcher import basemap_switcher_html
+    from tools.basemap_switcher import basemap_switcher_html, panel_collapse_html
 
     switcher = basemap_switcher_html(mapbox_token, default="satellite")
     if switcher:
         m.get_root().html.add_child(folium.Element(switcher))
+
+    # Shared collapse toggle + ochre `border-left` for all four
+    # floating panels. Injected last so the bootstrap finds every
+    # panel already mounted in the DOM.
+    m.get_root().html.add_child(
+        folium.Element(panel_collapse_html(layers_label="Variables"))
+    )
 
     m.save(output_file)
     print(f"Map saved to {output_file}")
