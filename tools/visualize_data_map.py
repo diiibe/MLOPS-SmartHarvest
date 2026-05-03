@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ORDER = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LEGEND_REFINED = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -912,17 +912,18 @@ def create_verification_map(
     # navigator drives a weekly view, so the legend reflects the
     # latest week's averaged values per variable rather than a
     # single acquisition.
+    # Eyebrow + subtitle adopt the same `Variables / Week / Maps`
+    # design language: an uppercase 9.5 px / 0.22 em letter-spaced
+    # head in muted ochre, then a thin secondary line for context
+    # (the date or the "latest week per variable" caveat).
     if selected_date:
-        legend_title = f"Statistics — {selected_date}"
+        legend_subtitle = f"Day · {selected_date}"
     else:
-        legend_title = "Statistics — Latest week per variable"
+        legend_subtitle = "Latest week per variable"
 
     legend_html = f"""
-        <h4 style='margin-top:0;margin-bottom:10px;font-size:13px;
-                   text-transform:uppercase;border-bottom:1px solid #555;
-                   padding-bottom:5px;'>
-            {legend_title}
-        </h4>
+        <div class='sh-legend__head'>Statistics</div>
+        <div class='sh-legend__sub'>{legend_subtitle}</div>
     """
 
     numeric_stats = [c for c in schema.STATS_COLUMNS if c in df.columns]
@@ -990,15 +991,18 @@ def create_verification_map(
         gradient_str = ", ".join(colors)
         # `data-var` lets the date-navigator JS find the row when the
         # active week changes so it can rewrite vmin / vmax labels.
+        # Per-variable gradient is intentionally left as an inline
+        # `background` because each row's colour ramp is unique
+        # (NDVI green ramp ≠ LST blue ramp ≠ …) — only the chrome
+        # (border, radius) is delegated to the shared CSS class.
         legend_html += f"""
-        <div class='sh-legend-row' data-var='{col}' style='margin-bottom:5px;'>
-            <div style='font-weight:600;font-size:10px;color:#ddd;'>{label}</div>
-            <div style='display:flex;align-items:center;'>
-                <span class='sh-legend-vmin' style='font-size:8px;color:#aaa;width:38px;'>{vmin:.2f}</span>
-                <div style='flex-grow:1;height:6px;
-                    background:linear-gradient(to right,{gradient_str});
-                    border-radius:2px;margin:0 4px;border:1px solid #555;'></div>
-                <span class='sh-legend-vmax' style='font-size:8px;color:#aaa;width:38px;text-align:right;'>{vmax:.2f}</span>
+        <div class='sh-legend-row' data-var='{col}'>
+            <div class='sh-legend-row__label'>{label}</div>
+            <div class='sh-legend-row__bar'>
+                <span class='sh-legend-vmin'>{vmin:.2f}</span>
+                <div class='sh-legend-row__ramp'
+                     style='background:linear-gradient(to right,{gradient_str});'></div>
+                <span class='sh-legend-vmax'>{vmax:.2f}</span>
             </div>
         </div>
         """
@@ -1068,37 +1072,32 @@ def create_verification_map(
     ml_dir = os.path.join(os.path.dirname(csv_path), 'ml_weekly')
     if os.path.exists(ml_dir):
         legend_html += """
-        <div style='margin-top:10px; padding-top:10px; border-top:1px solid #444;'>
-            <div style='font-weight:600;font-size:10px;color:#f39c12;'>ANOMALY DETECTION</div>
-            <div style='display:flex;align-items:center;margin-top:4px;'>
-                <span style='font-size:8px;color:#aaa;width:30px;'>Normal</span>
-                <div style='flex-grow:1;height:6px;
-                    background:linear-gradient(to right, blue, cyan, lime, yellow, orange, red);
-                    border-radius:2px;margin:0 4px;border:1px solid #555;'></div>
-                <span style='font-size:8px;color:#aaa;width:45px;text-align:right;'>Anomalous</span>
+        <div class='sh-legend__anomaly'>
+            <div class='sh-legend__anomaly-head'>Anomaly Detection</div>
+            <div class='sh-legend-row__bar'>
+                <span class='sh-legend-vmin'>Normal</span>
+                <div class='sh-legend-row__ramp'
+                     style='background:linear-gradient(to right, blue, cyan, lime, yellow, orange, red);'></div>
+                <span class='sh-legend-vmax'>Anomalous</span>
             </div>
-            <div style='font-size:8px;color:#888;margin-top:2px;'>Latest weekly analysis hotspots</div>
+            <div class='sh-legend__anomaly-foot'>Latest weekly analysis hotspots</div>
         </div>
         """
 
-    # Custom Legend control
+    # Custom Legend control. The chrome (surface, border, padding,
+    # eyebrow rhythm) all comes from the `.sh-legend` CSS block
+    # injected below, so this macro only mounts the control and
+    # stops Leaflet from swallowing wheel + click events on the
+    # scrollable legend body.
     class CustomLegend(MacroElement):
         _template = Template("""
             {% macro script(this, kwargs) %}
             var legend = L.control({position: 'topright'});
             legend.onAdd = function (map) {
-                var div = L.DomUtil.create('div', 'info legend');
+                var div = L.DomUtil.create('div', 'sh-legend');
+                L.DomEvent.disableClickPropagation(div);
+                L.DomEvent.disableScrollPropagation(div);
                 div.innerHTML = `{{ this.content }}`;
-                div.style.backgroundColor = 'rgba(25,25,25,0.92)';
-                div.style.color = '#eee';
-                div.style.padding = '10px';
-                div.style.borderRadius = '8px';
-                div.style.boxShadow = '0 0 15px rgba(0,0,0,0.5)';
-                div.style.width = '240px';
-                div.style.maxHeight = '90vh';
-                div.style.overflowY = 'auto';
-                div.style.fontSize = '10px';
-                div.style.fontFamily = "'Segoe UI', sans-serif";
                 return div;
             };
             legend.addTo({{ this._parent.get_name() }});
@@ -1369,6 +1368,132 @@ def create_verification_map(
         @media (prefers-reduced-motion: reduce) {
             .sh-date-nav .sh-dn-btn { transition-duration: 0.01ms; }
         }
+
+        /* Statistics legend — top-right floating panel that mirrors
+           the `Variables / Week / Maps` design language: dark linen
+           surface, ochre 0.22 em eyebrow head, muted secondary
+           subtitle, ochre `border-left` accent so the panel reads
+           in dialogue with the popup card chrome. The per-row
+           gradient bars keep their unique colour ramps (NDVI green,
+           LST blue, etc.) — only the chrome around them is unified. */
+        .sh-legend {
+            background: #25221C;
+            color: #ECE4D2;
+            border: 1px solid #3A352A;
+            border-left: 3px solid #C09137;
+            border-radius: 6px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+            padding: 8px 12px 10px;
+            font-family: system-ui, -apple-system, "Helvetica Neue",
+                         Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            width: 240px;
+            max-height: 86vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .sh-legend::-webkit-scrollbar { width: 6px; }
+        .sh-legend::-webkit-scrollbar-thumb {
+            background: #322E25;
+            border-radius: 3px;
+        }
+        .sh-legend::-webkit-scrollbar-thumb:hover {
+            background: #3A352A;
+        }
+        .sh-legend::-webkit-scrollbar-track { background: transparent; }
+
+        .sh-legend__head {
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #9C988B;
+            text-align: center;
+            padding-bottom: 4px;
+        }
+        .sh-legend__sub {
+            font-size: 9.5px;
+            color: #C09137;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-weight: 600;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #322E25;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sh-legend-row {
+            margin-bottom: 6px;
+        }
+        .sh-legend-row:last-child {
+            margin-bottom: 0;
+        }
+        .sh-legend-row__label {
+            font-weight: 600;
+            font-size: 10px;
+            color: #ECE4D2;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sh-legend-row__bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sh-legend-row__ramp {
+            flex-grow: 1;
+            height: 6px;
+            border-radius: 2px;
+            border: 1px solid #322E25;
+        }
+        .sh-legend-vmin,
+        .sh-legend-vmax {
+            font-size: 8.5px;
+            color: #9C988B;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+            min-width: 38px;
+            flex-shrink: 0;
+        }
+        .sh-legend-vmax { text-align: right; }
+
+        /* Anomaly Detection sub-section — same eyebrow rhythm as the
+           main head but indented inside the legend with a divider on
+           top so it reads as a related-but-separate block. The "Normal
+           / Anomalous" labels reuse the vmin/vmax slot so they sit
+           tight against the gradient bar. */
+        .sh-legend__anomaly {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #322E25;
+        }
+        .sh-legend__anomaly-head {
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #C09137;
+            margin-bottom: 4px;
+        }
+        .sh-legend__anomaly .sh-legend-vmin,
+        .sh-legend__anomaly .sh-legend-vmax {
+            font-size: 9px;
+            color: #B4B4B4;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .sh-legend__anomaly-foot {
+            font-size: 9px;
+            color: #6E6A60;
+            margin-top: 4px;
+            font-style: italic;
+        }
     </style>
     """
     m.get_root().html.add_child(folium.Element(dark_css))
@@ -1397,7 +1522,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_ORDER = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LEGEND_REFINED = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

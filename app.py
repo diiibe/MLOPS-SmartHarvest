@@ -648,7 +648,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_PANEL_ORDER" not in head:
+                    if "__SH_LEGEND_REFINED" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -985,7 +985,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_PANEL_ORDER" not in head:
+            if "__SH_LEGEND_REFINED" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True
