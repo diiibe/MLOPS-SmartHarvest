@@ -2936,6 +2936,91 @@ button, input, select, textarea {
     font-size: 11px;
 }
 
+/* ── Spatial · Moran's I card ────────────────────────────────────
+   Single headline number + verdict pill + supporting stats. The
+   verdict colour scales with autocorrelation strength so the user
+   can read the chart without parsing the digits. */
+.page-dashboard .morans-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+    background: var(--c-surface-soft);
+}
+.page-dashboard .morans__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.page-dashboard .morans__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.page-dashboard .morans__verdict {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--c-border-soft);
+    background: var(--c-bg-linen);
+    color: var(--c-text);
+}
+.page-dashboard .morans__verdict--strong-cluster {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 50%, var(--c-border));
+}
+.page-dashboard .morans__verdict--cluster {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 35%, var(--c-border));
+}
+.page-dashboard .morans__verdict--random {
+    color: var(--c-text-soft);
+}
+.page-dashboard .morans__verdict--dispersed,
+.page-dashboard .morans__verdict--strong-dispersed {
+    color: #C77E83;
+    border-color: color-mix(in srgb, #C77E83 35%, var(--c-border));
+}
+.page-dashboard .morans__row {
+    display: flex;
+    gap: 24px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+.page-dashboard .morans__value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+.page-dashboard .morans__expected,
+.page-dashboard .morans__cells {
+    display: grid;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--c-text-muted);
+}
+.page-dashboard .morans__expected b,
+.page-dashboard .morans__cells b {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .morans__hint {
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+    line-height: 1.55;
+}
+
 /* ── Glossary side panel ─────────────────────────────────────────
    Slides in from the right, dismissible via the close button,
    backdrop click, or Escape. The trigger pill lives in the

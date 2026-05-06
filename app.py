@@ -568,6 +568,10 @@ def dashboard(project_name):
             # New phase-1 additions.
             charts_html["change_detection"] = charts.create_change_detection_summary(df)
             charts_html["completeness"] = charts.create_completeness_matrix(df)
+            # Phase-2: phenology + sub-cell + Moran's I.
+            charts_html["phenology"] = charts.create_phenology_curve(df)
+            charts_html["subcell_heatmap"] = charts.create_subcell_heatmap(df)
+            charts_html["morans_i"] = charts.create_morans_i_card(df)
         except Exception as e:
             print(f"Error generating charts: {e}")
             import traceback

@@ -1390,6 +1390,373 @@ def create_completeness_matrix(df: "pd.DataFrame") -> Optional[str]:
     return _to_html(fig)
 
 
+# -- Temporal: phenology curve ----------------------------------------
+
+
+def create_phenology_curve(df: "pd.DataFrame") -> Optional[str]:
+    """Smoothed NDVI curve with greening / peak / senescence markers.
+
+    Fits a rolling mean over the daily ROI-mean NDVI, then marks:
+        • greening — date of the largest positive 1st derivative
+        • peak     — date of the maximum smoothed NDVI
+        • senescence — date of the largest negative 1st derivative
+
+    The output reads as a single editorial line: "the season turned
+    on date X, peaked on Y, and started senescing on Z". Useful in
+    viticulture to compare phenology across seasons or blocks.
+    """
+    if "date" not in df.columns or "NDVI" not in df.columns:
+        return None
+    if df["NDVI"].dropna().empty:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "NDVI"])
+    if df.empty:
+        return None
+
+    daily = df.groupby(df["date"].dt.date)["NDVI"].mean().sort_index()
+    daily.index = pd.to_datetime(daily.index)
+    if len(daily) < 6:
+        # Need a handful of dates for the rolling window to make sense.
+        return None
+
+    # Rolling 7-sample window — handles uneven cadence (S2 every 3-5
+    # days) without overshooting on a single high-value scene.
+    smoothed = daily.rolling(window=min(7, len(daily)), center=True, min_periods=2).mean()
+    smoothed = smoothed.dropna()
+    if len(smoothed) < 4:
+        return None
+
+    derivative = smoothed.diff()
+    derivative_filled = derivative.dropna()
+    if derivative_filled.empty:
+        return None
+
+    greening_idx = derivative_filled.idxmax()
+    senescence_idx = derivative_filled.idxmin()
+    peak_idx = smoothed.idxmax()
+
+    greening_val = float(smoothed.loc[greening_idx])
+    senescence_val = float(smoothed.loc[senescence_idx])
+    peak_val = float(smoothed.loc[peak_idx])
+
+    fig = go.Figure()
+
+    # Daily raw ROI-mean — light dots so the smoothing is visible.
+    fig.add_trace(
+        go.Scatter(
+            x=list(daily.index),
+            y=list(daily.values),
+            mode="markers",
+            marker=dict(color=COLORS["muted_fill"], size=5, line=dict(width=0)),
+            name="Daily mean",
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>NDVI %{y:.3f}<extra></extra>",
+        )
+    )
+
+    # Smoothed line.
+    fig.add_trace(
+        go.Scatter(
+            x=list(smoothed.index),
+            y=list(smoothed.values),
+            mode="lines",
+            line=dict(color=COLORS["primary"], width=2.4, shape="spline", smoothing=0.4),
+            name="Smoothed",
+            hovertemplate="<b>%{x|%Y-%m-%d}</b><br>Smoothed NDVI %{y:.3f}<extra></extra>",
+        )
+    )
+
+    # Phase markers.
+    markers = [
+        ("Greening", greening_idx, greening_val, COLORS["secondary"]),
+        ("Peak", peak_idx, peak_val, COLORS["primary"]),
+        ("Senescence", senescence_idx, senescence_val, COLORS["diverge_low"]),
+    ]
+    for label, idx, val, color in markers:
+        fig.add_trace(
+            go.Scatter(
+                x=[idx],
+                y=[val],
+                mode="markers+text",
+                marker=dict(color=color, size=11, line=dict(color="#0a0a0a", width=2)),
+                text=[label],
+                textposition="top center",
+                textfont=dict(color=color, size=11, family=FONT["family"]),
+                hovertemplate=(
+                    "<b>" + label + "</b><br>%{x|%Y-%m-%d}<br>NDVI %{y:.3f}<extra></extra>"
+                ),
+                showlegend=False,
+            )
+        )
+
+    layout = _base_layout(
+        height=320,
+        margin=dict(l=56, r=24, t=36, b=44),
+        xaxis=dict(title=None),
+        yaxis=dict(title="NDVI", range=[0, max(0.95, peak_val * 1.1)]),
+    )
+    fig.update_layout(**layout)
+    return _to_html(fig)
+
+
+# -- Spatial: sub-cell heatmap ----------------------------------------
+
+
+def create_subcell_heatmap(
+    df: "pd.DataFrame", target_cell_m: int = 50
+) -> Optional[str]:
+    """Sub-cell aggregation heatmap.
+
+    Bins pixels into an `N × N` grid sized so each cell is roughly
+    `target_cell_m` metres on a side, then computes the mean NDVI
+    in each cell across the full time window. The output is a
+    Plotly heatmap whose row × column count adapts to the ROI
+    extent — small parcels get a 4 × 4 grid, larger parcels can
+    reach 12 × 12.
+
+    Why sub-cell rather than per-pixel: 10 m S2 cells are too noisy
+    to read as a heatmap, while a 50 m aggregation matches the
+    smallest viticulture management unit (panel / block) and shows
+    real spatial structure rather than per-pixel noise.
+    """
+    if "lat" not in df.columns or "lon" not in df.columns or "NDVI" not in df.columns:
+        return None
+
+    df = df.copy()
+    df = df.dropna(subset=["lat", "lon", "NDVI"])
+    if len(df) < 25:
+        return None
+
+    lat_min, lat_max = float(df["lat"].min()), float(df["lat"].max())
+    lon_min, lon_max = float(df["lon"].min()), float(df["lon"].max())
+    if lat_max == lat_min or lon_max == lon_min:
+        return None
+
+    # Approximate metres per degree at the ROI's mean latitude.
+    mean_lat = (lat_min + lat_max) / 2.0
+    m_per_deg_lat = 111_320.0
+    m_per_deg_lon = 111_320.0 * math.cos(math.radians(mean_lat))
+
+    height_m = (lat_max - lat_min) * m_per_deg_lat
+    width_m = (lon_max - lon_min) * m_per_deg_lon
+
+    # Choose a grid resolution that lands close to `target_cell_m` per
+    # side, clamped to [4, 12] to stay readable.
+    rows = max(4, min(12, int(round(height_m / target_cell_m))))
+    cols = max(4, min(12, int(round(width_m / target_cell_m))))
+
+    lat_edges = np.linspace(lat_min, lat_max, rows + 1)
+    lon_edges = np.linspace(lon_min, lon_max, cols + 1)
+
+    # Lat bin uses the upper edge so row 0 corresponds to the top of
+    # the heatmap (north). The matrix is reversed at render time
+    # via `autorange="reversed"`.
+    lat_idx = np.clip(
+        np.digitize(df["lat"].values, lat_edges) - 1, 0, rows - 1
+    )
+    lon_idx = np.clip(
+        np.digitize(df["lon"].values, lon_edges) - 1, 0, cols - 1
+    )
+    df = df.assign(_row=lat_idx, _col=lon_idx)
+
+    grid = (
+        df.groupby(["_row", "_col"])["NDVI"]
+        .agg(["mean", "std", "count"])
+        .reset_index()
+    )
+    if grid.empty:
+        return None
+
+    z = np.full((rows, cols), np.nan)
+    text = np.empty((rows, cols), dtype=object)
+    for _, r in grid.iterrows():
+        rr, cc = int(r["_row"]), int(r["_col"])
+        z[rr, cc] = r["mean"]
+        std = r["std"] if not pd.isna(r["std"]) else 0
+        text[rr, cc] = f"NDVI {r['mean']:.3f}<br>σ {std:.3f}<br>n {int(r['count'])}"
+
+    cell_w_m = int(round(width_m / cols))
+    cell_h_m = int(round(height_m / rows))
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z,
+            text=text,
+            customdata=text,
+            hovertemplate="<b>cell</b><br>%{customdata}<extra></extra>",
+            colorscale=[
+                [0.0, "#1d1d1d"],
+                [0.4, COLORS["diverge_low"]],
+                [0.7, COLORS["secondary"]],
+                [1.0, COLORS["primary"]],
+            ],
+            zmin=0,
+            zmax=1,
+            colorbar=dict(
+                tickfont=dict(color=COLORS["tick"], size=10),
+                title=dict(text="NDVI", font=dict(color=COLORS["axis"], size=10)),
+                len=0.85,
+                thickness=10,
+                outlinewidth=0,
+            ),
+            xgap=2,
+            ygap=2,
+        )
+    )
+
+    layout = _base_layout(
+        height=max(260, 32 * rows + 80),
+        margin=dict(l=24, r=24, t=24, b=64),
+        xaxis=dict(
+            tickvals=list(range(cols)),
+            ticktext=[f"col {i+1}" for i in range(cols)],
+            showgrid=False,
+            title=dict(text=f"~{cell_w_m} m per column", font=dict(color=COLORS["axis"], size=10)),
+        ),
+        yaxis=dict(
+            tickvals=list(range(rows)),
+            ticktext=[f"row {i+1}" for i in range(rows)],
+            autorange="reversed",
+            showgrid=False,
+            title=dict(text=f"~{cell_h_m} m per row", font=dict(color=COLORS["axis"], size=10)),
+        ),
+    )
+    fig.update_layout(**layout)
+    return _to_html(fig)
+
+
+# -- Spatial: Moran's I ------------------------------------------------
+
+
+def create_morans_i_card(df: "pd.DataFrame", target_cell_m: int = 50) -> Optional[str]:
+    """Moran's I spatial-autocorrelation card.
+
+    Computes Moran's I on the sub-cell aggregated NDVI grid (same
+    resolution as `create_subcell_heatmap`) using rook (4-neighbour)
+    spatial weights. Renders as a single-number card with a plain-
+    English interpretation: positive = clustered (similar values
+    cluster together), zero = random, negative = checkerboard.
+
+    Output is HTML, not a Plotly figure — the headline number is
+    the chart.
+    """
+    if "lat" not in df.columns or "lon" not in df.columns or "NDVI" not in df.columns:
+        return None
+
+    df = df.copy()
+    df = df.dropna(subset=["lat", "lon", "NDVI"])
+    if len(df) < 25:
+        return None
+
+    lat_min, lat_max = float(df["lat"].min()), float(df["lat"].max())
+    lon_min, lon_max = float(df["lon"].min()), float(df["lon"].max())
+    if lat_max == lat_min or lon_max == lon_min:
+        return None
+
+    mean_lat = (lat_min + lat_max) / 2.0
+    m_per_deg_lat = 111_320.0
+    m_per_deg_lon = 111_320.0 * math.cos(math.radians(mean_lat))
+    height_m = (lat_max - lat_min) * m_per_deg_lat
+    width_m = (lon_max - lon_min) * m_per_deg_lon
+
+    rows = max(4, min(12, int(round(height_m / target_cell_m))))
+    cols = max(4, min(12, int(round(width_m / target_cell_m))))
+
+    lat_edges = np.linspace(lat_min, lat_max, rows + 1)
+    lon_edges = np.linspace(lon_min, lon_max, cols + 1)
+    lat_idx = np.clip(np.digitize(df["lat"].values, lat_edges) - 1, 0, rows - 1)
+    lon_idx = np.clip(np.digitize(df["lon"].values, lon_edges) - 1, 0, cols - 1)
+    df = df.assign(_row=lat_idx, _col=lon_idx)
+
+    grid_means = (
+        df.groupby(["_row", "_col"])["NDVI"]
+        .mean()
+        .reset_index()
+    )
+    if len(grid_means) < 6:
+        return None
+
+    grid = np.full((rows, cols), np.nan)
+    for _, r in grid_means.iterrows():
+        grid[int(r["_row"]), int(r["_col"])] = r["NDVI"]
+
+    valid_mask = ~np.isnan(grid)
+    n = int(valid_mask.sum())
+    if n < 6:
+        return None
+
+    overall_mean = float(np.nanmean(grid))
+
+    # Moran's I with rook contiguity weights — every cell weights its
+    # 4-neighbour cells equally; pairs are counted twice.
+    numerator = 0.0
+    denominator = 0.0
+    weights_sum = 0.0
+    for r in range(rows):
+        for c in range(cols):
+            if not valid_mask[r, c]:
+                continue
+            zi = grid[r, c] - overall_mean
+            denominator += zi * zi
+            for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and valid_mask[nr, nc]:
+                    zj = grid[nr, nc] - overall_mean
+                    numerator += zi * zj
+                    weights_sum += 1.0
+    if weights_sum == 0 or denominator == 0:
+        return None
+    morans_i = (n / weights_sum) * (numerator / denominator)
+    expected_i = -1.0 / (n - 1)
+
+    # Plain-English interpretation tier.
+    if morans_i >= 0.4:
+        verdict = "strongly clustered"
+        verdict_class = "morans__verdict--strong-cluster"
+    elif morans_i >= 0.15:
+        verdict = "moderately clustered"
+        verdict_class = "morans__verdict--cluster"
+    elif morans_i >= -0.15:
+        verdict = "near-random"
+        verdict_class = "morans__verdict--random"
+    elif morans_i >= -0.4:
+        verdict = "moderately dispersed"
+        verdict_class = "morans__verdict--dispersed"
+    else:
+        verdict = "strongly dispersed"
+        verdict_class = "morans__verdict--strong-dispersed"
+
+    return f"""
+    <div class="morans-card">
+        <div class="morans__head">
+            <span class="morans__label">Moran's I · NDVI · {target_cell_m} m sub-cell grid</span>
+            <span class="morans__verdict {verdict_class}">{verdict}</span>
+        </div>
+        <div class="morans__row">
+            <div class="morans__value">{morans_i:+.3f}</div>
+            <div class="morans__expected">
+                <span>Expected under H₀</span>
+                <b>{expected_i:+.3f}</b>
+            </div>
+            <div class="morans__cells">
+                <span>{n} cells</span>
+                <b>{int(weights_sum / 2)} pairs</b>
+            </div>
+        </div>
+        <p class="morans__hint">
+            Positive values mean blocks with similar NDVI sit next to each
+            other (clustered structure — typical of a healthy parcel with
+            consistent management). Values near zero mean the spatial
+            pattern is essentially random. Negative values mean a
+            checkerboard pattern, which usually points to a row × inter-row
+            sampling artifact rather than real biology.
+        </p>
+    </div>
+    """
+
+
 # -- Variable glossary --------------------------------------------------
 # One-liner definitions shown as tooltips and rendered in the Data
 # Analysis tab's glossary block. Kept deliberately short so they fit

@@ -275,6 +275,17 @@
                     <p>How the vineyard moves through time — vegetation indices, water signal, radar, thermal stress.</p>
                 </header>
 
+                {% if charts.phenology %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Phenology curve — greening, peak, senescence",
+                        "Smoothed NDVI with the three season inflection points marked.",
+                        "A 7-sample rolling mean over the daily ROI-mean NDVI captures the seasonal arc without overshooting on a single high-value scene. The amber, wine-red and slate dots mark the date of (1) the largest positive 1st derivative — when the canopy started greening up; (2) the smoothed NDVI maximum — peak vigour; and (3) the largest negative 1st derivative — when senescence kicked in. Compare these three dates across blocks or seasons to spot phenological shifts."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.phenology | safe }}</div>
+                </section>
+                {% endif %}
+
                 {% if charts.index_trends %}
                 <section class="analysis-section">
                     {{ section_header(
@@ -346,6 +357,28 @@
                         "For every pixel, compute the mean NDVI in the last 30 days minus the mean in the prior 30 days. Pixels with |Δ| ≥ 0.05 land in the improved or declined bucket; the rest are stable. The horizontal bar shows the population breakdown; the right column gives counts and the percentile spread. Use this to spot under-performing blocks before they show up in the season-long average."
                     ) }}
                     {{ charts.change_detection | safe }}
+                </section>
+                {% endif %}
+
+                {% if charts.subcell_heatmap %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Sub-cell NDVI heatmap — ~50 m blocks",
+                        "Mean NDVI per ~50 m sub-cell across the whole season.",
+                        "Pixels are aggregated into a small grid sized so each cell is roughly 50 m on a side — the smallest viticulture management unit. Cell colour is the mean NDVI across the entire analysis window; hover shows mean, standard deviation and pixel count per cell. Use it to find blocks that are systematically under- or over-performing the rest of the parcel, independent of any single acquisition's noise."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.subcell_heatmap | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.morans_i %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Spatial autocorrelation — Moran's I",
+                        "Are similar NDVI values clustered or scattered?",
+                        "Moran's I measures spatial autocorrelation on the sub-cell grid. Positive values (towards +1) mean blocks with similar NDVI sit next to each other — the parcel has a coherent spatial structure that's worth managing block-by-block. Values near zero mean the pattern is essentially random; negative values point to row × inter-row sampling artefacts, not biology. The expected value under the null hypothesis is roughly −1 / (n−1)."
+                    ) }}
+                    {{ charts.morans_i | safe }}
                 </section>
                 {% endif %}
 
