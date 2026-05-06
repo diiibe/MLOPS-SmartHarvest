@@ -542,6 +542,19 @@ def dashboard(project_name):
     if os.path.exists(csv_path):
         try:
             df = pd.read_csv(csv_path)
+            ml_dir_for_kpi = os.path.join(
+                os.path.dirname(csv_path), "ml_weekly"
+            )
+            ml_dir_for_kpi = (
+                ml_dir_for_kpi if os.path.exists(ml_dir_for_kpi) else None
+            )
+            # Overview tiles (no Plotly bundle hit — pure HTML).
+            charts_html["kpi_strip"] = charts.create_kpi_strip(
+                df, meta_list, ml_dir_for_kpi
+            )
+            charts_html["ndvi_sparkline"] = charts.create_ndvi_sparkline(df)
+            charts_html["recent_acquisitions"] = charts.create_recent_acquisitions(df)
+            # Existing charts (untouched).
             charts_html["acquisition"] = charts.create_acquisition_timeline(df)
             charts_html["cloud_coverage"] = charts.create_cloud_coverage(meta_list)
             charts_html["index_trends"] = charts.create_index_trends(df)
@@ -552,6 +565,9 @@ def dashboard(project_name):
             charts_html["distributions"] = charts.create_distributions(df)
             charts_html["correlation"] = charts.create_correlation(df)
             charts_html["ndvi_by_slope"] = charts.create_ndvi_by_slope(df)
+            # New phase-1 additions.
+            charts_html["change_detection"] = charts.create_change_detection_summary(df)
+            charts_html["completeness"] = charts.create_completeness_matrix(df)
         except Exception as e:
             print(f"Error generating charts: {e}")
             import traceback

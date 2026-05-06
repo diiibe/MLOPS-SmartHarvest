@@ -886,6 +886,510 @@ def create_thermal_vs_vigour(df: pd.DataFrame) -> Optional[str]:
     )
 
 
+# -- Overview KPI strip + sparkline + recent-acquisitions --------------
+#
+# These three blocks land at the top of the new "Overview" sub-tab.
+# They render as plain HTML (no Plotly bundle hit) so the landing
+# section paints instantly even on a cold-cache reload — the heavy
+# Plotly figures live deeper, on the Temporal / Spatial / Quality
+# sub-tabs.
+
+
+def _safe_mean(series: "pd.Series") -> Optional[float]:
+    series = series.dropna()
+    return float(series.mean()) if len(series) else None
+
+
+def _safe_isoweek(date: "pd.Timestamp") -> str:
+    return date.strftime("%G-W%V")
+
+
+def _format_metric(value: Optional[float], unit: str = "", digits: int = 2) -> str:
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return "—"
+    return f"{value:.{digits}f}{unit}"
+
+
+def _format_delta(delta: Optional[float], digits: int = 2) -> str:
+    if delta is None or math.isnan(delta):
+        return ""
+    sign = "+" if delta >= 0 else "−"
+    return f"{sign}{abs(delta):.{digits}f}"
+
+
+def _delta_class(delta: Optional[float]) -> str:
+    if delta is None or math.isnan(delta):
+        return "kpi__delta--neutral"
+    if delta > 0.005:
+        return "kpi__delta--up"
+    if delta < -0.005:
+        return "kpi__delta--down"
+    return "kpi__delta--neutral"
+
+
+def create_kpi_strip(
+    df: "pd.DataFrame",
+    metadata_list: Optional[List[Dict[str, Any]]] = None,
+    ml_dir: Optional[str] = None,
+) -> Optional[str]:
+    """4-tile KPI strip for the Overview sub-tab.
+
+    Tiles:
+        1. Latest-week ROI mean NDVI + delta vs prior week.
+        2. Latest-week S2 cloud-cover median (from metadata).
+        3. Latest-week scene count (S2 + S1 + L8 unique dates).
+        4. Latest-week ML hot-spot count (from cluster CSVs in ml_dir).
+
+    Each tile is plain HTML; the CSS class hierarchy lives in
+    `static/css/app.css` under `.kpi-strip`.
+    """
+    if "date" not in df.columns:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    if df.empty:
+        return None
+
+    df["iso_week"] = df["date"].dt.strftime("%G-W%V")
+    weeks = sorted(df["iso_week"].unique())
+    latest_week = weeks[-1]
+    prior_week = weeks[-2] if len(weeks) >= 2 else None
+
+    # --- Tile 1: NDVI mean current vs prior ---
+    ndvi_col = df["NDVI"] if "NDVI" in df.columns else None
+    ndvi_now = (
+        _safe_mean(df.loc[df["iso_week"] == latest_week, "NDVI"])
+        if ndvi_col is not None
+        else None
+    )
+    ndvi_prev = (
+        _safe_mean(df.loc[df["iso_week"] == prior_week, "NDVI"])
+        if prior_week and ndvi_col is not None
+        else None
+    )
+    ndvi_delta = (
+        ndvi_now - ndvi_prev
+        if ndvi_now is not None and ndvi_prev is not None
+        else None
+    )
+
+    # --- Tile 2: latest-week S2 cloud median ---
+    cloud_pct = None
+    if metadata_list:
+        for entry in metadata_list:
+            if entry.get("source") == "Sentinel-2":
+                per_image = entry.get("cloud_per_image_pct") or []
+                if per_image:
+                    cloud_pct = float(np.median(per_image))
+                else:
+                    cloud_pct = entry.get("cloud_coverage", {}).get("mean")
+                break
+
+    # --- Tile 3: latest-week scene count ---
+    latest_df = df[df["iso_week"] == latest_week]
+    if "satellite" in latest_df.columns and not latest_df.empty:
+        latest_scenes = latest_df.groupby("satellite")["date"].nunique()
+        scene_count = int(latest_scenes.sum())
+    else:
+        scene_count = int(latest_df["date"].nunique()) if not latest_df.empty else 0
+
+    # --- Tile 4: ML hot-spot count from latest cluster CSV ---
+    hotspot_count: Optional[int] = None
+    if ml_dir:
+        import glob
+        import os
+
+        cluster_glob = os.path.join(ml_dir, "weekly", latest_week, "cluster_map_*.csv")
+        candidates = sorted(glob.glob(cluster_glob))
+        if candidates:
+            try:
+                cdf = pd.read_csv(candidates[-1])
+                if "is_anomalous" in cdf.columns:
+                    hotspot_count = int(cdf["is_anomalous"].sum())
+                elif "outlier_score" in cdf.columns:
+                    threshold = cdf["outlier_score"].quantile(0.95)
+                    hotspot_count = int((cdf["outlier_score"] > threshold).sum())
+            except Exception:
+                hotspot_count = None
+
+    # --- Render ---
+    tiles = [
+        {
+            "label": "NDVI · latest week",
+            "value": _format_metric(ndvi_now, digits=3),
+            "delta": _format_delta(ndvi_delta, digits=3),
+            "delta_class": _delta_class(ndvi_delta),
+            "sub": f"vs {prior_week}" if prior_week else "first week",
+        },
+        {
+            "label": "Cloud median · S2",
+            "value": _format_metric(cloud_pct, unit="%", digits=1),
+            "delta": "",
+            "delta_class": "kpi__delta--neutral",
+            "sub": "across all scenes",
+        },
+        {
+            "label": "Acquisitions · latest week",
+            "value": str(scene_count) if scene_count else "—",
+            "delta": "",
+            "delta_class": "kpi__delta--neutral",
+            "sub": latest_week,
+        },
+        {
+            "label": "Anomaly hot-spots",
+            "value": str(hotspot_count) if hotspot_count is not None else "—",
+            "delta": "",
+            "delta_class": "kpi__delta--neutral",
+            "sub": "ML clustering · latest week",
+        },
+    ]
+
+    tile_html = "".join(
+        f"""<div class="kpi">
+            <div class="kpi__label">{t['label']}</div>
+            <div class="kpi__row">
+              <div class="kpi__value">{t['value']}</div>
+              <div class="kpi__delta {t['delta_class']}">{t['delta']}</div>
+            </div>
+            <div class="kpi__sub">{t['sub']}</div>
+        </div>"""
+        for t in tiles
+    )
+    return f'<div class="kpi-strip">{tile_html}</div>'
+
+
+def create_ndvi_sparkline(df: "pd.DataFrame", weeks: int = 12) -> Optional[str]:
+    """Compact NDVI sparkline for the Overview sub-tab.
+
+    Plots the ROI-mean NDVI per ISO week for the most recent
+    `weeks` weeks. No axis, no grid — a clean trace with a single
+    dot on the latest point. Designed to read at a glance, not to
+    replace the full index_trends chart.
+    """
+    if "date" not in df.columns or "NDVI" not in df.columns:
+        return None
+    if df["NDVI"].dropna().empty:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "NDVI"])
+    if df.empty:
+        return None
+
+    df["iso_week"] = df["date"].dt.strftime("%G-W%V")
+    by_week = df.groupby("iso_week")["NDVI"].mean().sort_index()
+    if len(by_week) > weeks:
+        by_week = by_week.iloc[-weeks:]
+    if len(by_week) < 2:
+        return None
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=list(by_week.index),
+            y=list(by_week.values),
+            mode="lines",
+            line=dict(color=COLORS["primary"], width=2.4, shape="spline", smoothing=0.6),
+            fill="tozeroy",
+            fillcolor=COLORS["soft_fill"],
+            hovertemplate="<b>%{x}</b><br>NDVI %{y:.3f}<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=[by_week.index[-1]],
+            y=[by_week.values[-1]],
+            mode="markers",
+            marker=dict(color=COLORS["secondary"], size=8, line=dict(color="#0a0a0a", width=2)),
+            hovertemplate="<b>Latest %{x}</b><br>NDVI %{y:.3f}<extra></extra>",
+        )
+    )
+    layout = _base_layout(
+        height=120,
+        margin=dict(l=8, r=8, t=8, b=8),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False, range=[0, max(0.9, float(by_week.max()) * 1.15)]),
+    )
+    fig.update_layout(**layout)
+    return _to_html(fig)
+
+
+def create_recent_acquisitions(df: "pd.DataFrame", limit: int = 5) -> Optional[str]:
+    """Tabular block listing the last `limit` acquisitions.
+
+    One row per (date × satellite) tuple. Designed to live in the
+    Overview sub-tab as a quiet "what just happened" panel — no
+    chart, just typography.
+    """
+    if "date" not in df.columns or "satellite" not in df.columns:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "satellite"])
+    if df.empty:
+        return None
+
+    # Each (date, satellite) appears many times (one row per pixel).
+    # Collapse to one row per (date, satellite-string in CSV form),
+    # then split combos like "L8,S2" into separate rows so the table
+    # reads as a clean acquisition log.
+    grouped = (
+        df.groupby([df["date"].dt.date, "satellite"])
+        .size()
+        .reset_index(name="pixel_rows")
+    )
+    grouped.columns = ["date", "satellite", "pixel_rows"]
+
+    # Explode combos
+    grouped["satellite"] = grouped["satellite"].astype(str).str.split(",")
+    grouped = grouped.explode("satellite").reset_index(drop=True)
+    grouped["satellite"] = grouped["satellite"].str.strip()
+
+    grouped = grouped.sort_values("date", ascending=False).head(limit * 4)
+    seen = set()
+    rows = []
+    for _, r in grouped.iterrows():
+        key = (r["date"], r["satellite"])
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(r)
+        if len(rows) >= limit:
+            break
+    if not rows:
+        return None
+
+    sensor_label = {"S2": "Sentinel-2", "S1": "Sentinel-1", "L8": "Landsat 8/9"}
+    items = "".join(
+        f"""<li class="recent__row" data-sensor="{r['satellite'].lower()}">
+            <span class="recent__date">{r['date'].strftime('%Y-%m-%d')}</span>
+            <span class="recent__sensor">{sensor_label.get(r['satellite'], r['satellite'])}</span>
+        </li>"""
+        for r in rows
+    )
+    return f'<ol class="recent">{items}</ol>'
+
+
+# -- Spatial: change detection ΔNDVI summary --------------------------
+
+
+def create_change_detection_summary(df: "pd.DataFrame") -> Optional[str]:
+    """ΔNDVI summary card for the Spatial sub-tab.
+
+    For every pixel (`spatial_id` or `.geo`), compute the mean NDVI
+    in the last 30 days vs the prior 30 days. Bucket pixels into
+    {improved, stable, declined} based on |Δ| ≥ 0.05. Render as a
+    horizontal stacked bar plus a count breakdown so the magnitude
+    of change is immediate.
+    """
+    if "date" not in df.columns or "NDVI" not in df.columns:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "NDVI"])
+    if df.empty:
+        return None
+
+    pixel_key = "spatial_id" if "spatial_id" in df.columns else ".geo"
+    if pixel_key not in df.columns:
+        return None
+
+    end = df["date"].max()
+    mid = end - pd.Timedelta(days=30)
+    start = end - pd.Timedelta(days=60)
+
+    recent = df[(df["date"] > mid) & (df["date"] <= end)]
+    prior = df[(df["date"] > start) & (df["date"] <= mid)]
+    if recent.empty or prior.empty:
+        return None
+
+    recent_mean = recent.groupby(pixel_key)["NDVI"].mean()
+    prior_mean = prior.groupby(pixel_key)["NDVI"].mean()
+    common = recent_mean.index.intersection(prior_mean.index)
+    if len(common) < 4:
+        return None
+    delta = (recent_mean.loc[common] - prior_mean.loc[common]).dropna()
+    if delta.empty:
+        return None
+
+    threshold = 0.05
+    improved = int((delta >= threshold).sum())
+    declined = int((delta <= -threshold).sum())
+    stable = int(len(delta) - improved - declined)
+    total = improved + stable + declined
+    if total == 0:
+        return None
+
+    pct_improved = improved / total * 100
+    pct_stable = stable / total * 100
+    pct_declined = declined / total * 100
+
+    median_delta = float(delta.median())
+    p10 = float(delta.quantile(0.10))
+    p90 = float(delta.quantile(0.90))
+
+    bar_html = f"""
+    <div class="change__bar" role="img"
+         aria-label="Pixel change distribution: {pct_improved:.0f}% improved,
+                    {pct_stable:.0f}% stable, {pct_declined:.0f}% declined">
+        <span class="change__seg change__seg--up"
+              style="--w:{pct_improved:.2f}%"
+              title="{improved} pixels improved (Δ ≥ +{threshold:.2f})"></span>
+        <span class="change__seg change__seg--flat"
+              style="--w:{pct_stable:.2f}%"
+              title="{stable} pixels stable (|Δ| < {threshold:.2f})"></span>
+        <span class="change__seg change__seg--down"
+              style="--w:{pct_declined:.2f}%"
+              title="{declined} pixels declined (Δ ≤ -{threshold:.2f})"></span>
+    </div>"""
+
+    counts_html = f"""
+    <ul class="change__counts">
+        <li class="change__count change__count--up">
+            <span class="change__pct">{pct_improved:.0f}%</span>
+            <span class="change__num">{improved} px</span>
+            <span class="change__lbl">improved</span>
+        </li>
+        <li class="change__count change__count--flat">
+            <span class="change__pct">{pct_stable:.0f}%</span>
+            <span class="change__num">{stable} px</span>
+            <span class="change__lbl">stable</span>
+        </li>
+        <li class="change__count change__count--down">
+            <span class="change__pct">{pct_declined:.0f}%</span>
+            <span class="change__num">{declined} px</span>
+            <span class="change__lbl">declined</span>
+        </li>
+    </ul>"""
+
+    stats_html = f"""
+    <div class="change__stats">
+        <span class="change__stat">Median Δ <b>{_format_delta(median_delta, 3)}</b></span>
+        <span class="change__stat">P10 <b>{_format_delta(p10, 3)}</b></span>
+        <span class="change__stat">P90 <b>{_format_delta(p90, 3)}</b></span>
+        <span class="change__stat change__stat--mute">
+            window: {mid.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')}
+            vs {start.strftime('%Y-%m-%d')} → {mid.strftime('%Y-%m-%d')}
+        </span>
+    </div>"""
+
+    return (
+        '<div class="change-card">'
+        + bar_html
+        + counts_html
+        + stats_html
+        + "</div>"
+    )
+
+
+# -- Quality: data-completeness matrix --------------------------------
+
+
+def create_completeness_matrix(df: "pd.DataFrame") -> Optional[str]:
+    """Data-completeness heatmap: ISO week × variable.
+
+    Each cell shows the percentage of pixels with a valid (non-null)
+    value for that variable in that week. Surfaces missing-band
+    regressions (the cormor_2 S2 case where every NDVI cell came
+    back null) immediately as an empty row in the heatmap.
+    """
+    if "date" not in df.columns:
+        return None
+
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    if df.empty:
+        return None
+
+    df["iso_week"] = df["date"].dt.strftime("%G-W%V")
+    candidate_vars = [
+        "NDVI", "NDRE", "NDWI", "MNDWI", "IRECI", "S2REP",
+        "VH", "VV", "Ratio", "LST", "Slope",
+    ]
+    variables = [v for v in candidate_vars if v in df.columns]
+    if not variables:
+        return None
+
+    weeks = sorted(df["iso_week"].unique())
+    if not weeks:
+        return None
+
+    z = []
+    text = []
+    for var in variables:
+        z_row = []
+        text_row = []
+        for wk in weeks:
+            slice_ = df.loc[df["iso_week"] == wk, var]
+            n = len(slice_)
+            if n == 0:
+                z_row.append(None)
+                text_row.append("no data")
+                continue
+            non_null = int(slice_.notna().sum())
+            pct = non_null / n * 100
+            z_row.append(pct)
+            text_row.append(f"{non_null}/{n} px<br>{pct:.0f}%")
+        z.append(z_row)
+        text.append(text_row)
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z,
+            x=weeks,
+            y=variables,
+            text=text,
+            texttemplate="",
+            hovertemplate=(
+                "<b>%{y} · %{x}</b><br>%{customdata}<extra></extra>"
+            ),
+            customdata=text,
+            colorscale=[
+                [0.0, "#2b1014"],
+                [0.4, "#5a1f2c"],
+                [0.7, "#8a1f33"],
+                [1.0, COLORS["secondary"]],
+            ],
+            zmin=0,
+            zmax=100,
+            colorbar=dict(
+                tickfont=dict(color=COLORS["tick"], size=10),
+                title=dict(text="% valid", font=dict(color=COLORS["axis"], size=10)),
+                len=0.85,
+                thickness=10,
+                outlinewidth=0,
+            ),
+            xgap=2,
+            ygap=2,
+        )
+    )
+
+    layout = _base_layout(
+        height=max(180, 28 * len(variables) + 70),
+        margin=dict(l=72, r=24, t=12, b=72),
+        xaxis=dict(
+            tickangle=-45,
+            type="category",
+            showgrid=False,
+            title=None,
+        ),
+        yaxis=dict(
+            type="category",
+            autorange="reversed",
+            showgrid=False,
+            title=None,
+        ),
+    )
+    fig.update_layout(**layout)
+    return _to_html(fig)
+
+
 # -- Variable glossary --------------------------------------------------
 # One-liner definitions shown as tooltips and rendered in the Data
 # Analysis tab's glossary block. Kept deliberately short so they fit

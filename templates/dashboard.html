@@ -194,7 +194,7 @@
     </div>
 
     <div id="analysis-view">
-        <div class="analysis">
+        <div class="analysis" data-component="analysis">
             {% macro section_header(title, caption, help_text) -%}
             <header>
                 <h3>
@@ -209,125 +209,239 @@
             </header>
             {%- endmacro %}
 
-            {% if charts.acquisition %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Acquisition timeline",
-                    "One dot per observation of the vineyard, grouped by sensor.",
-                    "Each dot marks a day the vineyard was imaged by the sensor on that row. Long horizontal gaps mean the vineyard wasn't observed; short bursts indicate tile-overlap days. Colours follow the sensor palette used everywhere else in the app: wine-red for Sentinel-2, teal for Sentinel-1, amber for Landsat 8/9, grey for SRTM (loaded once as a static layer)."
-                ) }}
-                <div class="analysis-plot">{{ charts.acquisition | safe }}</div>
-            </section>
-            {% endif %}
+            {# Sub-tab strip — segmented control. The fifth pill is a
+               glossary trigger; it opens a slide-in side panel rather
+               than navigating to a sub-tab so the variable definitions
+               are reachable from every section without scrolling. #}
+            <nav class="subtabs" role="tablist" aria-label="Data Analysis sections">
+                <button type="button" class="subtab" data-subtab="overview"
+                        role="tab" aria-selected="true">Overview</button>
+                <button type="button" class="subtab" data-subtab="temporal"
+                        role="tab" aria-selected="false">Temporal</button>
+                <button type="button" class="subtab" data-subtab="spatial"
+                        role="tab" aria-selected="false">Spatial</button>
+                <button type="button" class="subtab" data-subtab="quality"
+                        role="tab" aria-selected="false">Quality</button>
+                <span class="subtabs__sep" aria-hidden="true"></span>
+                <button type="button" class="subtab subtab--ghost"
+                        data-action="open-glossary"
+                        aria-haspopup="dialog"
+                        aria-controls="analysis-glossary-panel">Variables ↗</button>
+                <span class="subtabs__rail" aria-hidden="true"></span>
+            </nav>
 
-            {% if charts.cloud_coverage %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Cloud cover per Sentinel-2 scene",
-                    "Scenes above the dashed line were discarded before download.",
-                    "Each dot is one Sentinel-2 scene in the analysis window, sorted by its tile-level CLOUDY_PIXEL_PERCENTAGE. The dashed amber line shows the threshold actually applied to this run. Muted dots sit above the cut and never became part of the dataset. The note at the top gives the scene count kept vs total and the median cloud cover."
-                ) }}
-                <div class="analysis-plot">{{ charts.cloud_coverage | safe }}</div>
-            </section>
-            {% endif %}
+            {# ─── 1. Overview ──────────────────────────────────────── #}
+            <section class="subtab-panel" data-subtab-panel="overview" role="tabpanel">
+                <header class="subtab-panel__head">
+                    <h2>Overview</h2>
+                    <p>State of the vineyard at a glance — latest week, recent acquisitions, anomaly count.</p>
+                </header>
 
-            {% if charts.index_trends %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Vegetation index evolution",
-                    "ROI mean per date. The band spans the spatial interquartile range.",
-                    "Small multiples of NDVI, NDRE, NDWI and MNDWI. The solid line is the daily ROI mean; the softer band spans the interquartile range across all pixels on that day, so a wide band means spatial heterogeneity in the vineyard. Each index has its own y-scale — raw values are not directly comparable between rows."
-                ) }}
-                <div class="analysis-plot">{{ charts.index_trends | safe }}</div>
-            </section>
-            {% endif %}
-
-            {% if charts.canopy_overlay %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Canopy vigour overlay — NDVI vs NDRE",
-                    "Both are vigour proxies on a shared [0, 1] axis.",
-                    "NDVI and NDRE both rise with canopy vigour. NDVI saturates fast once the canopy is closed; NDRE keeps responding to chlorophyll changes on dense mature vines. When the two lines diverge late in the season, NDRE is usually telling the more honest story about what is happening inside the canopy."
-                ) }}
-                <div class="analysis-plot">{{ charts.canopy_overlay | safe }}</div>
-            </section>
-            {% endif %}
-
-            {% if charts.water_overlay %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Water signal overlay — NDWI vs MNDWI",
-                    "Both indices rescaled to a shared axis so the bias is visible.",
-                    "NDWI (McFeeters) uses Green + NIR, which confuses wet soil with water. MNDWI (Xu) uses Green + SWIR1 and is less fooled by bright bare soil or built-up surfaces inside the ROI. Watching both in the same chart surfaces irrigation events and post-rain dry-down dynamics that either index alone could miss."
-                ) }}
-                <div class="analysis-plot">{{ charts.water_overlay | safe }}</div>
-            </section>
-            {% endif %}
-
-            {% if charts.radar_overlay %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Sentinel-1 radar overlay — VH, VV and their ratio",
-                    "All three values already share decibels as a unit.",
-                    "VH is cross-pol and dominated by volume scattering (leaves, clusters, structure). VV is co-pol and is dominated by surface roughness and soil dielectric (moisture). VH/VV ratio collapses the two into a single density-like reading. Radar is unaffected by cloud, so this is often the only timeline that fires during a cloudy week."
-                ) }}
-                <div class="analysis-plot">{{ charts.radar_overlay | safe }}</div>
-            </section>
-            {% endif %}
-
-            {% if charts.thermal_vs_vigour %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Thermal vs vigour — LST and NDVI (z-scored)",
-                    "Each series z-scored so °C and [0, 1] can share an axis.",
-                    "Well-watered canopies transpire and stay cooler than bare ground; stressed canopies heat up before NDVI moves. Aligning both series on their own z-score reveals coordinated moves (both up, both down) versus decouplings (temperature spikes while vigour still climbs), which is the classical early-warning signal for water stress in viticulture literature."
-                ) }}
-                <div class="analysis-plot">{{ charts.thermal_vs_vigour | safe }}</div>
-            </section>
-            {% endif %}
-
-            {% if charts.distributions %}
-            <section class="analysis-section">
-                {{ section_header(
-                    "Variable distributions",
-                    "Histogram outlines; dotted line marks the median.",
-                    "Shape of each measurable across the whole ROI and the whole time window. A long right tail on NDVI usually means a few cleanly closed-canopy blocks pulling the average up; a tight peak on Slope confirms the parcel is mostly planar. The dotted amber line is the median so you can see at a glance where half the pixels sit."
-                ) }}
-                <div class="analysis-plot">{{ charts.distributions | safe }}</div>
-            </section>
-            {% endif %}
-
-            <div class="analysis-grid">
-                {% if charts.correlation %}
-                <section class="analysis-section">
-                    {{ section_header(
-                        "Feature correlations",
-                        "Pearson ρ across every numeric variable. Labels shown where |ρ| ≥ 0.4.",
-                        "Pearson correlation between every pair of measurable variables. Wine-red is positive, teal is negative, dark is around zero. Numeric labels appear only for pairs with |ρ| ≥ 0.4 so the grid does not turn into wallpaper. Use this to spot redundant features before clustering and to sanity-check expected relationships such as NDVI ↔ NDRE or LST ↔ Slope."
-                    ) }}
-                    <div class="analysis-plot">{{ charts.correlation | safe }}</div>
+                {% if charts.kpi_strip %}
+                <section class="analysis-section analysis-section--kpi">
+                    {{ charts.kpi_strip | safe }}
                 </section>
                 {% endif %}
 
-                {% if charts.ndvi_by_slope %}
+                <div class="analysis-grid analysis-grid--two">
+                    {% if charts.ndvi_sparkline %}
+                    <section class="analysis-section">
+                        {{ section_header(
+                            "NDVI · last 12 weeks",
+                            "ROI mean per ISO week. Latest point highlighted.",
+                            "Quick read on whether canopy vigour is rising, flat, or declining over the most recent quarter. The shaded fill makes direction unambiguous; the amber dot marks the latest week so you can compare a glance with the KPI tile above. For the full per-date series with spread band, see the Temporal sub-tab."
+                        ) }}
+                        <div class="analysis-plot analysis-plot--spark">{{ charts.ndvi_sparkline | safe }}</div>
+                    </section>
+                    {% endif %}
+
+                    {% if charts.recent_acquisitions %}
+                    <section class="analysis-section">
+                        {{ section_header(
+                            "Recent acquisitions",
+                            "Last 5 distinct sensor passes over the ROI.",
+                            "What just landed in the dataset, newest on top. Each row is a (date × satellite) pair after exploding multi-sensor acquisitions. Use this to confirm a recent S2 / S1 / L8 pass before reading the rest of the dashboard — if the most recent row is several days old, the latest-week KPIs above lean on incomplete data."
+                        ) }}
+                        {{ charts.recent_acquisitions | safe }}
+                    </section>
+                    {% endif %}
+                </div>
+            </section>
+
+            {# ─── 2. Temporal ──────────────────────────────────────── #}
+            <section class="subtab-panel" data-subtab-panel="temporal" role="tabpanel" hidden>
+                <header class="subtab-panel__head">
+                    <h2>Temporal</h2>
+                    <p>How the vineyard moves through time — vegetation indices, water signal, radar, thermal stress.</p>
+                </header>
+
+                {% if charts.index_trends %}
                 <section class="analysis-section">
                     {{ section_header(
-                        "Mean NDVI by slope quartile",
-                        "Flat terrain (Q1) vs steep (Q4). Whiskers show the 95% confidence interval.",
-                        "Pixels are binned into four slope quartiles and the ROI-mean NDVI is plotted per bucket. Flatter terrain tends to retain water better, which usually shows as higher NDVI on Q1 than on Q4. The whisker is a 1.96 · SE Gaussian confidence interval; when it spans several buckets the effect is not meaningful for this project."
+                        "Vegetation index evolution",
+                        "ROI mean per date. The band spans the spatial interquartile range.",
+                        "Small multiples of NDVI, NDRE, NDWI and MNDWI. The solid line is the daily ROI mean; the softer band spans the interquartile range across all pixels on that day, so a wide band means spatial heterogeneity in the vineyard. Each index has its own y-scale — raw values are not directly comparable between rows."
                     ) }}
-                    <div class="analysis-plot">{{ charts.ndvi_by_slope | safe }}</div>
+                    <div class="analysis-plot">{{ charts.index_trends | safe }}</div>
                 </section>
                 {% endif %}
-            </div>
 
+                {% if charts.canopy_overlay %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Canopy vigour overlay — NDVI vs NDRE",
+                        "Both are vigour proxies on a shared [0, 1] axis.",
+                        "NDVI and NDRE both rise with canopy vigour. NDVI saturates fast once the canopy is closed; NDRE keeps responding to chlorophyll changes on dense mature vines. When the two lines diverge late in the season, NDRE is usually telling the more honest story about what is happening inside the canopy."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.canopy_overlay | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.water_overlay %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Water signal overlay — NDWI vs MNDWI",
+                        "Both indices rescaled to a shared axis so the bias is visible.",
+                        "NDWI (McFeeters) uses Green + NIR, which confuses wet soil with water. MNDWI (Xu) uses Green + SWIR1 and is less fooled by bright bare soil or built-up surfaces inside the ROI. Watching both in the same chart surfaces irrigation events and post-rain dry-down dynamics that either index alone could miss."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.water_overlay | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.radar_overlay %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Sentinel-1 radar overlay — VH, VV and their ratio",
+                        "All three values already share decibels as a unit.",
+                        "VH is cross-pol and dominated by volume scattering (leaves, clusters, structure). VV is co-pol and is dominated by surface roughness and soil dielectric (moisture). VH/VV ratio collapses the two into a single density-like reading. Radar is unaffected by cloud, so this is often the only timeline that fires during a cloudy week."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.radar_overlay | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.thermal_vs_vigour %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Thermal vs vigour — LST and NDVI (z-scored)",
+                        "Each series z-scored so °C and [0, 1] can share an axis.",
+                        "Well-watered canopies transpire and stay cooler than bare ground; stressed canopies heat up before NDVI moves. Aligning both series on their own z-score reveals coordinated moves (both up, both down) versus decouplings (temperature spikes while vigour still climbs), which is the classical early-warning signal for water stress in viticulture literature."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.thermal_vs_vigour | safe }}</div>
+                </section>
+                {% endif %}
+            </section>
+
+            {# ─── 3. Spatial ───────────────────────────────────────── #}
+            <section class="subtab-panel" data-subtab-panel="spatial" role="tabpanel" hidden>
+                <header class="subtab-panel__head">
+                    <h2>Spatial</h2>
+                    <p>How the vineyard varies in space — distributions, slope effects, change detection.</p>
+                </header>
+
+                {% if charts.change_detection %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Change detection — last 30 days vs prior 30",
+                        "Per-pixel ΔNDVI bucketed into improved / stable / declined.",
+                        "For every pixel, compute the mean NDVI in the last 30 days minus the mean in the prior 30 days. Pixels with |Δ| ≥ 0.05 land in the improved or declined bucket; the rest are stable. The horizontal bar shows the population breakdown; the right column gives counts and the percentile spread. Use this to spot under-performing blocks before they show up in the season-long average."
+                    ) }}
+                    {{ charts.change_detection | safe }}
+                </section>
+                {% endif %}
+
+                {% if charts.distributions %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Variable distributions",
+                        "Histogram outlines; dotted line marks the median.",
+                        "Shape of each measurable across the whole ROI and the whole time window. A long right tail on NDVI usually means a few cleanly closed-canopy blocks pulling the average up; a tight peak on Slope confirms the parcel is mostly planar. The dotted amber line is the median so you can see at a glance where half the pixels sit."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.distributions | safe }}</div>
+                </section>
+                {% endif %}
+
+                <div class="analysis-grid">
+                    {% if charts.correlation %}
+                    <section class="analysis-section">
+                        {{ section_header(
+                            "Feature correlations",
+                            "Pearson ρ across every numeric variable. Labels shown where |ρ| ≥ 0.4.",
+                            "Pearson correlation between every pair of measurable variables. Wine-red is positive, teal is negative, dark is around zero. Numeric labels appear only for pairs with |ρ| ≥ 0.4 so the grid does not turn into wallpaper. Use this to spot redundant features before clustering and to sanity-check expected relationships such as NDVI ↔ NDRE or LST ↔ Slope."
+                        ) }}
+                        <div class="analysis-plot">{{ charts.correlation | safe }}</div>
+                    </section>
+                    {% endif %}
+
+                    {% if charts.ndvi_by_slope %}
+                    <section class="analysis-section">
+                        {{ section_header(
+                            "Mean NDVI by slope quartile",
+                            "Flat terrain (Q1) vs steep (Q4). Whiskers show the 95% confidence interval.",
+                            "Pixels are binned into four slope quartiles and the ROI-mean NDVI is plotted per bucket. Flatter terrain tends to retain water better, which usually shows as higher NDVI on Q1 than on Q4. The whisker is a 1.96 · SE Gaussian confidence interval; when it spans several buckets the effect is not meaningful for this project."
+                        ) }}
+                        <div class="analysis-plot">{{ charts.ndvi_by_slope | safe }}</div>
+                    </section>
+                    {% endif %}
+                </div>
+            </section>
+
+            {# ─── 4. Quality & Provenance ──────────────────────────── #}
+            <section class="subtab-panel" data-subtab-panel="quality" role="tabpanel" hidden>
+                <header class="subtab-panel__head">
+                    <h2>Quality &amp; Provenance</h2>
+                    <p>Is the input data trustworthy? — acquisitions, cloud cover, completeness.</p>
+                </header>
+
+                {% if charts.completeness %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Data completeness — week × variable",
+                        "% of pixels with a valid value, per ISO week and per variable.",
+                        "Each cell shows the share of pixels that returned a non-null value for that variable in that week. A dark cell means the band was either masked out (clouds, shadow) or never delivered by the source — an entirely dark row flags a band that the pipeline lost completely (cormor_2's S2 indices in May 2026 were the canonical case). Bright cells mean the variable behaved as expected."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.completeness | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.acquisition %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Acquisition timeline",
+                        "One dot per observation of the vineyard, grouped by sensor.",
+                        "Each dot marks a day the vineyard was imaged by the sensor on that row. Long horizontal gaps mean the vineyard wasn't observed; short bursts indicate tile-overlap days. Colours follow the sensor palette used everywhere else in the app: wine-red for Sentinel-2, teal for Sentinel-1, amber for Landsat 8/9, grey for SRTM (loaded once as a static layer)."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.acquisition | safe }}</div>
+                </section>
+                {% endif %}
+
+                {% if charts.cloud_coverage %}
+                <section class="analysis-section">
+                    {{ section_header(
+                        "Cloud cover per Sentinel-2 scene",
+                        "Scenes above the dashed line were discarded before download.",
+                        "Each dot is one Sentinel-2 scene in the analysis window, sorted by its tile-level CLOUDY_PIXEL_PERCENTAGE. The dashed amber line shows the threshold actually applied to this run. Muted dots sit above the cut and never became part of the dataset. The note at the top gives the scene count kept vs total and the median cloud cover."
+                    ) }}
+                    <div class="analysis-plot">{{ charts.cloud_coverage | safe }}</div>
+                </section>
+                {% endif %}
+            </section>
+
+            {# ─── Glossary side panel ──────────────────────────────── #}
             {% if variable_glossary %}
-            <section class="analysis-section analysis-glossary">
-                {{ section_header(
-                    "Variable glossary",
-                    "Short definition of every measurable used in the charts above.",
-                    "One-line definition for each variable. These are the exact column names you will find in the downloaded CSV and in the Cluster popups on the map, so you can round-trip between the UI and any downstream analysis."
-                ) }}
+            <aside id="analysis-glossary-panel" class="glossary-panel"
+                   role="dialog" aria-modal="false"
+                   aria-labelledby="glossary-panel-title" hidden>
+                <header class="glossary-panel__head">
+                    <h2 id="glossary-panel-title">Variable glossary</h2>
+                    <button type="button" class="glossary-panel__close"
+                            data-action="close-glossary"
+                            aria-label="Close variable glossary">×</button>
+                </header>
+                <p class="glossary-panel__intro">
+                    One-line definition for each variable. These are the exact
+                    column names in the downloaded CSV and in the Cluster popups
+                    on the map.
+                </p>
                 <dl>
                     {% for code, definition in variable_glossary.items() %}
                     <div>
@@ -336,7 +450,8 @@
                     </div>
                     {% endfor %}
                 </dl>
-            </section>
+            </aside>
+            <div class="glossary-panel__backdrop" data-action="close-glossary" hidden></div>
             {% endif %}
         </div>
     </div>
@@ -355,5 +470,6 @@
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/ml_timeline.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/dashboard-settings.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/analysis-subtabs.js') }}" defer></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ml_dashboard.css') }}">
 {% endblock %}

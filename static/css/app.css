@@ -2603,3 +2603,440 @@ button, input, select, textarea {
 .page-dashboard #sidebar .btn-new {
     box-shadow: var(--shadow-btn);
 }
+
+/* ── Data Analysis sub-tabs ──────────────────────────────────────
+   Four themed sub-tabs (Overview / Temporal / Spatial / Quality)
+   plus a glossary trigger pill. Animation budget per panel switch
+   is in `analysis-subtabs.js`; the visual treatment lives here. */
+.page-dashboard .analysis .subtabs {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 18px;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+}
+.page-dashboard .analysis .subtab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--c-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 2;
+    transition:
+        color 180ms var(--e-quart),
+        background 180ms var(--e-quart);
+}
+.page-dashboard .analysis .subtab:hover {
+    color: var(--c-text);
+}
+.page-dashboard .analysis .subtab[data-active="true"] {
+    color: var(--c-text);
+}
+.page-dashboard .analysis .subtab--ghost {
+    margin-left: auto;
+    color: var(--c-text-muted);
+    border: 1px solid var(--c-border-soft);
+    background: transparent;
+}
+.page-dashboard .analysis .subtab--ghost:hover {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 50%, var(--c-border));
+}
+.page-dashboard .analysis .subtabs__sep {
+    flex: 1 1 auto;
+}
+.page-dashboard .analysis .subtabs__rail {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    background: var(--c-bg-linen);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 6px;
+    transform: translateX(0);
+    opacity: 0;
+    transition:
+        transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        width 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 200ms var(--e-quart);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.page-dashboard .subtab-panel__head {
+    margin: 0 0 14px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+.page-dashboard .subtab-panel__head h2 {
+    margin: 0 0 4px;
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.005em;
+    color: var(--c-text);
+}
+.page-dashboard .subtab-panel__head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--c-text-soft);
+    line-height: 1.5;
+}
+
+/* Stagger reveal for sections inside the active sub-tab panel.
+   The JS sets `animation` per element with a per-step delay; the
+   keyframes live here so they're cacheable + reused on every
+   tab switch. */
+@keyframes subtab-section-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    @keyframes subtab-section-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+}
+
+/* Two-up grid variant for Overview / Spatial. */
+.page-dashboard .analysis .analysis-grid--two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+}
+@media (max-width: 980px) {
+    .page-dashboard .analysis .analysis-grid--two {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ── Overview · KPI strip ────────────────────────────────────────
+   Four equal-width tiles. Compact, no decorative borders, single
+   accent on the delta. Lives in its own analysis-section so it
+   inherits the section header gutters automatically. */
+.page-dashboard .analysis-section--kpi {
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+.page-dashboard .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+@media (max-width: 980px) {
+    .page-dashboard .kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.page-dashboard .kpi {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+    transition:
+        transform 200ms var(--e-quart),
+        border-color 200ms var(--e-quart),
+        background 200ms var(--e-quart);
+}
+.page-dashboard .kpi:hover {
+    border-color: color-mix(in srgb, var(--c-accent) 35%, var(--c-border-soft));
+    transform: translateY(-1px);
+    background: color-mix(in srgb, var(--c-accent-bg) 25%, var(--c-surface-soft));
+}
+.page-dashboard .kpi__label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.page-dashboard .kpi__row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.page-dashboard .kpi__value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.page-dashboard .kpi__delta {
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--c-text-muted) 18%, transparent);
+    color: var(--c-text-muted);
+}
+.page-dashboard .kpi__delta--up {
+    color: #8FBE9A;
+    background: color-mix(in srgb, #8FBE9A 18%, transparent);
+}
+.page-dashboard .kpi__delta--down {
+    color: #C77E83;
+    background: color-mix(in srgb, #C77E83 18%, transparent);
+}
+.page-dashboard .kpi__delta--neutral { color: var(--c-text-muted); }
+.page-dashboard .kpi__sub {
+    font-size: 11px;
+    color: var(--c-text-muted);
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.page-dashboard .analysis-plot--spark {
+    /* Sparkline gets a tighter container — no plot tools, no padding,
+       so the line floats inside the section header gutters. */
+    margin-top: 6px;
+}
+.page-dashboard .analysis-plot--spark .modebar { display: none !important; }
+
+/* Recent acquisitions list. */
+.page-dashboard .recent {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: none;
+}
+.page-dashboard .recent__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 4px;
+    border-top: 1px solid var(--c-border-soft);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .recent__row:first-child { border-top: 0; }
+.page-dashboard .recent__date {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--c-text);
+}
+.page-dashboard .recent__sensor {
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--c-border-soft);
+    background: var(--c-surface-soft);
+}
+.page-dashboard .recent__row[data-sensor="s2"] .recent__sensor {
+    color: var(--c-russet);
+    border-color: color-mix(in srgb, var(--c-russet) 35%, var(--c-border-soft));
+}
+.page-dashboard .recent__row[data-sensor="s1"] .recent__sensor {
+    color: var(--c-sage);
+    border-color: color-mix(in srgb, var(--c-sage) 35%, var(--c-border-soft));
+}
+.page-dashboard .recent__row[data-sensor="l8"] .recent__sensor {
+    color: var(--c-ochre);
+    border-color: color-mix(in srgb, var(--c-ochre) 35%, var(--c-border-soft));
+}
+
+/* ── Spatial · ΔNDVI change card ─────────────────────────────────
+   Stacked horizontal bar + count breakdown + percentile stats.
+   Scaled to a single section card; reads top-to-bottom on mobile,
+   bar-then-counts side-by-side on desktop. */
+.page-dashboard .change-card {
+    display: grid;
+    gap: 14px;
+}
+.page-dashboard .change__bar {
+    display: flex;
+    height: 18px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+}
+.page-dashboard .change__seg {
+    height: 100%;
+    width: var(--w);
+    transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page-dashboard .change__seg--up   { background: #6E9A7B; }
+.page-dashboard .change__seg--flat { background: var(--c-text-muted); }
+.page-dashboard .change__seg--down { background: var(--c-russet); }
+.page-dashboard .change__counts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.page-dashboard .change__count {
+    border: 1px solid var(--c-border-soft);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--c-surface-soft);
+    display: grid;
+    gap: 2px;
+}
+.page-dashboard .change__count--up   { border-left: 2px solid #6E9A7B; }
+.page-dashboard .change__count--flat { border-left: 2px solid var(--c-text-muted); }
+.page-dashboard .change__count--down { border-left: 2px solid var(--c-russet); }
+.page-dashboard .change__pct {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.page-dashboard .change__num {
+    font-size: 11px;
+    color: var(--c-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .change__lbl {
+    font-size: 10.5px;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.page-dashboard .change__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+}
+.page-dashboard .change__stat b {
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+}
+.page-dashboard .change__stat--mute {
+    flex-basis: 100%;
+    color: var(--c-text-muted);
+    font-size: 11px;
+}
+
+/* ── Glossary side panel ─────────────────────────────────────────
+   Slides in from the right, dismissible via the close button,
+   backdrop click, or Escape. The trigger pill lives in the
+   sub-tab strip; this panel is independent of which sub-tab is
+   active so the glossary is reachable from any section. */
+.page-dashboard .glossary-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(420px, 92vw);
+    background: var(--c-surface-soft);
+    border-left: 1px solid var(--c-border-soft);
+    box-shadow: var(--shadow-overlay);
+    padding: 20px 22px 24px;
+    overflow-y: auto;
+    z-index: 60;
+    transform: translateX(100%);
+    transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page-dashboard .glossary-panel[data-open="true"] {
+    transform: translateX(0);
+}
+.page-dashboard .glossary-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+.page-dashboard .glossary-panel__head h2 {
+    margin: 0;
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--c-text);
+}
+.page-dashboard .glossary-panel__close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 180ms var(--e-quart), border-color 180ms var(--e-quart);
+}
+.page-dashboard .glossary-panel__close:hover {
+    color: var(--c-text);
+    border-color: var(--c-border);
+}
+.page-dashboard .glossary-panel__intro {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: var(--c-text-soft);
+    line-height: 1.5;
+}
+.page-dashboard .glossary-panel dl {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+}
+.page-dashboard .glossary-panel dl > div {
+    display: grid;
+    gap: 4px;
+}
+.page-dashboard .glossary-panel dt {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+}
+.page-dashboard .glossary-panel dd {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--c-text);
+    line-height: 1.55;
+}
+.page-dashboard .glossary-panel__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 55;
+    transition: background 240ms var(--e-quart);
+    pointer-events: none;
+}
+.page-dashboard .glossary-panel__backdrop[data-open="true"] {
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-dashboard .glossary-panel,
+    .page-dashboard .glossary-panel__backdrop,
+    .page-dashboard .change__seg,
+    .page-dashboard .subtabs__rail {
+        transition-duration: 10ms !important;
+    }
+}
