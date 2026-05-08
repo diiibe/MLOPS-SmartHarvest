@@ -43,6 +43,38 @@
         });
     }
 
+    function preWarmHiddenPanels(root) {
+        // Plotly figures inside `[hidden]` panels render at width=0
+        // because their container is `display: none` during the
+        // initial paint. The first sub-tab switch eventually calls
+        // resizePlotly, but the user sees a broken chart for the
+        // first 240 ms of the animation. Fix: briefly un-hide each
+        // panel offscreen, force a reflow, resize Plotly, then
+        // re-hide. The user never sees the panel — `position:
+        // absolute; left: -10000px` keeps it out of the viewport.
+        if (typeof window.Plotly === "undefined" || !window.Plotly.Plots) return;
+        var panels = root.querySelectorAll(".subtab-panel[hidden]");
+        panels.forEach(function (p) {
+            p.removeAttribute("hidden");
+            p.style.position = "absolute";
+            p.style.left = "-10000px";
+            p.style.top = "0";
+            p.style.visibility = "hidden";
+            // Force reflow so the now-shown panel actually has a
+            // measurable width. Without this the resize below would
+            // still see width=0.
+            void p.offsetWidth;
+            resizePlotly(p);
+            // Restore hidden state. Inline styles win over CSS so we
+            // clear them; the CSS `[hidden]` selector takes over.
+            p.setAttribute("hidden", "");
+            p.style.position = "";
+            p.style.left = "";
+            p.style.top = "";
+            p.style.visibility = "";
+        });
+    }
+
     function staggerReveal(panel) {
         var sections = panel.querySelectorAll(".analysis-section, .subtab-panel__head");
         sections.forEach(function (s, i) {
@@ -217,6 +249,28 @@
         if (overview) {
             staggerReveal(overview);
         }
+
+        // Pre-warm Plotly figures inside hidden panels so they're
+        // sized correctly the first time the user switches into
+        // them. Wait one frame so Plotly has finished its initial
+        // chart-creation pass before we ask it to resize.
+        function tryPreWarm(retriesLeft) {
+            if (typeof window.Plotly !== "undefined" && window.Plotly.Plots) {
+                window.requestAnimationFrame(function () {
+                    preWarmHiddenPanels(root);
+                    // Also resize the visible Overview panel — its
+                    // sparkline can land at the wrong width if the
+                    // sidebar finished animating after Plotly drew.
+                    if (overview) resizePlotly(overview);
+                });
+                return;
+            }
+            if (retriesLeft <= 0) return;
+            window.setTimeout(function () {
+                tryPreWarm(retriesLeft - 1);
+            }, 100);
+        }
+        tryPreWarm(20);
 
         // Recompute the rail position on viewport resize so the pill
         // tracks the active tab when the user resizes the window.

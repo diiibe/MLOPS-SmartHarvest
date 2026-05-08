@@ -21,6 +21,16 @@
     } catch (e) {}
 })();
 </script>
+
+{# Plotly bundle loaded once, decoupled from chart order. The
+   Data Analysis sub-tabs hide most charts initially, so we cannot
+   rely on "the first chart" to bring the library — that chart may
+   live on a hidden sub-tab and its `<script src="plotly...">` tag
+   would still load, but only after every visible-tab chart on the
+   page has already failed its `Plotly.newPlot` call. Loading
+   here, before any chart HTML, makes the order irrelevant. #}
+<script src="https://cdn.plot.ly/plotly-3.3.0.min.js"
+        charset="utf-8"></script>
 {% endblock %}
 
 {% block content %}
