@@ -469,15 +469,21 @@ _PANEL_JS = """
         var cfg = window.__SH_BASEMAP_CONFIG;
         if (!cfg || !cfg.token) return;
 
-        // Folium ships a default tile layer; if it's still on the map
-        // when we arrive, remove it so the new active basemap is the
-        // single source of truth.
-        var defaultLayer = null;
+        // Folium adds every base layer to the map by default — the
+        // four Mapbox styles + the Esri fallback all end up stacked
+        // on top of each other on first paint. Collect EVERY existing
+        // L.TileLayer (not just the first one) and remove them all,
+        // otherwise the basemap switcher's `addTo(map)` only paints
+        // a new layer on top of the visible-by-default Esri tile and
+        // the click feels like a no-op. Heatmap / cluster overlays
+        // are not L.TileLayer instances, so they survive.
+        var existingTileLayers = [];
         map.eachLayer(function (layer) {
-            if (layer instanceof L.TileLayer && !defaultLayer) {
-                defaultLayer = layer;
+            if (layer instanceof L.TileLayer) {
+                existingTileLayers.push(layer);
             }
         });
+        existingTileLayers.forEach(function (l) { map.removeLayer(l); });
 
         var layers = {};
         cfg.styles.forEach(function (s) {
@@ -485,7 +491,6 @@ _PANEL_JS = """
         });
 
         var defaultId = cfg.default || cfg.styles[0].id;
-        if (defaultLayer) map.removeLayer(defaultLayer);
         layers[defaultId].addTo(map);
         var active = defaultId;
 

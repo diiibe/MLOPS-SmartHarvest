@@ -289,7 +289,7 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     # also emit the literal here so a 32 KB head-scan reliably finds
     # it without depending on script parse order.
     m.get_root().html.add_child(folium.Element(
-        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_PANEL_DEPTH = true;</script>"
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_BASEMAP_FIX = true;</script>"
     ))
 
     # Save map
