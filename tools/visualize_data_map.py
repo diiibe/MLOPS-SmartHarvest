@@ -236,7 +236,7 @@ _SH_POPUP_CSS = """
 # rebuilds via a MutationObserver.
 _SH_LAYER_TITLES_JS = """
 <script>
-window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_CHEVRON_ONLY = true;
+window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_CACHE_FAST = true;
 (function () {
     function decorate(panel) {
         if (!panel || panel.dataset.shDecorated === '1') return;
@@ -619,6 +619,17 @@ _DATE_NAV_JS = """
                         if (maxEl) maxEl.textContent = formatLegendValue(payload.vmax);
                     }
                 }
+                // Canvas renderer instead of the default SVG one. For
+                // ROIs with > 5 k pixels (Fantinel ships ~14 k per
+                // week) SVG creates one DOM node per marker and the
+                // browser spends 1-2 s laying them out on every
+                // prev/next click — switching to canvas drops that
+                // to roughly 100-200 ms because all markers share
+                // a single <canvas> element.
+                if (!meta._renderer) {
+                    meta._renderer = L.canvas({ padding: 0.5 });
+                }
+                var renderer = meta._renderer;
                 rows.forEach(function (p) {
                     var color = colorFor(p.value, meta);
                     var m = L.circleMarker([p.lat, p.lon], {
@@ -627,6 +638,7 @@ _DATE_NAV_JS = """
                         fillColor: color,
                         fillOpacity: 0.85,
                         weight: 1,
+                        renderer: renderer,
                     });
                     m.bindPopup(
                         "<div class='sh-popup'>" +
@@ -655,8 +667,37 @@ _DATE_NAV_JS = """
                 // statistics panel to scrub together, not just the
                 // active layer's row.
                 refreshAllLegendStats(week);
+                // Pre-fetch the immediately adjacent weeks (silent,
+                // no DOM update) so the next prev / next click hits
+                // the browser HTTP cache instead of touching the
+                // server. Cuts perceived lag on rapid scrub-back.
+                prefetchAdjacent(label, week);
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
+            });
+        }
+
+        // Pre-fetch the responses for the two adjacent weeks so a
+        // later prev / next click is served from the HTTP cache.
+        // Tracks a small set so we never refetch the same URL twice.
+        var prefetched = {};
+        function prefetchAdjacent(label, week) {
+            var meta = variables[label];
+            var idx = meta.weeks.indexOf(week);
+            if (idx === -1) return;
+            [idx - 1, idx + 1].forEach(function (j) {
+                if (j < 0 || j >= meta.weeks.length) return;
+                var nextWeek = meta.weeks[j];
+                var url = "/api/variable_week/" + encodeURIComponent(cfg.project) +
+                          "/" + encodeURIComponent(meta.col) +
+                          "/" + encodeURIComponent(nextWeek);
+                if (prefetched[url]) return;
+                prefetched[url] = true;
+                // `keepalive` lets the request finish even if the
+                // user navigates away mid-fetch; no-op on browsers
+                // that don't support it.
+                fetch(url, { credentials: "same-origin", keepalive: true })
+                    .catch(function () { /* silent */ });
             });
         }
 
@@ -678,6 +719,11 @@ _DATE_NAV_JS = """
             if (idx === -1) return;
             var next = idx + direction;
             if (next < 0 || next >= meta.weeks.length) return;
+            // Optimistically flip currentWeek BEFORE the fetch so
+            // rapid double-clicks compute the right next index from
+            // the user's perspective ("idx-1, idx-2" instead of
+            // "idx-1, idx-1" which the previous code did).
+            currentWeek[label] = meta.weeks[next];
             loadFrame(label, meta.weeks[next]);
         }
 
@@ -1534,7 +1580,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_CHEVRON_ONLY = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_CACHE_FAST = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"

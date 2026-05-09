@@ -42,6 +42,112 @@ def _get_project_safe_name(project_name):
     return safe
 
 
+# ---------------------------------------------------------------------------
+# Per-project in-memory cache
+# ---------------------------------------------------------------------------
+#
+# The Week navigator hits `/api/variable_week` and `/api/week_stats` on
+# every prev / next click, and on a 740 k-row CSV (Fantinel scale)
+# `pd.read_csv` alone burns 600-900 ms per call. We cache the parsed
+# DataFrame keyed by project, with an mtime stamp so the next pipeline
+# run cleanly invalidates the entry. A second-level cache stores
+# already-computed per-(variable, week) frames so subsequent scrubs
+# over the same data are O(1).
+#
+# Memory cost: a 750 k-row × 18-col DataFrame is ~120 MB in RAM. We
+# evict the least-recently-used project once 5 are loaded so a
+# multi-tab / multi-project session doesn't grow unbounded.
+# ---------------------------------------------------------------------------
+
+_PROJECT_CACHE: dict = {}
+_PROJECT_CACHE_MAX = 5
+_PROJECT_CACHE_LRU: list = []  # most-recent at the end
+
+
+def _project_csv_path(project_name_safe: str) -> str:
+    return os.path.join(
+        "output", project_name_safe, f"SmartHarvest_{project_name_safe}.csv"
+    )
+
+
+def _evict_lru_if_full() -> None:
+    while len(_PROJECT_CACHE_LRU) > _PROJECT_CACHE_MAX:
+        oldest = _PROJECT_CACHE_LRU.pop(0)
+        _PROJECT_CACHE.pop(oldest, None)
+
+
+def _touch_lru(project_name_safe: str) -> None:
+    if project_name_safe in _PROJECT_CACHE_LRU:
+        _PROJECT_CACHE_LRU.remove(project_name_safe)
+    _PROJECT_CACHE_LRU.append(project_name_safe)
+    _evict_lru_if_full()
+
+
+def _load_project_df(project_name_safe: str):
+    """Return a parsed DataFrame for the project, cached + mtime-checked.
+
+    Adds two derived columns we lean on in every API call (`date_dt`
+    and `week`) so we don't recompute them per request.
+    """
+    csv_path = _project_csv_path(project_name_safe)
+    if not os.path.exists(csv_path):
+        return None
+    mtime = os.path.getmtime(csv_path)
+    cached = _PROJECT_CACHE.get(project_name_safe)
+    if cached and cached["mtime"] == mtime:
+        _touch_lru(project_name_safe)
+        return cached["df"]
+    df = pd.read_csv(csv_path)
+    if "date" in df.columns:
+        df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
+        df["week"] = df["date_dt"].dt.strftime("%G-W%V")
+    _PROJECT_CACHE[project_name_safe] = {
+        "mtime": mtime,
+        "df": df,
+        # Sub-cache for already-computed (variable, week) aggregates.
+        "frames": {},
+        # Sub-cache for week_stats responses keyed by week_id.
+        "week_stats": {},
+    }
+    _touch_lru(project_name_safe)
+    return df
+
+
+def _get_project_cache(project_name_safe: str):
+    """Return the cache entry (loading it if needed). `None` if no CSV."""
+    if _load_project_df(project_name_safe) is None:
+        return None
+    return _PROJECT_CACHE[project_name_safe]
+
+
+def _get_weekly_frame(project_name_safe: str, variable: str, week_id: str):
+    """Pre-compute (and cache) per-pixel weekly mean for `(variable, week)`.
+
+    Returns the aggregated DataFrame with columns `[lat, lon, variable]`,
+    or `None` when the slice is empty / the variable doesn't exist.
+    """
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return None
+    df = cache["df"]
+    if variable not in df.columns:
+        return None
+    key = (variable, week_id)
+    frames = cache["frames"]
+    if key in frames:
+        return frames[key]
+    block = df[(df["week"] == week_id) & df[variable].notna()]
+    if block.empty:
+        frames[key] = None
+        return None
+    frame = block.groupby(["lat", "lon"], as_index=False)[variable].mean()
+    # Also stash the obs_dates so the variable_week endpoint doesn't
+    # iterate the original block twice.
+    obs_dates = sorted(block["date"].dropna().unique().tolist())
+    frames[key] = (frame, obs_dates)
+    return frames[key]
+
+
 def _to_int(value, default=0):
     try:
         return int(value)
@@ -668,7 +774,7 @@ def get_map(project_name):
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "__SH_CHEVRON_ONLY" not in head:
+                    if "__SH_CACHE_FAST" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -789,44 +895,18 @@ def variable_week(project_name, variable, week_id):
          "points": [{"lat": ..., "lon": ..., "value": ...}, ...]}
     """
     project_name_safe = _get_project_safe_name(project_name)
-    output_dir = os.path.join("output", project_name_safe)
-    csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
-    if not os.path.exists(csv_path):
+    if not os.path.exists(_project_csv_path(project_name_safe)):
         return jsonify({"error": "CSV not found", "points": []}), 404
 
-    try:
-        df = pd.read_csv(csv_path, usecols=lambda c: c in (
-            "date", "lat", "lon", ".geo", variable
-        ))
-    except ValueError:
-        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
-    if variable not in df.columns:
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return jsonify({"error": "CSV not found", "points": []}), 404
+    if variable not in cache["df"].columns:
         return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
 
-    if ("lat" not in df.columns or "lon" not in df.columns) and ".geo" in df.columns:
-        import json as _json
-
-        def _parse(g):
-            try:
-                data = _json.loads(g) if isinstance(g, str) else g
-                return data["coordinates"]
-            except Exception:
-                return [None, None]
-
-        coords = df[".geo"].apply(_parse)
-        df["lon"] = coords.apply(lambda x: x[0])
-        df["lat"] = coords.apply(lambda x: x[1])
-
-    df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
-    # `%G-W%V` is the ISO 8601 year-week and stays consistent at the
-    # year boundary (Jan-1 in week 53 of the previous year keeps
-    # bucketing into that week).
-    df["week"] = df["date_dt"].dt.strftime("%G-W%V")
-
-    block = df[(df["week"] == week_id) & df[variable].notna()].copy()
-
-    if not len(block):
-        return jsonify({
+    cached_frame = _get_weekly_frame(project_name_safe, variable, week_id)
+    if cached_frame is None:
+        empty = jsonify({
             "project": project_name_safe,
             "variable": variable,
             "week": week_id,
@@ -834,15 +914,22 @@ def variable_week(project_name, variable, week_id):
             "obs_dates": [],
             "points": [],
         })
+        empty.headers["Cache-Control"] = "public, max-age=300"
+        return empty
 
-    frame = block.groupby(["lat", "lon"], as_index=False)[variable].mean()
+    frame, obs_dates = cached_frame
+
+    # Vectorised dict-list construction is ~3x faster than `iterrows`
+    # on 14 k+ rows. The output stays JSON-compatible.
+    lat_arr = frame["lat"].to_numpy()
+    lon_arr = frame["lon"].to_numpy()
+    val_arr = frame[variable].to_numpy()
     points = [
-        {"lat": float(r["lat"]), "lon": float(r["lon"]), "value": float(r[variable])}
-        for _, r in frame.iterrows()
-        if pd.notna(r["lat"]) and pd.notna(r["lon"])
+        {"lat": float(lat_arr[i]), "lon": float(lon_arr[i]), "value": float(val_arr[i])}
+        for i in range(len(frame))
+        if pd.notna(lat_arr[i]) and pd.notna(lon_arr[i])
     ]
 
-    obs_dates = sorted(block["date"].dropna().unique().tolist())
     if obs_dates:
         if obs_dates[0] == obs_dates[-1]:
             date_range = obs_dates[0]
@@ -851,16 +938,13 @@ def variable_week(project_name, variable, week_id):
     else:
         date_range = ""
 
-    # Per-week range so the navigator can drive the legend's
-    # gradient endpoints — colours adapt to what was actually
-    # observed in that week instead of staying on the global scale.
     if frame[variable].notna().any():
         vmin_week = float(frame[variable].min())
         vmax_week = float(frame[variable].max())
     else:
         vmin_week = vmax_week = None
 
-    return jsonify({
+    response = jsonify({
         "project": project_name_safe,
         "variable": variable,
         "week": week_id,
@@ -870,6 +954,12 @@ def variable_week(project_name, variable, week_id):
         "vmax": vmax_week,
         "points": points,
     })
+    # Cache for 5 minutes — the underlying CSV is mtime-checked, so a
+    # pipeline rerun invalidates the server-side cache; this header
+    # only keeps the browser from re-downloading the same week
+    # while the user scrubs back and forth.
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return response
 
 
 @app.route("/api/week_stats/<project_name>/<week_id>")
@@ -887,21 +977,24 @@ def week_stats(project_name, week_id):
     call.
     """
     project_name_safe = _get_project_safe_name(project_name)
-    output_dir = os.path.join("output", project_name_safe)
-    csv_path = os.path.join(output_dir, f"SmartHarvest_{project_name_safe}.csv")
-    if not os.path.exists(csv_path):
+    if not os.path.exists(_project_csv_path(project_name_safe)):
         return jsonify({"error": "CSV not found", "variables": {}}), 404
 
-    try:
-        df = pd.read_csv(csv_path)
-    except Exception as e:
-        return jsonify({"error": str(e), "variables": {}}), 500
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return jsonify({"error": "CSV not found", "variables": {}}), 404
 
+    df = cache["df"]
     if "date" not in df.columns:
         return jsonify({"error": "CSV is missing date column", "variables": {}}), 500
 
-    df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
-    df["week"] = df["date_dt"].dt.strftime("%G-W%V")
+    # Memoised — same week scrubbed twice is a single dict lookup.
+    week_stats_cache = cache["week_stats"]
+    if week_id in week_stats_cache:
+        response = jsonify(week_stats_cache[week_id])
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+
     week_df = df[df["week"] == week_id]
 
     # Iterate the canonical schema list rather than column-introspect
@@ -912,11 +1005,17 @@ def week_stats(project_name, week_id):
     candidates = [c for c in _schema.STATS_COLUMNS if c in df.columns]
     out = {}
     for col in candidates:
-        block = week_df[week_df[col].notna()][["lat", "lon", col]]
-        if block.empty:
+        # Re-use the per-(variable, week) frame the variable_week
+        # endpoint already computed when possible. On the typical
+        # navigator path, variable_week fires for the active layer
+        # right before week_stats fires for all layers — sharing
+        # the cache here turns the second call into a near-free
+        # min/max scan.
+        cached_frame = _get_weekly_frame(project_name_safe, col, week_id)
+        if cached_frame is None:
             out[col] = {"vmin": None, "vmax": None, "count": 0}
             continue
-        avg = block.groupby(["lat", "lon"], as_index=False)[col].mean()
+        avg, _obs = cached_frame
         if avg.empty or avg[col].notna().sum() == 0:
             out[col] = {"vmin": None, "vmax": None, "count": 0}
             continue
@@ -933,11 +1032,15 @@ def week_stats(project_name, week_id):
                 "count": int(len(avg)),
             }
 
-    return jsonify({
+    payload = {
         "project": project_name_safe,
         "week": week_id,
         "variables": out,
-    })
+    }
+    week_stats_cache[week_id] = payload
+    response = jsonify(payload)
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return response
 
 
 @app.route("/download/<project_name>")
@@ -1005,7 +1108,7 @@ def ml_map(project_name):
         try:
             with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                 head = f.read(32768)
-            if "__SH_CHEVRON_ONLY" not in head:
+            if "__SH_CACHE_FAST" not in head:
                 needs_regen = True
         except OSError:
             needs_regen = True
