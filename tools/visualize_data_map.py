@@ -757,6 +757,58 @@ _DATE_NAV_JS = """
         activeStack.slice().forEach(function (label) {
             ensureLoaded(label);
         });
+
+        // Surface "data missing" ghost rows for variables the schema
+        // declares but the run lost (cormor_2's S2 indices being the
+        // canonical case — every value column was null after
+        // ingestion). Rendered as disabled rows below the active
+        // checkboxes so the user knows the variable exists
+        // conceptually but has no data to plot. Polled because the
+        // panel_collapse_html bootstrap is the one that actually
+        // creates the `.sh-vars-head` container we want to live
+        // beneath, and it runs after a 50 ms timeout.
+        if (cfg.missing_variables && cfg.missing_variables.length) {
+            injectMissingRows(cfg.missing_variables, 0);
+        }
+    }
+
+    function injectMissingRows(rows, attempts) {
+        var overlays = document.querySelector(
+            ".leaflet-control-layers-overlays"
+        );
+        if (!overlays) {
+            if (attempts > 30) return; // give up after ~3 s
+            setTimeout(function () {
+                injectMissingRows(rows, attempts + 1);
+            }, 100);
+            return;
+        }
+        if (overlays.querySelector(".sh-vars-missing")) return; // idempotent
+        var divider = document.createElement("div");
+        divider.className = "sh-vars-missing-head";
+        divider.textContent = "Data missing";
+        overlays.appendChild(divider);
+        rows.forEach(function (entry) {
+            var row = document.createElement("div");
+            row.className = "sh-vars-missing";
+            row.setAttribute("data-sensor", String(entry.sensor || "").toLowerCase());
+            row.title =
+                "The schema declares " + (entry.label || entry.col) +
+                " but every value came back null in this run. " +
+                "Re-run the project to recover.";
+            var sw = document.createElement("span");
+            sw.className = "sh-vars-missing__swatch";
+            row.appendChild(sw);
+            var lbl = document.createElement("span");
+            lbl.className = "sh-vars-missing__label";
+            lbl.textContent = entry.label || entry.col;
+            row.appendChild(lbl);
+            var pill = document.createElement("span");
+            pill.className = "sh-vars-missing__pill";
+            pill.textContent = "no data";
+            row.appendChild(pill);
+            overlays.appendChild(row);
+        });
     }
 
     if (document.readyState === "loading") {
@@ -1261,6 +1313,67 @@ def create_verification_map(
             cursor: pointer;
         }
 
+        /* Missing-data ghost rows. Schema-declared variables whose
+           values came back null end up appended below the active
+           checkboxes with no input control; the small "no data" pill
+           is the affordance ("not toggleable; the data is gone").
+           The header has the same eyebrow rhythm as `.sh-basemap__head`
+           but with russet tinting so it reads as a quiet warning. */
+        .sh-vars-missing-head {
+            margin-top: 8px !important;
+            padding-top: 6px !important;
+            border-top: 1px solid #322E25;
+            font-size: 9px !important;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #9C7A7E;
+            text-align: center;
+        }
+        .sh-vars-missing {
+            display: flex !important;
+            align-items: center;
+            gap: 7px;
+            padding: 3px 0;
+            font-size: 11px !important;
+            color: #6E6A60;
+            cursor: help;
+            opacity: 0.85;
+        }
+        .sh-vars-missing:hover { opacity: 1; }
+        .sh-vars-missing__swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            background: repeating-linear-gradient(
+                135deg,
+                #322E25,
+                #322E25 3px,
+                transparent 3px,
+                transparent 6px
+            );
+            border: 1px solid #322E25;
+            flex: 0 0 auto;
+        }
+        .sh-vars-missing__label {
+            flex: 1 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sh-vars-missing__pill {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #C77E83;
+            background: rgba(199, 126, 131, 0.12);
+            border: 1px solid rgba(199, 126, 131, 0.35);
+            padding: 1px 5px;
+            border-radius: 3px;
+            flex: 0 0 auto;
+        }
+
         /* Custom scrollbar matches the basemap panel — webkit only,
            but the fallback (default scrollbar) is fine on other
            engines. */
@@ -1567,12 +1680,38 @@ def create_verification_map(
     # Variables panel itself comes from Folium's own LayerControl,
     # which always lands first.
 
+    # Variables a healthy SmartHarvest run is *expected* to ship.
+    # If a column appears in `numeric_stats` (i.e. the schema knows
+    # about it AND it lives in the merged CSV) but didn't make it
+    # into `variable_index` (because every row was null), we want
+    # the iframe Variables panel to show it as a "data missing"
+    # ghost row instead of silently omitting it — the cormor_2 case
+    # was confusing because the user's S2 indices simply vanished.
+    missing_variables = []
+    present_cols = {entry["col"] for entry in variable_index.values()}
+    for col in numeric_stats:
+        if col in present_cols:
+            continue
+        # `numeric_stats` only contains columns the schema declares
+        # AND that exist in the CSV, so by definition the user
+        # expects this column to carry data. Reaching this branch
+        # means every row was null — surface it.
+        missing_variables.append({
+            "col": col,
+            "label": schema.COLUMN_LABELS.get(col, col),
+            "sensor": schema.COLUMN_SATELLITE.get(col),
+        })
+
     # Date-navigator: only makes sense when we know the API origin
-    # (which the Flask route supplies via project_name).
-    if project_name and variable_index:
+    # (which the Flask route supplies via project_name). Even when
+    # there are zero present variables (the rare all-null case), we
+    # still want to ship the nav so the missing-variables ghost rows
+    # render correctly.
+    if project_name and (variable_index or missing_variables):
         config = {
             "project": project_name,
             "variables": variable_index,
+            "missing_variables": missing_variables,
         }
         # `__SH_LAZY_LAYERS` is also the self-heal sentinel checked
         # by `app.py` `/map/<project>` and `/ml_map/<project>` so it
@@ -1580,7 +1719,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_CACHE_FAST = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_VARS_GHOST = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
