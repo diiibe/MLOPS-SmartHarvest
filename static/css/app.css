@@ -1481,6 +1481,74 @@ button, input, select, textarea {
     flex-shrink: 0;
 }
 
+/* Top-of-dashboard banner shown when at least one sensor's columns
+   came back empty. Wine-red tinted shell so it reads as a warning,
+   not just info. The "Re-run project" button is the actionable
+   resolution path — links back to the new-project page where the
+   user can recreate the project with the same name + ROI + dates,
+   triggering the chunk-retry guard from c118a74. */
+.page-dashboard .data-missing-banner {
+    margin: 0 12px 12px;
+    padding: 14px 18px;
+    background: color-mix(in srgb, var(--c-russet) 14%, var(--c-surface-soft));
+    border: 1px solid color-mix(in srgb, var(--c-russet) 35%, var(--c-border));
+    border-left: 3px solid var(--c-russet);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    display: grid;
+    gap: 10px;
+}
+.page-dashboard .data-missing-banner__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.page-dashboard .data-missing-banner__pill {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-russet);
+    background: color-mix(in srgb, var(--c-russet) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 50%, var(--c-border));
+    padding: 3px 9px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.page-dashboard .data-missing-banner__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--c-text);
+}
+.page-dashboard .data-missing-banner__body {
+    font-size: 12px;
+    color: var(--c-text-soft);
+    line-height: 1.55;
+}
+.page-dashboard .data-missing-banner__actions {
+    display: flex;
+    gap: 10px;
+}
+.page-dashboard .data-missing-banner__btn {
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    background: var(--c-russet);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 70%, #000);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition:
+        background 180ms var(--e-quart),
+        transform 180ms var(--e-quart);
+}
+.page-dashboard .data-missing-banner__btn:hover {
+    background: color-mix(in srgb, var(--c-russet) 85%, #fff);
+    transform: translateY(-1px);
+}
+
 .page-dashboard .sensor-row[data-accent="russet"]      { --accent: var(--c-russet);      --accent-bg: var(--c-russet-bg); }
 .page-dashboard .sensor-row[data-accent="sage"]        { --accent: var(--c-sage);        --accent-bg: var(--c-sage-bg); }
 .page-dashboard .sensor-row[data-accent="ochre"]       { --accent: var(--c-ochre);       --accent-bg: var(--c-ochre-bg); }

@@ -746,6 +746,14 @@ def dashboard(project_name):
     else:
         map_cache_bust = int(time.time())
 
+    # Aggregate "data missing" state for the top-of-page banner. The
+    # banner only shows when the metadata claimed images were
+    # ingested but every variable column came back null — the
+    # cormor_2 / GEE-export case. Flag is False when no sensor was
+    # affected so a healthy project doesn't show the banner.
+    missing_sensors = [g["label"] for g in sensor_groups if g.get("data_missing")]
+    has_data_missing = bool(missing_sensors)
+
     return render_template(
         "dashboard.html",
         project_name=project_name_safe,
@@ -757,6 +765,8 @@ def dashboard(project_name):
         charts=charts_html,
         variable_glossary=charts.VARIABLE_GLOSSARY,
         map_cache_bust=map_cache_bust,
+        has_data_missing=has_data_missing,
+        missing_sensors=missing_sensors,
     )
 
 

@@ -182,6 +182,31 @@
 </div>
 
 <div id="main">
+    {% if has_data_missing %}
+    <div class="data-missing-banner" role="alert">
+        <div class="data-missing-banner__head">
+            <span class="data-missing-banner__pill">Data missing</span>
+            <span class="data-missing-banner__title">
+                {{ missing_sensors | join(', ') }}
+                {% if missing_sensors | length == 1 -%}
+                    data is empty for this run.
+                {%- else -%}
+                    data is empty for this run.
+                {%- endif %}
+            </span>
+        </div>
+        <div class="data-missing-banner__body">
+            The pipeline ingested scenes but every variable column came back null
+            — typically a Google Earth Engine export issue when every sampled
+            pixel was masked. The map iframe shows ghost rows for the missing
+            indices and the Data Analysis charts that depend on them are
+            skipped. Re-running the project usually recovers the data.
+        </div>
+        <div class="data-missing-banner__actions">
+            <a class="data-missing-banner__btn" href="/">Re-run project →</a>
+        </div>
+    </div>
+    {% endif %}
     <div class="tabs">
         <div class="tab active" onclick="switchTab('map')">Interactive Map</div>
         <div class="tab" onclick="switchTab('analysis')">Data Analysis</div>
