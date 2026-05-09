@@ -1443,6 +1443,44 @@ button, input, select, textarea {
 
 .page-dashboard .sensor-row:hover { filter: brightness(1.06); }
 
+/* Visible badge when a sensor row has been ingested (image_count > 0)
+   but every value column came back empty — typically the GEE export
+   dropped the band columns because every sampled pixel was masked.
+   The cormor_2 S2 regression left all six indices null after
+   ingestion, so we surface it explicitly instead of hiding behind
+   a quiet `data-available=false`. Tooltip explains the cause. */
+.page-dashboard .sensor-row[data-missing="true"] {
+    opacity: 0.85;
+}
+.page-dashboard .sensor-row[data-missing="true"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 6px,
+        color-mix(in srgb, var(--accent) 10%, transparent) 6px,
+        color-mix(in srgb, var(--accent) 10%, transparent) 12px
+    );
+    pointer-events: none;
+}
+.page-dashboard .sensor-row__missing {
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-russet);
+    background: color-mix(in srgb, var(--c-russet) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 45%, var(--c-border-soft));
+    border-radius: 3px;
+    cursor: help;
+    flex-shrink: 0;
+}
+
 .page-dashboard .sensor-row[data-accent="russet"]      { --accent: var(--c-russet);      --accent-bg: var(--c-russet-bg); }
 .page-dashboard .sensor-row[data-accent="sage"]        { --accent: var(--c-sage);        --accent-bg: var(--c-sage-bg); }
 .page-dashboard .sensor-row[data-accent="ochre"]       { --accent: var(--c-ochre);       --accent-bg: var(--c-ochre-bg); }

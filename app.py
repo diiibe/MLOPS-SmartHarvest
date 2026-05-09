@@ -599,12 +599,37 @@ def dashboard(project_name):
             "metadata_key": "SRTM",
         },
     ]
+    # Pre-compute "valid pixel count" per variable so we can flag a
+    # sensor whose CSV columns came back entirely null. The cormor_2
+    # case (S2 indices stripped by GEE, leaving 0 rows of valid NDVI)
+    # was confusing in the UI: the Sensors card showed "Sentinel-2: 24
+    # img" while the map had no S2 layers at all. The new
+    # `data_missing` flag lets the template render an explicit
+    # "no data" badge in that case.
+    valid_per_var: dict = {}
+    if os.path.exists(csv_path):
+        try:
+            cache = _get_project_cache(project_name_safe)
+            if cache is not None:
+                for col in cache["df"].columns:
+                    valid_per_var[col] = int(cache["df"][col].notna().sum())
+        except Exception as e:
+            print(f"Error reading CSV for sensor validity: {e}")
+
     sensor_groups = []
     for spec in SENSOR_GROUPS_SPEC:
         meta = next(
             (m for m in meta_list if m.get("source") == spec["metadata_key"]),
             None,
         )
+        # `data_missing` = the metadata says we ingested some images
+        # but every variable column came back empty. That points at
+        # an export-side regression (the cormor_2 / GEE case) rather
+        # than a "this sensor isn't available" state, so we use a
+        # different visual cue downstream.
+        var_validity = {v: valid_per_var.get(v, 0) for v in spec["variables"]}
+        any_valid = any(c > 0 for c in var_validity.values())
+        ingested = bool(meta and meta.get("image_count"))
         sensor_groups.append({
             "code": spec["code"],
             "label": spec["label"],
@@ -612,6 +637,11 @@ def dashboard(project_name):
             "variables": spec["variables"],
             "image_count": (meta or {}).get("image_count"),
             "available": True if meta else None,
+            # `valid_pixels` per variable so the template can show a
+            # per-chip indicator if some indices ingested cleanly
+            # while others did not.
+            "var_validity": var_validity,
+            "data_missing": ingested and not any_valid,
         })
 
     # Fallback: read from CSV if no stats from metadata

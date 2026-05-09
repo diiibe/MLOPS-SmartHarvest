@@ -96,7 +96,10 @@
             <h3>Sensors &amp; Variables</h3>
             <div class="sensor-list">
                 {% for group in sensor_groups %}
-                <div class="sensor-row" data-accent="{{ group.accent }}" data-available="{{ 'true' if group.available else 'false' }}">
+                <div class="sensor-row"
+                     data-accent="{{ group.accent }}"
+                     data-available="{{ 'true' if group.available else 'false' }}"
+                     data-missing="{{ 'true' if group.data_missing else 'false' }}">
                     <div class="sensor-row__head">
                         <span class="sensor-dot" aria-hidden="true"></span>
                         <span class="sensor-label">{{ group.label }}</span>
@@ -109,6 +112,10 @@
                                 —
                             {%- endif -%}
                         </span>
+                        {% if group.data_missing %}
+                        <span class="sensor-row__missing"
+                              title="Ingested {{ group.image_count }} images but every {{ group.label }} index column came back empty (typically a Google Earth Engine export issue). Re-run the project to recover.">data missing</span>
+                        {% endif %}
                     </div>
                     <div class="sensor-row__chips">
                         {% for var in group.variables %}
