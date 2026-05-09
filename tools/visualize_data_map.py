@@ -515,7 +515,15 @@ _DATE_NAV_JS = """
             }).join("");
         }
 
-        var inflight = 0;
+        // `inflight[label]` tracks the most recent `loadFrame` ticket
+        // for that specific layer. Per-label rather than global so a
+        // sync'd cascade (NDVI + VH + LST loading at the same target
+        // week from `syncOtherLayersTo`) doesn't cancel each other —
+        // a single global counter would let the LAST loadFrame win
+        // and silently drop the markers of every earlier sync'd
+        // layer (the visible bug: scrubbing back only updated one
+        // overlay even though three were active).
+        var inflight = {};
         var statsInflight = 0;
 
         // Pre-build a lookup from `col` to the matching variable label
@@ -584,12 +592,15 @@ _DATE_NAV_JS = """
             return v.toFixed(2);
         }
 
-        function loadFrame(label, week) {
+        function loadFrame(label, week, silent) {
             var meta = variables[label];
             var fg = window[meta.fg_name];
             if (!fg) return;
 
-            var ticket = ++inflight;
+            // Per-label inflight ticketing. The previous global
+            // counter caused sync'd cascades to cancel each other.
+            inflight[label] = (inflight[label] || 0) + 1;
+            var ticket = inflight[label];
             var url = "/api/variable_week/" + encodeURIComponent(cfg.project) +
                       "/" + encodeURIComponent(meta.col) +
                       "/" + encodeURIComponent(week);
@@ -597,7 +608,7 @@ _DATE_NAV_JS = """
                 if (!r.ok) throw new Error("HTTP " + r.status);
                 return r.json();
             }).then(function (payload) {
-                if (ticket !== inflight) return;  // superseded
+                if (ticket !== inflight[label]) return;  // newer load won
                 fg.clearLayers();
                 var rows = payload.points || [];
                 var rangeText = payload.date_range || week;
@@ -662,16 +673,17 @@ _DATE_NAV_JS = """
                 currentCount[label] = rows.length;
                 loadedOnce[label] = true;
                 render();
-                // Bring every other variable's legend row in line
-                // with the same week — the user wants the whole
-                // statistics panel to scrub together, not just the
-                // active layer's row.
-                refreshAllLegendStats(week);
-                // Pre-fetch the immediately adjacent weeks (silent,
-                // no DOM update) so the next prev / next click hits
-                // the browser HTTP cache instead of touching the
-                // server. Cuts perceived lag on rapid scrub-back.
-                prefetchAdjacent(label, week);
+                // Side-effects (legend refresh + prefetch) only fire
+                // for the layer the navigator is anchored on. When
+                // `syncOtherLayersTo` cascades loadFrame across the
+                // rest of the active stack, we pass `silent=true` so
+                // each sync'd layer doesn't trigger its own legend
+                // refresh at its own (closest-≤-target) week — the
+                // anchor's targetWeek is the one the legend reflects.
+                if (!silent) {
+                    refreshAllLegendStats(week);
+                    prefetchAdjacent(label, week);
+                }
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
             });
@@ -740,7 +752,10 @@ _DATE_NAV_JS = """
                     return;
                 }
                 currentWeek[otherLabel] = bestWeek;
-                loadFrame(otherLabel, bestWeek);
+                // `silent=true` — the anchor layer already drove the
+                // legend / prefetch; sync'd layers just need their
+                // own marker layer refreshed.
+                loadFrame(otherLabel, bestWeek, true);
             });
         }
 
@@ -1784,7 +1799,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_SYNC_SCRUB = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_SYNC_FIX = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
