@@ -701,6 +701,49 @@ _DATE_NAV_JS = """
             });
         }
 
+        // Find the largest week in `weeks` (assumed sorted ascending)
+        // that is `<= target`. Used to sync layers with sparser
+        // cadence to the active variable's week — when the user
+        // scrubs NDVI to W42 and LST has no W42 acquisition, LST
+        // falls back to W41 (or whatever the most recent ≤ W42 was)
+        // instead of staying frozen on its old week.
+        function closestWeekAtOrBefore(weeks, target) {
+            if (!weeks || !weeks.length || !target) return null;
+            var best = null;
+            for (var i = 0; i < weeks.length; i++) {
+                if (weeks[i] <= target) {
+                    best = weeks[i];
+                } else {
+                    break;
+                }
+            }
+            return best;
+        }
+
+        // Synchronise every OTHER active layer to the closest week at
+        // or before the navigator's anchor week. Skips the layer
+        // already being driven (`exceptLabel`) — that one moves via
+        // its own `loadFrame` call. Keeps the multi-layer view
+        // temporally coherent: scroll back on NDVI and the VH / LST
+        // overlays follow to the same point in time, instead of
+        // freezing on the week they were last toggled in on.
+        function syncOtherLayersTo(targetWeek, exceptLabel) {
+            activeStack.forEach(function (otherLabel) {
+                if (otherLabel === exceptLabel) return;
+                var otherMeta = variables[otherLabel];
+                if (!otherMeta || !otherMeta.weeks || !otherMeta.weeks.length) {
+                    return;
+                }
+                var bestWeek = closestWeekAtOrBefore(otherMeta.weeks, targetWeek);
+                if (!bestWeek) return;
+                if (bestWeek === currentWeek[otherLabel] && loadedOnce[otherLabel]) {
+                    return;
+                }
+                currentWeek[otherLabel] = bestWeek;
+                loadFrame(otherLabel, bestWeek);
+            });
+        }
+
         // Lazy-load helper used by both the boot path (active layers
         // at first paint) and overlayadd (newly toggled layer with
         // an empty FG). No-op once the layer has been populated at
@@ -719,12 +762,16 @@ _DATE_NAV_JS = """
             if (idx === -1) return;
             var next = idx + direction;
             if (next < 0 || next >= meta.weeks.length) return;
+            var targetWeek = meta.weeks[next];
             // Optimistically flip currentWeek BEFORE the fetch so
             // rapid double-clicks compute the right next index from
             // the user's perspective ("idx-1, idx-2" instead of
             // "idx-1, idx-1" which the previous code did).
-            currentWeek[label] = meta.weeks[next];
-            loadFrame(label, meta.weeks[next]);
+            currentWeek[label] = targetWeek;
+            loadFrame(label, targetWeek);
+            // Pull the rest of the active stack along to the same
+            // point in time (or the closest week with data).
+            syncOtherLayersTo(targetWeek, label);
         }
 
         prevBtn.addEventListener("click", function () { step(-1); });
@@ -735,6 +782,24 @@ _DATE_NAV_JS = """
                 var i = activeStack.indexOf(e.name);
                 if (i !== -1) activeStack.splice(i, 1);
                 activeStack.push(e.name);
+                // If another layer is already on the map and pinned
+                // to a non-default week, load this new layer at the
+                // closest matching week instead of its own latest —
+                // otherwise the multi-layer view jumps around in
+                // time every time the user toggles a checkbox.
+                var anchor = activeStack.length > 1
+                    ? activeStack[activeStack.length - 2]
+                    : null;
+                var anchorWeek = anchor ? currentWeek[anchor] : null;
+                if (anchorWeek) {
+                    var thisMeta = variables[e.name];
+                    var bestWeek = closestWeekAtOrBefore(
+                        thisMeta.weeks, anchorWeek
+                    );
+                    if (bestWeek) {
+                        currentWeek[e.name] = bestWeek;
+                    }
+                }
                 ensureLoaded(e.name);
                 render();
             }
@@ -1719,7 +1784,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_VARS_GHOST = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_SYNC_SCRUB = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
