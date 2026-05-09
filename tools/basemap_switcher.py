@@ -64,7 +64,6 @@ _PANEL_CSS = """
     padding-bottom: 6px;
     border-bottom: 1px solid #322E25;
     margin-bottom: 6px;
-    cursor: pointer;
 }
 .sh-basemap__row {
     /* 2-column grid keeps the basemap card half the height of a
@@ -141,23 +140,28 @@ _COLLAPSE_CSS = """
    the rotation naturally without overshoot. */
 .sh-collapse {
     appearance: none;
-    background: transparent;
-    border: 0;
-    color: #9C988B;
+    background: rgba(192, 145, 55, 0.10);
+    border: 1px solid rgba(192, 145, 55, 0.35);
+    color: #C09137;
     cursor: pointer;
     font-size: 11px;
     line-height: 1;
-    padding: 2px 4px;
+    padding: 2px 6px;
     margin: 0;
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
+    border-radius: 3px;
     transition:
         transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+        background 150ms cubic-bezier(0.25, 1, 0.5, 1),
         color 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
-.sh-collapse:hover { color: #ECE4D2; }
+.sh-collapse:hover {
+    color: #E2B95C;
+    background: rgba(192, 145, 55, 0.20);
+}
 .sh-collapse:focus-visible {
     outline: 1px solid #C09137;
     outline-offset: 2px;
@@ -225,7 +229,6 @@ _COLLAPSE_CSS = """
     padding-bottom: 6px;
     border-bottom: 1px solid #322E25;
     margin-bottom: 6px;
-    cursor: pointer;
     user-select: none;
     /* Margin-bottom is animated alongside the body so it folds
        cleanly when collapsing. */
@@ -263,7 +266,6 @@ _COLLAPSE_CSS = """
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     user-select: none;
     transition: margin-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
                 padding-bottom 320ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -305,7 +307,6 @@ _COLLAPSE_CSS = """
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     user-select: none;
 }
 .sh-legend[data-collapsed="true"] .sh-legend__body {
@@ -338,19 +339,21 @@ _COLLAPSE_JS = """
     function wire(panel, head) {
         if (!panel || !head) return;
         if (head.querySelector(".sh-collapse")) return;
-        head.appendChild(makeChevron());
-        function toggle(e) {
-            // Ignore clicks on form controls inside the head so the
-            // overlay checkboxes / arrow buttons keep working.
-            var t = e.target;
-            if (t.tagName === "INPUT" || t.tagName === "A" ||
-                (t.tagName === "BUTTON" && !t.classList.contains("sh-collapse"))) {
-                return;
-            }
+        var chevron = makeChevron();
+        head.appendChild(chevron);
+        // Bind the toggle ONLY on the chevron button. The earlier
+        // version bound it on the entire head element, which made it
+        // far too easy to collapse the Week panel by accident — a
+        // stray click on the "Week" label hid the prev/next buttons
+        // and the user thought the navigator was broken. Restricting
+        // the click target to the chevron preserves the affordance
+        // (the icon is the obvious "collapse" control) without
+        // turning the whole head into a tap target.
+        chevron.addEventListener("click", function (e) {
+            e.stopPropagation();
             var col = panel.getAttribute("data-collapsed") === "true";
             panel.setAttribute("data-collapsed", col ? "false" : "true");
-        }
-        head.addEventListener("click", toggle);
+        });
     }
 
     function injectVarsHead() {
