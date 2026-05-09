@@ -673,6 +673,7 @@ _DATE_NAV_JS = """
                 currentCount[label] = rows.length;
                 loadedOnce[label] = true;
                 render();
+                updateLayerWeekBadge(label, week);
                 // Side-effects (legend refresh + prefetch) only fire
                 // for the layer the navigator is anchored on. When
                 // `syncOtherLayersTo` cascades loadFrame across the
@@ -684,8 +685,60 @@ _DATE_NAV_JS = """
                     refreshAllLegendStats(week);
                     prefetchAdjacent(label, week);
                 }
+                // After every load, recompute "is each layer at the
+                // anchor's target week?" so the panel reflects which
+                // layers are showing a fallback frame.
+                refreshAllLayerWeekBadges();
             }).catch(function (err) {
                 console.error("[SH-date-nav] load failed", err);
+            });
+        }
+
+        // ---- Per-variable "showing W42" badges in the Variables
+        // panel. A small `<span>` lives next to each layer label and
+        // displays its currently-loaded week. When that week matches
+        // the navigator's anchor, the badge stays muted; when the
+        // layer falls back to a different week (its data missing at
+        // the anchor), the badge picks up an ochre tint so the user
+        // can spot which layers are showing closest-available frames
+        // instead of the navigator's exact target.
+        function findLayerLabel(layerName) {
+            var labels = document.querySelectorAll(
+                ".leaflet-control-layers-overlays label"
+            );
+            for (var i = 0; i < labels.length; i++) {
+                var span = labels[i].querySelector("span");
+                var text = (span ? span.textContent : labels[i].textContent) || "";
+                if (text.trim() === layerName) return labels[i];
+            }
+            return null;
+        }
+        function updateLayerWeekBadge(label, week) {
+            var node = findLayerLabel(label);
+            if (!node) return;
+            var badge = node.querySelector(".sh-vars-week");
+            if (!badge) {
+                badge = document.createElement("span");
+                badge.className = "sh-vars-week";
+                node.appendChild(badge);
+            }
+            badge.textContent = week || "";
+        }
+        function refreshAllLayerWeekBadges() {
+            var anchor = activeLabel();
+            var anchorWeek = anchor ? currentWeek[anchor] : null;
+            Object.keys(variables).forEach(function (label) {
+                var node = findLayerLabel(label);
+                if (!node) return;
+                var badge = node.querySelector(".sh-vars-week");
+                if (!badge) return;
+                var w = currentWeek[label];
+                if (!w) {
+                    badge.dataset.state = "idle";
+                    return;
+                }
+                badge.dataset.state =
+                    anchorWeek && w !== anchorWeek ? "fallback" : "match";
             });
         }
 
@@ -713,14 +766,21 @@ _DATE_NAV_JS = """
             });
         }
 
-        // Find the largest week in `weeks` (assumed sorted ascending)
-        // that is `<= target`. Used to sync layers with sparser
-        // cadence to the active variable's week — when the user
-        // scrubs NDVI to W42 and LST has no W42 acquisition, LST
-        // falls back to W41 (or whatever the most recent ≤ W42 was)
-        // instead of staying frozen on its old week.
+        // Closest available week — historical-preferring with a
+        // bidirectional fallback. When the user scrubs NDVI to W42
+        // and LST has no W42 acquisition, LST falls back to the
+        // most recent week ≤ W42. When the navigator's target is
+        // BEFORE the layer's earliest acquisition (anchor at W30 but
+        // NDVI starts at W33), a strict ≤-fallback returns null and
+        // leaves the overlay blank — instead we return the EARLIEST
+        // available week so the layer has something to display. Net
+        // effect: every active layer always shows the closest
+        // available data instead of disappearing at the edges of
+        // its range; the user wanted "show by default the first
+        // available one when an acquisition is missing".
         function closestWeekAtOrBefore(weeks, target) {
-            if (!weeks || !weeks.length || !target) return null;
+            if (!weeks || !weeks.length) return null;
+            if (!target) return weeks[weeks.length - 1];
             var best = null;
             for (var i = 0; i < weeks.length; i++) {
                 if (weeks[i] <= target) {
@@ -729,6 +789,9 @@ _DATE_NAV_JS = """
                     break;
                 }
             }
+            // Forward fallback when target falls before the layer's
+            // earliest acquisition.
+            if (best === null) best = weeks[0];
             return best;
         }
 
@@ -1454,6 +1517,46 @@ def create_verification_map(
             flex: 0 0 auto;
         }
 
+        /* Per-variable "showing week" badge. Sits at the right of
+           each variable label and shows the ISO week currently
+           rendered for that layer. When the layer is at the
+           navigator's anchor week, the badge is muted; when it falls
+           back to a different week (sparser cadence, anchor outside
+           range), the badge picks up an ochre tint so the user can
+           tell at a glance which layers are showing exactly the
+           navigator's target vs. closest-available.
+
+           Empty (`textContent=""`) → CSS hides the badge so layers
+           that have never been toggled don't get a stale label. */
+        .sh-vars-week {
+            font-size: 9.5px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            color: #6E6A60;
+            background: transparent;
+            border: 1px solid #322E25;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: auto;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            transition: color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+                        border-color 200ms cubic-bezier(0.25, 1, 0.5, 1),
+                        background 200ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .sh-vars-week:empty {
+            display: none;
+        }
+        .sh-vars-week[data-state="match"] {
+            color: #9C988B;
+            border-color: #322E25;
+        }
+        .sh-vars-week[data-state="fallback"] {
+            color: #C09137;
+            border-color: rgba(192, 145, 55, 0.4);
+            background: rgba(192, 145, 55, 0.08);
+        }
+
         /* Custom scrollbar matches the basemap panel — webkit only,
            but the fallback (default scrollbar) is fine on other
            engines. */
@@ -1799,7 +1902,7 @@ def create_verification_map(
         # is guaranteed to find it.
         nav_script = (
             "<script>\n"
-            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_SYNC_FIX = true;\n"
+            "window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LAYER_BADGE = true;\n"
             "window.__SH_MAP_CONFIG = " + json.dumps(config) + ";\n"
             + _DATE_NAV_JS
             + "\n</script>\n"
