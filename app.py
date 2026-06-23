@@ -42,9 +42,180 @@ def _get_project_safe_name(project_name):
     return safe
 
 
+# ---------------------------------------------------------------------------
+# Per-project in-memory cache
+# ---------------------------------------------------------------------------
+#
+# The Week navigator hits `/api/variable_week` and `/api/week_stats` on
+# every prev / next click, and on a 740 k-row CSV (Fantinel scale)
+# `pd.read_csv` alone burns 600-900 ms per call. We cache the parsed
+# DataFrame keyed by project, with an mtime stamp so the next pipeline
+# run cleanly invalidates the entry. A second-level cache stores
+# already-computed per-(variable, week) frames so subsequent scrubs
+# over the same data are O(1).
+#
+# Memory cost: a 750 k-row × 18-col DataFrame is ~120 MB in RAM. We
+# evict the least-recently-used project once 5 are loaded so a
+# multi-tab / multi-project session doesn't grow unbounded.
+# ---------------------------------------------------------------------------
+
+_PROJECT_CACHE: dict = {}
+_PROJECT_CACHE_MAX = 5
+_PROJECT_CACHE_LRU: list = []  # most-recent at the end
+
+
+def _project_csv_path(project_name_safe: str) -> str:
+    return os.path.join(
+        "output", project_name_safe, f"SmartHarvest_{project_name_safe}.csv"
+    )
+
+
+def _evict_lru_if_full() -> None:
+    while len(_PROJECT_CACHE_LRU) > _PROJECT_CACHE_MAX:
+        oldest = _PROJECT_CACHE_LRU.pop(0)
+        _PROJECT_CACHE.pop(oldest, None)
+
+
+def _touch_lru(project_name_safe: str) -> None:
+    if project_name_safe in _PROJECT_CACHE_LRU:
+        _PROJECT_CACHE_LRU.remove(project_name_safe)
+    _PROJECT_CACHE_LRU.append(project_name_safe)
+    _evict_lru_if_full()
+
+
+def _load_project_df(project_name_safe: str):
+    """Return a parsed DataFrame for the project, cached + mtime-checked.
+
+    Adds two derived columns we lean on in every API call (`date_dt`
+    and `week`) so we don't recompute them per request.
+    """
+    csv_path = _project_csv_path(project_name_safe)
+    if not os.path.exists(csv_path):
+        return None
+    mtime = os.path.getmtime(csv_path)
+    cached = _PROJECT_CACHE.get(project_name_safe)
+    if cached and cached["mtime"] == mtime:
+        _touch_lru(project_name_safe)
+        return cached["df"]
+    df = pd.read_csv(csv_path)
+    if "date" in df.columns:
+        df["date_dt"] = pd.to_datetime(df["date"], errors="coerce")
+        df["week"] = df["date_dt"].dt.strftime("%G-W%V")
+    _PROJECT_CACHE[project_name_safe] = {
+        "mtime": mtime,
+        "df": df,
+        # Sub-cache for already-computed (variable, week) aggregates.
+        "frames": {},
+        # Sub-cache for week_stats responses keyed by week_id.
+        "week_stats": {},
+    }
+    _touch_lru(project_name_safe)
+    return df
+
+
+def _get_project_cache(project_name_safe: str):
+    """Return the cache entry (loading it if needed). `None` if no CSV."""
+    if _load_project_df(project_name_safe) is None:
+        return None
+    return _PROJECT_CACHE[project_name_safe]
+
+
+def _get_weekly_frame(project_name_safe: str, variable: str, week_id: str):
+    """Pre-compute (and cache) per-pixel weekly mean for `(variable, week)`.
+
+    Returns the aggregated DataFrame with columns `[lat, lon, variable]`,
+    or `None` when the slice is empty / the variable doesn't exist.
+    """
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return None
+    df = cache["df"]
+    if variable not in df.columns:
+        return None
+    key = (variable, week_id)
+    frames = cache["frames"]
+    if key in frames:
+        return frames[key]
+    block = df[(df["week"] == week_id) & df[variable].notna()]
+    if block.empty:
+        frames[key] = None
+        return None
+    frame = block.groupby(["lat", "lon"], as_index=False)[variable].mean()
+    # Also stash the obs_dates so the variable_week endpoint doesn't
+    # iterate the original block twice.
+    obs_dates = sorted(block["date"].dropna().unique().tolist())
+    frames[key] = (frame, obs_dates)
+    return frames[key]
+
+
+def _to_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _analysis_window_stat(value):
+    date_range = str(value or "N/A")
+    start, end = None, None
+    if " to " in date_range:
+        start, end = date_range.split(" to ", 1)
+    return {
+        "label": "Analysis Window",
+        "value": date_range,
+        "kind": "window",
+        "start": start,
+        "end": end,
+    }
+
+
+def _sensor_class(source):
+    return (
+        str(source)
+        .lower()
+        .replace("/", "")
+        .replace(" ", "-")
+        .replace("sentinel-", "s")
+        .replace("landsat-89", "landsat")
+    )
+
+
+def _sensor_stat(item):
+    retained = _to_int(item.get("image_count"), 0)
+    discarded = _to_int(item.get("discarded_images"), 0)
+    total = _to_int(item.get("total_images"), retained + discarded)
+    if total <= 0:
+        total = retained + discarded
+
+    retained_pct = (retained / total * 100) if total else 0
+    discarded_pct = item.get("discarded_pct")
+    if discarded_pct is None:
+        discarded_pct = (discarded / total * 100) if total else 0
+
+    return {
+        "label": item["source"],
+        "value": f"{retained} kept / {discarded} discarded",
+        "kind": "sensor",
+        "source_class": _sensor_class(item["source"]),
+        "retained": retained,
+        "discarded": discarded,
+        "total": total,
+        "retained_pct": f"{retained_pct:.0f}",
+        "discarded_pct": f"{float(discarded_pct):.1f}",
+    }
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Pull the Mapbox token from the env so the New Project page can
+    # offer Mapbox raster basemaps (Outdoors / Light / Satellite / Dark)
+    # the same way landslide-app does. When no token is configured the
+    # JS falls back to the original Esri / OSM tiles so the demo path
+    # keeps working without any cloud account.
+    mapbox_token = os.environ.get("MAPBOX_TOKEN") or os.environ.get(
+        "SMARTHARVEST_MAPBOX_TOKEN", ""
+    )
+    return render_template("index.html", mapbox_token=mapbox_token)
 
 
 @app.route("/rois", methods=["GET"])
@@ -157,7 +328,11 @@ def reuse_project():
         map_path = os.path.join(output_dir, f"Map_{project_name_safe}.html")
         try:
             visualize_data_map.create_verification_map(
-                csv_path, map_path, project_name=project_name_safe
+                csv_path,
+                map_path,
+                project_name=project_name_safe,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
             )
             print(f"[OK] Map regenerated: {map_path}")
         except Exception as e:
@@ -339,9 +514,11 @@ def dashboard(project_name):
         try:
             with open(metadata_path, "r") as f:
                 meta_list = json.load(f)
-                # Separate list for image counts to ensure specific ordering
+                # Separate list for image counts to ensure specific ordering.
+                # SRTM is intentionally NOT shown as a "Topography" row —
+                # it's a static reference, listed under Sensors & Variables
+                # already, and the user wanted it off this card.
                 image_stats = []
-                topo_stat = None
                 hparam_stats = []
 
                 for item in meta_list:
@@ -354,10 +531,7 @@ def dashboard(project_name):
                                 }
                             )
                             stats.append(
-                                {
-                                    "label": "Analysis Window",
-                                    "value": item.get("analysis_range", "N/A"),
-                                }
+                                _analysis_window_stat(item.get("analysis_range"))
                             )
                         elif item["source"] == "Hyperparameters":
                             # Show only the effective values the run used,
@@ -378,33 +552,97 @@ def dashboard(project_name):
                                     "label": "Grid resolution (m)",
                                     "value": str(item["target_scale"]),
                                 })
-                        elif item["source"] == "SRTM":
-                            topo_stat = {
-                                "label": "Topography",
-                                "value": "Static (SRTM)",
-                            }
                         elif "image_count" in item:
-                            image_stats.append(
-                                {
-                                    "label": f"{item['source']} Images",
-                                    "value": str(item["image_count"]),
-                                }
-                            )
+                            if item["source"] != "SRTM":
+                                image_stats.append(_sensor_stat(item))
 
-                # Append image stats
+                # Append image stats below area/window, hyperparameters
+                # at the very bottom.
                 stats.extend(image_stats)
-
-                # Append Topography last
-                if topo_stat:
-                    stats.append(topo_stat)
-
-                # Hyperparameters go at the bottom of the sidebar so the
-                # primary numbers (area, window, image counts) stay above
-                # the fold.
                 stats.extend(hparam_stats)
 
         except Exception as e:
             print(f"Error reading metadata: {e}")
+
+    # Per-sensor breakdown (used by the Sensors card in the sidebar).
+    # Each group carries the variable codes the dashboard renders, the
+    # accent token already wired into the rest of the UI, and the
+    # `image_count` from the metadata when available — so the card
+    # reads as a compact tally instead of a prose blurb.
+    SENSOR_GROUPS_SPEC = [
+        {
+            "code": "S2",
+            "label": "Sentinel-2",
+            "accent": "russet",
+            "variables": ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"],
+            "metadata_key": "Sentinel-2",
+        },
+        {
+            "code": "S1",
+            "label": "Sentinel-1",
+            "accent": "sage",
+            "variables": ["VH", "VV", "Ratio"],
+            "metadata_key": "Sentinel-1",
+        },
+        {
+            "code": "L8",
+            "label": "Landsat 8/9",
+            "accent": "ochre",
+            "variables": ["LST"],
+            "metadata_key": "Landsat 8/9",
+        },
+        {
+            "code": "SRTM",
+            "label": "SRTM Topography",
+            "accent": "slate",
+            "variables": ["Slope"],
+            "metadata_key": "SRTM",
+        },
+    ]
+    # Pre-compute "valid pixel count" per variable so we can flag a
+    # sensor whose CSV columns came back entirely null. The cormor_2
+    # case (S2 indices stripped by GEE, leaving 0 rows of valid NDVI)
+    # was confusing in the UI: the Sensors card showed "Sentinel-2: 24
+    # img" while the map had no S2 layers at all. The new
+    # `data_missing` flag lets the template render an explicit
+    # "no data" badge in that case.
+    valid_per_var: dict = {}
+    if os.path.exists(csv_path):
+        try:
+            cache = _get_project_cache(project_name_safe)
+            if cache is not None:
+                for col in cache["df"].columns:
+                    valid_per_var[col] = int(cache["df"][col].notna().sum())
+        except Exception as e:
+            print(f"Error reading CSV for sensor validity: {e}")
+
+    sensor_groups = []
+    for spec in SENSOR_GROUPS_SPEC:
+        meta = next(
+            (m for m in meta_list if m.get("source") == spec["metadata_key"]),
+            None,
+        )
+        # `data_missing` = the metadata says we ingested some images
+        # but every variable column came back empty. That points at
+        # an export-side regression (the cormor_2 / GEE case) rather
+        # than a "this sensor isn't available" state, so we use a
+        # different visual cue downstream.
+        var_validity = {v: valid_per_var.get(v, 0) for v in spec["variables"]}
+        any_valid = any(c > 0 for c in var_validity.values())
+        ingested = bool(meta and meta.get("image_count"))
+        sensor_groups.append({
+            "code": spec["code"],
+            "label": spec["label"],
+            "accent": spec["accent"],
+            "variables": spec["variables"],
+            "image_count": (meta or {}).get("image_count"),
+            "available": True if meta else None,
+            # `valid_pixels` per variable so the template can show a
+            # per-chip indicator if some indices ingested cleanly
+            # while others did not.
+            "var_validity": var_validity,
+            "data_missing": ingested and not any_valid,
+        })
 
     # Fallback: read from CSV if no stats from metadata
     if not stats and os.path.exists(csv_path):
@@ -416,10 +654,7 @@ def dashboard(project_name):
                     {"label": "Unique Dates", "value": str(df["date"].nunique())}
                 )
                 stats.append(
-                    {
-                        "label": "Date Range",
-                        "value": f"{df['date'].min()} to {df['date'].max()}",
-                    }
+                    _analysis_window_stat(f"{df['date'].min()} to {df['date'].max()}")
                 )
             if "satellite" in df.columns:
                 sats = set()
@@ -443,6 +678,19 @@ def dashboard(project_name):
     if os.path.exists(csv_path):
         try:
             df = pd.read_csv(csv_path)
+            ml_dir_for_kpi = os.path.join(
+                os.path.dirname(csv_path), "ml_weekly"
+            )
+            ml_dir_for_kpi = (
+                ml_dir_for_kpi if os.path.exists(ml_dir_for_kpi) else None
+            )
+            # Overview tiles (no Plotly bundle hit — pure HTML).
+            charts_html["kpi_strip"] = charts.create_kpi_strip(
+                df, meta_list, ml_dir_for_kpi
+            )
+            charts_html["ndvi_sparkline"] = charts.create_ndvi_sparkline(df)
+            charts_html["recent_acquisitions"] = charts.create_recent_acquisitions(df)
+            # Existing charts (untouched).
             charts_html["acquisition"] = charts.create_acquisition_timeline(df)
             charts_html["cloud_coverage"] = charts.create_cloud_coverage(meta_list)
             charts_html["index_trends"] = charts.create_index_trends(df)
@@ -453,6 +701,13 @@ def dashboard(project_name):
             charts_html["distributions"] = charts.create_distributions(df)
             charts_html["correlation"] = charts.create_correlation(df)
             charts_html["ndvi_by_slope"] = charts.create_ndvi_by_slope(df)
+            # New phase-1 additions.
+            charts_html["change_detection"] = charts.create_change_detection_summary(df)
+            charts_html["completeness"] = charts.create_completeness_matrix(df)
+            # Phase-2: phenology + sub-cell + Moran's I.
+            charts_html["phenology"] = charts.create_phenology_curve(df)
+            charts_html["subcell_heatmap"] = charts.create_subcell_heatmap(df)
+            charts_html["morans_i"] = charts.create_morans_i_card(df)
         except Exception as e:
             print(f"Error generating charts: {e}")
             import traceback
@@ -491,16 +746,27 @@ def dashboard(project_name):
     else:
         map_cache_bust = int(time.time())
 
+    # Aggregate "data missing" state for the top-of-page banner. The
+    # banner only shows when the metadata claimed images were
+    # ingested but every variable column came back null — the
+    # cormor_2 / GEE-export case. Flag is False when no sensor was
+    # affected so a healthy project doesn't show the banner.
+    missing_sensors = [g["label"] for g in sensor_groups if g.get("data_missing")]
+    has_data_missing = bool(missing_sensors)
+
     return render_template(
         "dashboard.html",
         project_name=project_name_safe,
         stats=stats,
+        sensor_groups=sensor_groups,
         report_html=report_html,
         ts_data=ts_data,
         available_dates=available_dates,
         charts=charts_html,
         variable_glossary=charts.VARIABLE_GLOSSARY,
         map_cache_bust=map_cache_bust,
+        has_data_missing=has_data_missing,
+        missing_sensors=missing_sensors,
     )
 
 
@@ -536,19 +802,19 @@ def get_map(project_name):
                 needs_regen = True
             else:
                 try:
-                    # Feature-detect by the most recent config field we
-                    # ship (`max_pixels`, added for the cloud-coverage
-                    # hint). Older maps still have `__SH_MAP_CONFIG`
-                    # but lack this field, so checking the sentinel
-                    # alone silently serves a stale widget. Bump the
-                    # marker every time the embedded config grows a
-                    # field the client needs.
-                    # 32 KB clears the leading CSS + the full config
-                    # JSON without pulling in the ~50 MB of marker
+                    # Feature-detect by the most recent embed sentinel.
+                    # Bump the marker every time the embedded payload
+                    # grows a field the client needs — currently
+                    # `__SH_BASEMAP_CONFIG` (added for the Mapbox
+                    # switcher injection). Older maps still carry
+                    # `__SH_MAP_CONFIG` but lack the basemap config,
+                    # so the panel never renders without a regen.
+                    # 32 KB clears the leading CSS + the full embed
+                    # without pulling in the ~50 MB of marker
                     # literals that follow.
                     with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
                         head = f.read(32768)
-                    if "max_pixels" not in head:
+                    if "__SH_LAYER_BADGE" not in head:
                         needs_regen = True
                 except OSError:
                     needs_regen = True
@@ -556,7 +822,11 @@ def get_map(project_name):
         print(f"Generating map for {project_name}...")
         try:
             visualize_data_map.create_verification_map(
-                csv_path, map_path, project_name=project_name_safe
+                csv_path,
+                map_path,
+                project_name=project_name_safe,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
             )
         except Exception as e:
             print(f"Error generating map: {e}")
@@ -643,6 +913,176 @@ def variable_frame(project_name, variable, date):
     })
 
 
+@app.route("/api/variable_week/<project_name>/<variable>/<week_id>")
+def variable_week(project_name, variable, week_id):
+    """
+    Per-pixel weekly mean for one variable.
+
+    The Interactive Map's date navigator now steps in ISO weeks, so
+    a click on the prev / next arrow asks for an entire week's
+    aggregate instead of a single acquisition. Pixels observed
+    multiple times in the same week are averaged; pixels not
+    observed at all in that week are simply absent — the user-
+    visible effect is a stable "weekly view" that does not flicker
+    when one of the dates inside the week is cloud-masked.
+
+    `week_id` is the ISO 8601 year-week token, e.g. ``2025-W45``.
+
+    Response shape:
+        {"project": "...", "variable": "...", "week": "2025-W45",
+         "date_range": "2025-11-03 to 2025-11-09",
+         "obs_dates": ["2025-11-04", "2025-11-08"],
+         "points": [{"lat": ..., "lon": ..., "value": ...}, ...]}
+    """
+    project_name_safe = _get_project_safe_name(project_name)
+    if not os.path.exists(_project_csv_path(project_name_safe)):
+        return jsonify({"error": "CSV not found", "points": []}), 404
+
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return jsonify({"error": "CSV not found", "points": []}), 404
+    if variable not in cache["df"].columns:
+        return jsonify({"error": f"Unknown variable: {variable}", "points": []}), 404
+
+    cached_frame = _get_weekly_frame(project_name_safe, variable, week_id)
+    if cached_frame is None:
+        empty = jsonify({
+            "project": project_name_safe,
+            "variable": variable,
+            "week": week_id,
+            "date_range": "",
+            "obs_dates": [],
+            "points": [],
+        })
+        empty.headers["Cache-Control"] = "public, max-age=300"
+        return empty
+
+    frame, obs_dates = cached_frame
+
+    # Vectorised dict-list construction is ~3x faster than `iterrows`
+    # on 14 k+ rows. The output stays JSON-compatible.
+    lat_arr = frame["lat"].to_numpy()
+    lon_arr = frame["lon"].to_numpy()
+    val_arr = frame[variable].to_numpy()
+    points = [
+        {"lat": float(lat_arr[i]), "lon": float(lon_arr[i]), "value": float(val_arr[i])}
+        for i in range(len(frame))
+        if pd.notna(lat_arr[i]) and pd.notna(lon_arr[i])
+    ]
+
+    if obs_dates:
+        if obs_dates[0] == obs_dates[-1]:
+            date_range = obs_dates[0]
+        else:
+            date_range = f"{obs_dates[0]} → {obs_dates[-1]}"
+    else:
+        date_range = ""
+
+    if frame[variable].notna().any():
+        vmin_week = float(frame[variable].min())
+        vmax_week = float(frame[variable].max())
+    else:
+        vmin_week = vmax_week = None
+
+    response = jsonify({
+        "project": project_name_safe,
+        "variable": variable,
+        "week": week_id,
+        "date_range": date_range,
+        "obs_dates": obs_dates,
+        "vmin": vmin_week,
+        "vmax": vmax_week,
+        "points": points,
+    })
+    # Cache for 5 minutes — the underlying CSV is mtime-checked, so a
+    # pipeline rerun invalidates the server-side cache; this header
+    # only keeps the browser from re-downloading the same week
+    # while the user scrubs back and forth.
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return response
+
+
+@app.route("/api/week_stats/<project_name>/<week_id>")
+def week_stats(project_name, week_id):
+    """
+    Per-variable vmin / vmax / count for a single ISO week.
+
+    The map's date navigator scrubs the entire legend in lock-step
+    with the active layer: when the user steps to a new week the
+    JS calls this endpoint once and the legend's vmin / vmax labels
+    re-write for every variable, even the ones currently hidden.
+    Variables with no observation in that week come back as
+    `{vmin: null, vmax: null, count: 0}` so the client can render
+    a dash without making a separate "is this variable available?"
+    call.
+    """
+    project_name_safe = _get_project_safe_name(project_name)
+    if not os.path.exists(_project_csv_path(project_name_safe)):
+        return jsonify({"error": "CSV not found", "variables": {}}), 404
+
+    cache = _get_project_cache(project_name_safe)
+    if cache is None:
+        return jsonify({"error": "CSV not found", "variables": {}}), 404
+
+    df = cache["df"]
+    if "date" not in df.columns:
+        return jsonify({"error": "CSV is missing date column", "variables": {}}), 500
+
+    # Memoised — same week scrubbed twice is a single dict lookup.
+    week_stats_cache = cache["week_stats"]
+    if week_id in week_stats_cache:
+        response = jsonify(week_stats_cache[week_id])
+        response.headers["Cache-Control"] = "public, max-age=300"
+        return response
+
+    week_df = df[df["week"] == week_id]
+
+    # Iterate the canonical schema list rather than column-introspect
+    # so the response keys are stable even when a CSV happens to
+    # carry an extra non-schema numeric column (e.g. spatial_id).
+    import schema as _schema
+
+    candidates = [c for c in _schema.STATS_COLUMNS if c in df.columns]
+    out = {}
+    for col in candidates:
+        # Re-use the per-(variable, week) frame the variable_week
+        # endpoint already computed when possible. On the typical
+        # navigator path, variable_week fires for the active layer
+        # right before week_stats fires for all layers — sharing
+        # the cache here turns the second call into a near-free
+        # min/max scan.
+        cached_frame = _get_weekly_frame(project_name_safe, col, week_id)
+        if cached_frame is None:
+            out[col] = {"vmin": None, "vmax": None, "count": 0}
+            continue
+        avg, _obs = cached_frame
+        if avg.empty or avg[col].notna().sum() == 0:
+            out[col] = {"vmin": None, "vmax": None, "count": 0}
+            continue
+        vmin = float(avg[col].min())
+        vmax = float(avg[col].max())
+        # Constant week → null bounds so the client falls back to the
+        # embedded global scale for colour mapping.
+        if vmin == vmax:
+            out[col] = {"vmin": None, "vmax": None, "count": int(len(avg))}
+        else:
+            out[col] = {
+                "vmin": vmin,
+                "vmax": vmax,
+                "count": int(len(avg)),
+            }
+
+    payload = {
+        "project": project_name_safe,
+        "week": week_id,
+        "variables": out,
+    }
+    week_stats_cache[week_id] = payload
+    response = jsonify(payload)
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return response
+
+
 @app.route("/download/<project_name>")
 def download_csv(project_name):
     project_name_safe = _get_project_safe_name(project_name)
@@ -699,11 +1139,30 @@ def ml_map(project_name):
     map_filename = f"ml_map_{week_id}.html"
     map_path = os.path.join(ml_dir, map_filename)
 
-    # Generate map if it doesn't exist
-    if not os.path.exists(map_path):
+    # Generate or regenerate the map. The cached HTML is rebuilt when
+    # it doesn't exist yet OR when it predates the basemap-switcher
+    # embed (sentinel `__SH_BASEMAP_CONFIG`). Same logic the data-map
+    # route uses so the two iframes stay feature-aligned.
+    needs_regen = not os.path.exists(map_path)
+    if not needs_regen:
+        try:
+            with open(map_path, "r", encoding="utf-8", errors="ignore") as f:
+                head = f.read(32768)
+            if "__SH_LAYER_BADGE" not in head:
+                needs_regen = True
+        except OSError:
+            needs_regen = True
+
+    if needs_regen:
         print(f"[ML Map] Generating map for {week_id}...")
         try:
-            visualize_ml_map.create_ml_anomaly_map(ml_dir, week_id, map_path)
+            visualize_ml_map.create_ml_anomaly_map(
+                ml_dir,
+                week_id,
+                map_path,
+                mapbox_token=os.environ.get("MAPBOX_TOKEN")
+                or os.environ.get("SMARTHARVEST_MAPBOX_TOKEN", ""),
+            )
         except Exception as e:
             print(f"[ML Map] Error: {e}")
             import traceback

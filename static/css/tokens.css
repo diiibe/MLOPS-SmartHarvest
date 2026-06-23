@@ -1,0 +1,228 @@
+/*
+ * Design tokens — distilled from `diiibe/landslide-app`.
+ *
+ * The original design defines a warm-naturalistic palette that holds up
+ * in either light or dark mode by overriding token values per
+ * `data-theme`. SmartHarvest defaults to dark, so the dark values live
+ * in `:root` and the light theme is the override branch — the inverse
+ * of landslide-app's source, but the same tokens.
+ */
+
+:root {
+    /* Geometry */
+    --topbar-h: 44px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+
+    /* Type stack — same as landslide-app */
+    --font-stack: system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-numeric: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Easings — only two, used everywhere */
+    --e-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --e-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* ────────── DARK (default) — landslide-app dark values ────────── */
+    /* Canvas pulled a touch darker than landslide-app's `#1A1814`
+       so elevated cards stand out more clearly with a deeper
+       shadow underneath. */
+    --c-bg-linen:     #14110D;
+    --c-surface:      #25221C;
+    --c-surface-soft: #2C2820;
+    --c-border:       #3A352A;
+    --c-border-soft:  #322E25;
+
+    /* Card / button / overlay elevation. The dashboard now reads
+       three depth layers — base canvas, sidebar cards, floating
+       overlays — and each step gets a deeper shadow so the lift
+       is unambiguous against the deeper `--c-bg-linen`. */
+    --shadow-card:    0 6px 18px rgba(0, 0, 0, 0.55),
+                      0 2px 4px rgba(0, 0, 0, 0.45);
+    --shadow-btn:     0 8px 22px rgba(0, 0, 0, 0.55),
+                      0 2px 6px rgba(0, 0, 0, 0.40);
+    --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.65),
+                      0 4px 10px rgba(0, 0, 0, 0.50);
+
+    --c-text:         #ECE4D2;
+    --c-text-soft:    #9C988B;
+    --c-text-muted:   #7E7B6E;
+
+    /* Susceptibility ramp (invariant across themes) — repurposed for
+       SmartHarvest as a vigour ramp. */
+    --c-ramp-0: #E8F0D8;
+    --c-ramp-1: #8BB26B;
+    --c-ramp-2: #D9A441;
+    --c-ramp-3: #D25524;
+    --c-ramp-4: #7A1F10;
+
+    /* Per-section accents — dark-mode values from landslide-app */
+    --c-russet:        #E07A66;   --c-russet-stripe:    #D25524;
+    --c-russet-bg:     #271713;   --c-russet-bg-alt:    #2A1C18;
+    --c-russet-row:    #3F2520;
+
+    --c-terracotta:    #E08B6E;   --c-terracotta-stripe:#C26B45;
+    --c-terracotta-bg: #271810;
+
+    --c-ochre:         #E2B95C;   --c-ochre-stripe:     #C09137;
+    --c-ochre-bg:      #251F12;   --c-ochre-row:        #3A2F1A;
+
+    --c-forest:        #7FB58A;   --c-forest-stripe:    #5A8866;
+    --c-forest-bg:     #182019;   --c-forest-row:       #2D3A2F;
+
+    --c-sage:          #A8BD9A;   --c-sage-bg:          #1A1F18;
+
+    --c-slate:         #91ABBE;   --c-slate-stripe:     #6E8DA0;
+    --c-slate-bg:      #161D24;   --c-slate-row:        #2A343C;
+
+    --c-view:          #9DBADD;   --c-view-stripe:      #6F8FB8;
+    --c-view-bg:       #1A1F27;   --c-view-row:         #2C353F;
+
+    --c-group-head-bg:     #1F1B14;
+    --c-group-head-border: #2F2A1F;
+
+    color-scheme: dark;
+}
+
+/* Optional light theme — mirror of landslide-app's default. The page
+   tinker panel can flip the document between dark and light by setting
+   `data-theme` on <html>; everything below this comment is the warm
+   linen variant. */
+[data-theme="light"] {
+    --c-bg-linen:     #F5EEDD;
+    --c-surface:      #FDFAF0;
+    --c-surface-soft: #F1EADB;
+    --c-border:       #E0D7BF;
+    --c-border-soft:  #E8E2D5;
+
+    --c-text:         #23261F;
+    --c-text-soft:    #7A7A6E;
+    --c-text-muted:   #5E5E54;
+
+    --c-russet:        #7A1F10;   --c-russet-stripe:    #7A1F10;
+    --c-russet-bg:     #F7ECE5;   --c-russet-bg-alt:    #FAF4EE;
+    --c-russet-row:    #E8D0C6;
+
+    --c-terracotta:    #B14615;   --c-terracotta-stripe:#D25524;
+    --c-terracotta-bg: #FBF1E9;
+
+    --c-ochre:         #8A6A1E;   --c-ochre-stripe:     #D9A441;
+    --c-ochre-bg:      #FCF7E8;   --c-ochre-row:        #E8DDB8;
+
+    --c-forest:        #2F5D3A;   --c-forest-stripe:    #2F5D3A;
+    --c-forest-bg:     #F6FAF2;   --c-forest-row:       #D9E4CF;
+
+    --c-sage:          #8AA67B;   --c-sage-bg:          #F3F7EE;
+
+    --c-slate:         #3E5E72;   --c-slate-stripe:     #6B8EA3;
+    --c-slate-bg:      #F1F5F8;   --c-slate-row:        #D5DEE5;
+
+    --c-view:          #3E5E8A;   --c-view-stripe:      #7A99BE;
+    --c-view-bg:       #F6F9FC;   --c-view-row:         #E1E9F3;
+
+    --c-group-head-bg:     #F1EADB;
+    --c-group-head-border: #DCD2B9;
+
+    color-scheme: light;
+}
+
+/* ────────── Palette presets ──────────────────────────────────────
+   The Settings card flips the document's `data-palette` attribute
+   to swap the primary accent without touching layout. Each preset
+   overrides the same `--c-accent` / `--c-accent-stripe` /
+   `--c-accent-bg` triplet plus the legacy `--c-ochre*` aliases so
+   any existing rule that references the ochre family follows the
+   chosen palette automatically.
+
+   Defaults map to the new "vino" palette (deep wine red); the
+   "ocra" preset preserves the previous landslide-app values for
+   users who prefer the original look. */
+:root {
+    --c-accent:        #B85B6A;
+    --c-accent-stripe: #6B1D2A;
+    --c-accent-bg:     #1F1115;
+    --c-accent-row:    #3A1B22;
+}
+:root,
+[data-palette="vino"] {
+    --c-accent:        #B85B6A;
+    --c-accent-stripe: #6B1D2A;
+    --c-accent-bg:     #1F1115;
+    --c-accent-row:    #3A1B22;
+    --c-ochre:         #B85B6A;
+    --c-ochre-stripe:  #6B1D2A;
+    --c-ochre-bg:      #1F1115;
+    --c-ochre-row:     #3A1B22;
+}
+[data-palette="ocra"] {
+    --c-accent:        #E2B95C;
+    --c-accent-stripe: #C09137;
+    --c-accent-bg:     #251F12;
+    --c-accent-row:    #3A2F1A;
+    --c-ochre:         #E2B95C;
+    --c-ochre-stripe:  #C09137;
+    --c-ochre-bg:      #251F12;
+    --c-ochre-row:     #3A2F1A;
+}
+[data-palette="salvia"] {
+    --c-accent:        #A8BD9A;
+    --c-accent-stripe: #5A8866;
+    --c-accent-bg:     #18201A;
+    --c-accent-row:    #2D3A2F;
+    --c-ochre:         #A8BD9A;
+    --c-ochre-stripe:  #5A8866;
+    --c-ochre-bg:      #18201A;
+    --c-ochre-row:     #2D3A2F;
+}
+[data-palette="notte"] {
+    --c-accent:        #91ABBE;
+    --c-accent-stripe: #6E8DA0;
+    --c-accent-bg:     #161D24;
+    --c-accent-row:    #2A343C;
+    --c-ochre:         #91ABBE;
+    --c-ochre-stripe:  #6E8DA0;
+    --c-ochre-bg:      #161D24;
+    --c-ochre-row:     #2A343C;
+}
+
+/* Background depth presets — drive the canvas darkness. The
+   default `standard` matches the existing `#14110D`. */
+[data-bg-depth="deep"] {
+    --c-bg-linen: #0C0907;
+}
+[data-bg-depth="standard"] {
+    --c-bg-linen: #14110D;
+}
+[data-bg-depth="soft"] {
+    --c-bg-linen: #1C1813;
+}
+
+/* Shadow strength presets — control the elevation depth. */
+[data-shadows="subtle"] {
+    --shadow-card:    0 2px 6px rgba(0, 0, 0, 0.35);
+    --shadow-btn:     0 3px 8px rgba(0, 0, 0, 0.35);
+    --shadow-overlay: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+[data-shadows="standard"] {
+    --shadow-card:    0 6px 18px rgba(0, 0, 0, 0.55),
+                      0 2px 4px rgba(0, 0, 0, 0.45);
+    --shadow-btn:     0 8px 22px rgba(0, 0, 0, 0.55),
+                      0 2px 6px rgba(0, 0, 0, 0.40);
+    --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.65),
+                      0 4px 10px rgba(0, 0, 0, 0.50);
+}
+[data-shadows="heavy"] {
+    --shadow-card:    0 10px 28px rgba(0, 0, 0, 0.7),
+                      0 3px 6px rgba(0, 0, 0, 0.55);
+    --shadow-btn:     0 12px 30px rgba(0, 0, 0, 0.7),
+                      0 3px 8px rgba(0, 0, 0, 0.50);
+    --shadow-overlay: 0 18px 44px rgba(0, 0, 0, 0.78),
+                      0 6px 14px rgba(0, 0, 0, 0.60);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

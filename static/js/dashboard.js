@@ -1,3 +1,48 @@
+// Variable chip tooltips — click to pin the definition open so the
+// user can read it without keeping the cursor still. A second click
+// (or a click anywhere outside the chip) unpins. Hover and keyboard
+// focus continue to show the bubble transiently via CSS.
+//
+// The tooltip itself is anchored to `.sensor-row` (CSS), so all
+// chips in the same sensor group share a single centred anchor.
+// That removes the need for the JS edge-flip logic the previous
+// per-chip implementation needed.
+(function () {
+    function init() {
+        var chips = document.querySelectorAll(".sensor-row__chips .chip[data-tooltip]");
+        if (!chips.length) return;
+
+        chips.forEach(function (chip) {
+            chip.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var pinned = chip.dataset.pinned === "true";
+                document
+                    .querySelectorAll('.chip[data-pinned="true"]')
+                    .forEach(function (c) { c.dataset.pinned = "false"; });
+                chip.dataset.pinned = pinned ? "false" : "true";
+            });
+            chip.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    chip.click();
+                }
+            });
+        });
+
+        document.addEventListener("click", function () {
+            document
+                .querySelectorAll('.chip[data-pinned="true"]')
+                .forEach(function (c) { c.dataset.pinned = "false"; });
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
+    }
+})();
+
 function switchTab(tabName) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.getElementById('map-view').style.display = 'none';

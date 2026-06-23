@@ -321,6 +321,25 @@ def download_satellite_data(
     results = {}
     drive_tasks = {}
 
+    # Bands GEE is supposed to ship inside each CSV. When the export
+    # path returns rows but the column for one of these bands is
+    # entirely missing — typically because every sampled pixel was
+    # masked and GEE drops the all-null column from the CSV — the
+    # downstream merge silently keeps the row count but loses every
+    # value (cormor_2 hit this on 2026-05-04). Guard against that by
+    # detecting the missing-column case and re-downloading via
+    # smaller chunks before accepting the result.
+    expected_bands = {
+        "S2": ["NDVI", "NDWI", "MNDWI", "NDRE", "IRECI", "S2REP"],
+        "S1": ["VH", "VV", "Ratio"],
+        "L8": ["LST"],
+        "SRTM": ["Slope"],
+    }
+
+    def _missing_bands(df, label):
+        """Return the band columns expected for `label` but absent in `df`."""
+        return [b for b in expected_bands.get(label, []) if b not in df.columns]
+
     for label, fc in [("S2", s2_fc), ("S1", s1_fc), ("L8", l8_fc), ("SRTM", srtm_fc)]:
         df = None
 
@@ -336,12 +355,49 @@ def download_satellite_data(
             print(f"[{label}] Direct download failed. Trying chunked download...")
             df = _download_fc_chunked(fc, label, chunk_days=None)
 
+        # Defensive: even when the download succeeds row-count-wise,
+        # GEE may have dropped band columns because every value was
+        # null. Detect that and try chunked download with a smaller
+        # window — small chunks often surface the few clear-pixel
+        # dates GEE missed in the all-image direct path.
+        if (
+            df is not None
+            and len(df) > 0
+            and label in ("S2", "S1", "L8")
+        ):
+            missing = _missing_bands(df, label)
+            if missing:
+                print(
+                    f"[{label}] ⚠ CSV missing band columns {missing} — likely "
+                    "all values were masked. Retrying with chunked download "
+                    "at a smaller window."
+                )
+                small_chunk = 3 if label == "S2" else 7
+                df_retry = _download_fc_chunked(fc, label, chunk_days=small_chunk)
+                if df_retry is not None and len(df_retry) > 0:
+                    still_missing = _missing_bands(df_retry, label)
+                    if still_missing:
+                        print(
+                            f"[{label}] ✗ Retry still missing {still_missing}. "
+                            "Saving what we have but the dashboard overlays for "
+                            "those bands will be empty."
+                        )
+                    df = df_retry
+
         # Strategy 3: Drive export fallback
         if df is not None and len(df) > 0:
             path = os.path.join(output_dir, f"_tmp_{label}_{project_name_safe}.csv")
             df.to_csv(path, index=False)
             results[label] = path
             print(f"[{label}] ✓ Download successful: {len(df)} rows saved to {path}")
+            still_missing = _missing_bands(df, label)
+            if still_missing:
+                print(
+                    f"[{label}] ⚠ NOTE: bands {still_missing} are entirely "
+                    "absent from the CSV. Re-running the project (e.g. via "
+                    "the dashboard's 'New Project' or `tools.refetch_satellite`) "
+                    "should recover them once GEE returns clear-pixel data."
+                )
         else:
             # Start Drive export as final fallback
             print(f"[{label}] All download strategies failed. Starting Drive export...")

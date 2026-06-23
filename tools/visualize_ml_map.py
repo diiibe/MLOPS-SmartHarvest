@@ -27,7 +27,7 @@ def _parse_coords(geo_str):
         return [0, 0]
 
 
-def create_ml_anomaly_map(ml_dir, week_id, output_file):
+def create_ml_anomaly_map(ml_dir, week_id, output_file, mapbox_token=None):
     """
     Create dedicated ML anomaly detection map for a specific week.
 
@@ -35,6 +35,10 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
         ml_dir: Path to ml_weekly directory
         week_id: Week ID (e.g., '2025-W45')
         output_file: Path for output HTML
+        mapbox_token: Public Mapbox token. When supplied the four
+            landslide-app basemap styles + the panel switcher are
+            injected; when omitted the hard-coded
+            `Esri.WorldImagery` stays untouched.
 
     Returns:
         str: Path to output HTML, or None on error
@@ -65,10 +69,20 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     center_lat = (lat_min + lat_max) / 2
     center_lon = (lon_min + lon_max) / 2
 
+    # Canvas renderer keeps the cluster + heatmap pass cheap when
+    # the week is dense (~5 000 markers); SVG was creating thousands
+    # of DOM nodes on every layer toggle. Initialise without a
+    # built-in tile layer so the explicit base-layer registration
+    # below puts every basemap into the same Folium layer control
+    # as a single-active radio group.
+    from tools.visualize_data_map import _add_basemap_layers
+
     m = folium.Map(
         location=[center_lat, center_lon],
-        tiles="Esri.WorldImagery",
+        tiles=None,
+        prefer_canvas=True,
     )
+    _add_basemap_layers(m, mapbox_token)
     if lat_min != lat_max or lon_min != lon_max:
         m.fit_bounds([[lat_min, lon_min], [lat_max, lon_max]], padding=(20, 20))
     else:
@@ -169,24 +183,114 @@ def create_ml_anomaly_map(ml_dir, week_id, output_file):
     legend_html = _create_legend(week_id)
     m.get_root().html.add_child(folium.Element(legend_html))
 
-    # Dark mode CSS
+    # Layer panel — same shell + eyebrow + spacing tokens as the
+    # data-map iframe and the basemap / week panels, with a
+    # "Layers" eyebrow (the ML iframe's overlays are clusters +
+    # heatmap, not variables, so the more generic word reads true).
     dark_css = """
     <style>
-        .leaflet-control-layers {
-            background-color: rgba(25,25,25,0.92) !important;
-            color: #eee !important;
-            border: none !important;
-            border-radius: 8px !important;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-        }
-        .leaflet-control-layers-base label,
-        .leaflet-control-layers-overlays label {
-            color: #eee !important;
+        .leaflet-control-layers.leaflet-control-layers-expanded {
+            background: #25221C !important;
+            color: #ECE4D2 !important;
+            border: 1px solid #3A352A !important;
+            border-radius: 6px !important;
+            box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.45) !important;
+            padding: 6px 10px 8px !important;
+            font-family: system-ui, -apple-system, "Helvetica Neue",
+                         Helvetica, Arial, sans-serif !important;
             font-size: 11px !important;
+            max-height: 62vh !important;
+            width: 240px !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+            margin-bottom: 3px !important;
+        }
+        .leaflet-control-layers-base { display: none !important; }
+        .leaflet-control-layers-overlays { display: block !important; }
+        .leaflet-control-layers-overlays::before {
+            content: "Layers";
+            display: block;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: #9C988B;
+            text-align: center;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #322E25;
+            margin-bottom: 6px;
+        }
+        .leaflet-control-layers-overlays label {
+            display: flex !important;
+            align-items: center;
+            gap: 7px;
+            margin: 0 !important;
+            padding: 2px 0;
+            font-size: 11px !important;
+            color: #C9C5B5 !important;
+            font-weight: 500;
+            line-height: 1.3;
+            transition: color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .leaflet-control-layers-overlays label:hover {
+            color: #ECE4D2 !important;
+        }
+        .leaflet-control-layers-overlays label > span {
+            flex: 1 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .leaflet-control-layers-overlays input[type="checkbox"] {
+            accent-color: #C09137;
+            margin: 0;
+            flex: 0 0 auto;
+            cursor: pointer;
+        }
+        .leaflet-control-layers-toggle { display: none !important; }
+        .leaflet-control-layers::-webkit-scrollbar { width: 6px; }
+        .leaflet-control-layers::-webkit-scrollbar-thumb {
+            background: #322E25 !important;
+            border-radius: 3px;
+        }
+        .leaflet-control-layers::-webkit-scrollbar-track {
+            background: transparent;
         }
     </style>
     """
     m.get_root().html.add_child(folium.Element(dark_css))
+
+    # SmartHarvest popup cards + layer-control section titles. Reuses
+    # the same blocks the data-map iframe injects so the two iframes
+    # stay visually identical.
+    from tools.visualize_data_map import _SH_POPUP_CSS
+    from tools.basemap_switcher import basemap_switcher_html, panel_collapse_html
+
+    m.get_root().html.add_child(folium.Element(_SH_POPUP_CSS))
+    # Same Map / Variables split as the data map: standalone floating
+    # panel for the basemap, Folium's layer control for the cluster /
+    # heatmap overlays.
+    switcher = basemap_switcher_html(mapbox_token, default="satellite")
+    if switcher:
+        m.get_root().html.add_child(folium.Element(switcher))
+
+    # Shared collapse toggle + ochre `border-left` accent on every
+    # floating panel. The Folium LayerControl on this iframe carries
+    # cluster / heatmap toggles, so the eyebrow reads "Layers"
+    # instead of "Variables".
+    m.get_root().html.add_child(
+        folium.Element(panel_collapse_html(layers_label="Layers"))
+    )
+
+    # Self-heal sentinel — `app.py /ml_map` regenerates the cached
+    # HTML when this string is missing from the head. Bumped to
+    # `__SH_POPUP_CARDS` for the popup-restyle pass; the layer-titles
+    # JS block already sets `window.__SH_POPUP_CARDS = true`, but we
+    # also emit the literal here so a 32 KB head-scan reliably finds
+    # it without depending on script parse order.
+    m.get_root().html.add_child(folium.Element(
+        "<script>window.__SH_LAZY_LAYERS = true; window.__SH_POPUP_CARDS = true; window.__SH_WEEKLY_NAV = true; window.__SH_WEEKLY_LEGEND = true; window.__SH_LEGEND_ADAPT = true; window.__SH_LEGEND_BULK = true; window.__SH_MAXPX_FIX = true; window.__SH_LAYER_BADGE = true;</script>"
+    ))
 
     # Save map
     m.save(output_file)
@@ -227,22 +331,27 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
     # Size by pixel count (logarithmic scale)
     marker_size = 8 + int(np.log1p(pixel_count) * 2)
 
-    # Popup HTML
-    popup_html = f"""
-    <div style="font-family: Arial; font-size: 12px; min-width: 200px;">
-        <b style="font-size: 14px;">Cluster {cluster_label}</b><br>
-        <hr style="margin: 5px 0;">
-        <b>Week:</b> {week_id}<br>
-        <b>Track ID:</b> {track_id}<br>
-        <b>Status:</b> <span style="background-color: {fill_color}; padding: 2px 6px; border-radius: 3px; color: black; font-weight: bold;">{status.upper()}</span><br>
-        <b>Anomalous:</b> {'Yes' if is_anomalous else 'No'}<br>
-        <b>Outlier Score:</b> {outlier_score:.3f}<br>
-        <b>Pixel Count:</b> {pixel_count}<br>
-        <b>Location:</b> {lat:.5f}°N, {lon:.5f}°E<br>
-        <hr style="margin: 5px 0;">
-        <small style="color: #888;">Click for details in sidebar</small>
-    </div>
-    """
+    # Map cluster_status → SmartHarvest badge class
+    status_key = (status or "unknown").lower()
+    badge_cls = {
+        "new": "sh-badge sh-badge--new",
+        "continued": "sh-badge sh-badge--continued",
+    }.get(status_key, "sh-badge sh-badge--unknown")
+    status_label = (status or "unknown").upper()
+
+    popup_html = (
+        '<div class="sh-popup">'
+        f'<div class="sh-popup__title">Cluster #{cluster_label}</div>'
+        f'<div class="sh-popup__sub">Week {week_id} &middot; Track #{track_id}</div>'
+        '<table class="sh-popup__kv">'
+        f'<tr><td>Status</td><td><span class="{badge_cls}">{status_label}</span></td></tr>'
+        f'<tr><td>Anomalous</td><td>{"Yes" if is_anomalous else "No"}</td></tr>'
+        f'<tr><td>Outlier score</td><td>{outlier_score:.3f}</td></tr>'
+        f'<tr><td>Pixel count</td><td>{int(pixel_count):,}</td></tr>'
+        f'<tr><td>Lat / Lon</td><td>{lat:.5f}° / {lon:.5f}°</td></tr>'
+        '</table>'
+        '</div>'
+    )
 
     folium.CircleMarker(
         location=[lat, lon],
@@ -252,7 +361,7 @@ def _add_cluster_marker(feature_group, cluster, week_id, is_anomalous):
         fill_color=fill_color,
         fill_opacity=0.7,
         weight=2,
-        popup=folium.Popup(popup_html, max_width=250),
+        popup=folium.Popup(popup_html, max_width=260),
         tooltip=f"Cluster {cluster_label} (Track {track_id})",
     ).add_to(feature_group)
 

@@ -1,3 +1,5 @@
+@import url("./tokens.css");
+
 * {
     box-sizing: border-box;
 }
@@ -5,9 +7,11 @@
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    font-family: var(--font-stack);
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--c-bg-linen);
+    color: var(--c-text);
 }
 
 /* Index page */
@@ -453,9 +457,13 @@ body {
 
 .page-dashboard .card h3 {
     margin-top: 0;
-    color: #fff;
-    border-bottom: 2px solid #f1c40f;
-    padding-bottom: 10px;
+    color: var(--c-text);
+    /* The long ochre rule below was a legacy `border-bottom: 2px solid
+       #f1c40f` from the pre-token design. Kill it here so the
+       landslide-style centred animated underline (`::after` defined
+       in the design layer) is the only hairline under the title. */
+    border-bottom: 0;
+    padding-bottom: 6px;
     font-size: 14px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -979,4 +987,2274 @@ body {
 .page-dashboard #report-view td[style*="text-align: right"] {
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Landslide-derived design layer
+   ──────────────────────────────────────────────────────────────────
+   The rules above are the legacy per-page styles. Everything below
+   pulls SmartHarvest into the design language distilled from
+   `diiibe/landslide-app`: shared font stack, naturalistic dark
+   palette, button/input micro-interactions, eyebrow section
+   headers with animated underline, KV row hover effects.
+
+   These rules are scoped to top-level surfaces and shared
+   primitives (button, input, h1/h2/h3 in known containers) so
+   they re-paint without disturbing the existing layout.
+*/
+
+button, input, select, textarea {
+    font-family: var(--font-stack);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────
+   Landslide's IconButton + small-button language. Transparent at
+   rest, linen wash + 1px border on hover, micro-translate, brief
+   scale punch on active. Easings come from the tokens file. */
+.page-index button,
+.page-dashboard button:not(.tab):not(.timeline-btn) {
+    background: transparent;
+    color: var(--c-text);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        box-shadow 180ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.page-index button:hover,
+.page-dashboard button:not(.tab):not(.timeline-btn):hover {
+    background: var(--c-surface);
+    border-color: var(--c-border);
+    color: var(--c-text);
+    transform: translateY(-1px);
+}
+
+.page-index button:active,
+.page-dashboard button:not(.tab):not(.timeline-btn):active {
+    transform: translateY(0) scale(0.96);
+    transition-duration: 90ms;
+}
+
+.page-index button:focus-visible,
+.page-dashboard button:not(.tab):not(.timeline-btn):focus-visible {
+    outline: 0;
+    border-color: var(--c-ochre);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ochre) 22%, transparent);
+}
+
+.page-index button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Variant: success / primary — the "Start Analysis" CTA */
+.page-index .btn-success,
+.page-dashboard .btn-download:not(:hover) {
+    background: var(--c-russet-bg);
+    color: var(--c-russet);
+    border-color: var(--c-russet-stripe);
+}
+
+.page-index .btn-success:hover,
+.page-dashboard .btn-download:hover {
+    background: color-mix(in srgb, var(--c-russet-bg) 70%, var(--c-russet) 30%);
+    border-color: var(--c-russet);
+    color: var(--c-text);
+}
+
+.page-index .btn-secondary {
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border-soft);
+}
+
+.page-index .btn-secondary:hover {
+    color: var(--c-text);
+    border-color: var(--c-border);
+    background: var(--c-surface);
+}
+
+.page-index .btn-new {
+    background: transparent;
+    color: var(--c-forest);
+    border: 1px solid var(--c-forest-stripe);
+}
+
+.page-index .btn-new:hover {
+    background: var(--c-forest-bg);
+    color: var(--c-forest);
+    border-color: var(--c-forest);
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────
+   Mirrors landslide-app's SearchLocality: 1px border, subtle bg,
+   focus-within glow tinted in ochre to match the warm palette. */
+.page-index input[type="text"],
+.page-index input[type="date"],
+.page-index input[type="number"],
+.page-index select,
+#sidebar select,
+#sidebar input[type="text"] {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    color: var(--c-text);
+    padding: 8px 10px;
+    transition:
+        border-color 180ms var(--e-quart),
+        background 180ms var(--e-quart),
+        box-shadow 180ms var(--e-quart);
+}
+
+.page-index input:hover,
+.page-index select:hover {
+    border-color: color-mix(in srgb, var(--c-border) 60%, var(--c-ochre) 40%);
+}
+
+.page-index input:focus,
+.page-index select:focus {
+    outline: 0;
+    border-color: var(--c-ochre);
+    background: var(--c-surface-soft);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-ochre) 18%, transparent);
+}
+
+/* ── Sidebars + base surfaces ─────────────────────────────────── */
+.page-index #sidebar,
+.page-dashboard #sidebar {
+    background: var(--c-surface);
+    border-right: 1px solid var(--c-border);
+    color: var(--c-text);
+    box-shadow: none;
+}
+
+/* Density pass on the dashboard sidebar — widen the column slightly,
+   tighten paddings, and let the cards stretch to fill the available
+   height instead of clustering at the top with empty space below. */
+.page-dashboard #sidebar {
+    width: 300px;
+}
+
+.page-dashboard .header {
+    padding: 18px 18px 16px;
+    background: var(--c-surface-soft);
+    border-bottom: 1px solid var(--c-border-soft);
+    text-align: center;
+}
+
+.page-dashboard .header h2 {
+    font-size: 15px;
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    text-align: center;
+}
+
+.page-dashboard .header p {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--c-text-soft);
+    opacity: 1;
+    margin-top: 4px;
+    text-align: center;
+}
+
+.page-dashboard .content {
+    padding: 12px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.page-dashboard #sidebar .card {
+    margin-bottom: 0;
+    padding: 8px 12px 10px;
+}
+
+.page-dashboard #sidebar .card h3 {
+    /* Tighter eyebrow header — the legacy rule below adds padding-bottom
+       and an animated underline; we just shrink the bottom margin so
+       cards stack denser without losing the divider. */
+    margin: 0 auto 6px;
+}
+
+.page-dashboard #sidebar .stat-list .stat-item {
+    padding: 3px 0;
+}
+
+.page-dashboard #sidebar .stat-list .stat-label { font-size: 11.5px; }
+.page-dashboard #sidebar .stat-list .stat-val   { font-size: 12.5px; }
+
+.page-dashboard #sidebar .stat-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+/* All sidebar cards stack at intrinsic height — no flex-grow on
+   the sensors-card, no flex-shrink on the others. The earlier
+   stretch rule was causing rows in the sensors-card to overflow
+   into the sibling Export card whenever the sidebar got tall
+   enough; reverting to natural block flow inside `.content`'s
+   scroll container fixes the bleed. */
+.page-dashboard .content > .card { flex: 0 0 auto; }
+
+/* Project Stats — plain key / value list. No per-row coloured
+   stripes, no gradient progress bars, no hover transforms. The
+   card frames the data; the data carries itself. The `.card.stats-
+   card` chain bumps the specificity above the global `.page-
+   dashboard #sidebar .card` rule (same number of classes but later
+   in cascade order matters less than specificity for these). */
+.page-dashboard #sidebar .card.stats-card {
+    /* Drop the ochre left stripe inherited from `.card` so the
+       Project Stats panel reads as a regular bordered container,
+       not a decorative ribbon. */
+    border-left: 1px solid var(--c-border-soft);
+    padding: 14px 16px;
+}
+
+.page-dashboard #sidebar .card.stats-card h3 {
+    /* Override the global eyebrow / animated-underline treatment
+       for sidebar h3s. Plain title cap, no letter-spacing tricks,
+       no `::after` ochre underline. */
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+    color: var(--c-text);
+    padding-bottom: 0;
+    transition: none;
+}
+.page-dashboard #sidebar .card.stats-card h3::after {
+    content: none;
+}
+.page-dashboard #sidebar .card.stats-card:hover h3 {
+    letter-spacing: 0;
+    color: var(--c-text);
+}
+
+.page-dashboard #sidebar .stats-card .stat-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item {
+    --row-accent: initial;
+    --row-accent-stripe: initial;
+    --row-tint: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 0;
+    border: 0;
+    border-top: 1px solid var(--c-border-soft);
+    border-radius: 0;
+    background: transparent;
+    transition: none;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:last-child {
+    padding-bottom: 0;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item:hover,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-label,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-val,
+.page-dashboard #sidebar .stats-card .stat-item:hover .stat-sensor__label {
+    background: transparent;
+    color: var(--c-text);
+    transform: none;
+    border-color: var(--c-border-soft);
+}
+
+.page-dashboard #sidebar .stats-card .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--c-text-muted);
+}
+
+.page-dashboard #sidebar .stats-card .stat-val {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* Window row — label + dash-separated date range on one line. */
+.page-dashboard #sidebar .stats-card .stat-item--window {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 12px;
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--c-text-muted);
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text);
+    font-weight: 500;
+    white-space: nowrap;
+    text-align: right;
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__date {
+    color: var(--c-text);
+}
+.page-dashboard #sidebar .stats-card .stat-item--window .stat-window__sep {
+    color: var(--c-text-muted);
+    font-weight: 400;
+    font-size: 11px;
+}
+
+/* Sensor row — name on the left, kept / total on the right,
+   neutral progress bar below, plain caption underneath.
+   No per-sensor colour, no gradient fill, no entrance animation. */
+.page-dashboard #sidebar .stats-card .stat-item--sensor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s2"],
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="s1"],
+.page-dashboard #sidebar .stats-card .stat-item--sensor[data-source="landsat"] {
+    --row-accent: var(--c-text);
+    --row-accent-stripe: var(--c-text);
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--c-text);
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__counts {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__kept {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--c-text);
+    letter-spacing: 0;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__total {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 400;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar {
+    position: relative;
+    height: 3px;
+    border-radius: 0;
+    background: var(--c-border-soft);
+    overflow: hidden;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__bar-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--ratio, 0%);
+    background: var(--c-text-muted);
+    border-radius: 0;
+    transform-origin: left center;
+    animation: none;
+}
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-text-muted);
+    letter-spacing: 0;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-kept {
+    color: var(--c-text-muted);
+    font-weight: 500;
+}
+
+.page-dashboard #sidebar .stats-card .stat-item--sensor .stat-sensor__legend-cut {
+    color: var(--c-text-muted);
+}
+
+/* ── Sensors & Variables card ────────────────────────────────────
+   One row per sensor group: a coloured dot, sensor name, image
+   count on the right, then the variable chips wrapping below. The
+   accent comes from `data-accent` so the same row primitive can
+   render russet (S2), sage (S1), ochre (L8), or slate (SRTM). */
+.page-dashboard .sensors-card .sensor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.page-dashboard .sensor-row {
+    --accent: var(--c-text-soft);
+    --accent-bg: var(--c-surface-soft);
+    /* `position: relative` makes this the containing block for the
+       chip tooltips: each `.chip[data-tooltip]::after` opens
+       centred above this row rather than above the chip itself,
+       so all variables in a sensor group share the same anchor. */
+    position: relative;
+    padding: 6px 8px 8px;
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--accent-bg);
+    transition: filter 200ms var(--e-quart);
+}
+
+.page-dashboard .sensor-row:hover { filter: brightness(1.06); }
+
+/* Visible badge when a sensor row has been ingested (image_count > 0)
+   but every value column came back empty — typically the GEE export
+   dropped the band columns because every sampled pixel was masked.
+   The cormor_2 S2 regression left all six indices null after
+   ingestion, so we surface it explicitly instead of hiding behind
+   a quiet `data-available=false`. Tooltip explains the cause. */
+.page-dashboard .sensor-row[data-missing="true"] {
+    opacity: 0.85;
+}
+.page-dashboard .sensor-row[data-missing="true"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent,
+        transparent 6px,
+        color-mix(in srgb, var(--accent) 10%, transparent) 6px,
+        color-mix(in srgb, var(--accent) 10%, transparent) 12px
+    );
+    pointer-events: none;
+}
+.page-dashboard .sensor-row__missing {
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-russet);
+    background: color-mix(in srgb, var(--c-russet) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 45%, var(--c-border-soft));
+    border-radius: 3px;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+/* Top-of-dashboard banner shown when at least one sensor's columns
+   came back empty. Wine-red tinted shell so it reads as a warning,
+   not just info. The "Re-run project" button is the actionable
+   resolution path — links back to the new-project page where the
+   user can recreate the project with the same name + ROI + dates,
+   triggering the chunk-retry guard from c118a74. */
+.page-dashboard .data-missing-banner {
+    margin: 0 12px 12px;
+    padding: 14px 18px;
+    background: color-mix(in srgb, var(--c-russet) 14%, var(--c-surface-soft));
+    border: 1px solid color-mix(in srgb, var(--c-russet) 35%, var(--c-border));
+    border-left: 3px solid var(--c-russet);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+    display: grid;
+    gap: 10px;
+}
+.page-dashboard .data-missing-banner__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.page-dashboard .data-missing-banner__pill {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-russet);
+    background: color-mix(in srgb, var(--c-russet) 22%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 50%, var(--c-border));
+    padding: 3px 9px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.page-dashboard .data-missing-banner__title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--c-text);
+}
+.page-dashboard .data-missing-banner__body {
+    font-size: 12px;
+    color: var(--c-text-soft);
+    line-height: 1.55;
+}
+.page-dashboard .data-missing-banner__actions {
+    display: flex;
+    gap: 10px;
+}
+.page-dashboard .data-missing-banner__btn {
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    background: var(--c-russet);
+    border: 1px solid color-mix(in srgb, var(--c-russet) 70%, #000);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition:
+        background 180ms var(--e-quart),
+        transform 180ms var(--e-quart);
+}
+.page-dashboard .data-missing-banner__btn:hover {
+    background: color-mix(in srgb, var(--c-russet) 85%, #fff);
+    transform: translateY(-1px);
+}
+
+.page-dashboard .sensor-row[data-accent="russet"]      { --accent: var(--c-russet);      --accent-bg: var(--c-russet-bg); }
+.page-dashboard .sensor-row[data-accent="sage"]        { --accent: var(--c-sage);        --accent-bg: var(--c-sage-bg); }
+.page-dashboard .sensor-row[data-accent="ochre"]       { --accent: var(--c-ochre);       --accent-bg: var(--c-ochre-bg); }
+.page-dashboard .sensor-row[data-accent="slate"]       { --accent: var(--c-slate);       --accent-bg: var(--c-slate-bg); }
+
+.page-dashboard .sensor-row[data-available="false"] {
+    filter: grayscale(0.6) brightness(0.85);
+}
+
+.page-dashboard .sensor-row__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.page-dashboard .sensor-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+
+.page-dashboard .sensor-label {
+    flex: 1;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--c-text);
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard .sensor-count {
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+}
+
+.page-dashboard .sensor-row__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.page-dashboard .chip {
+    display: inline-flex;
+    align-items: center;
+    /* `position: static` here is intentional — the tooltip
+       (`::after`) needs to escape the chip's local stacking
+       context so it can anchor to the parent `.sensor-row`
+       (which is `position: relative`) and stay centred above the
+       whole sensor group instead of jumping per-chip. */
+    height: 18px;
+    padding: 0 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--c-border-soft) 65%);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--accent) 10%, var(--c-surface) 90%);
+    color: var(--c-text);
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: default;
+    transition:
+        background 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        color 150ms var(--e-quart);
+}
+
+.page-dashboard .chip[data-tooltip] { cursor: pointer; }
+
+.page-dashboard .chip:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, var(--c-surface) 84%);
+    border-color: var(--accent);
+}
+
+.page-dashboard .chip:focus-visible {
+    outline: 0;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Tooltip on the variable chips. Pure-CSS bubble that anchors above
+   the chip on hover, focus, or after a click (the click toggle is
+   added by `static/js/dashboard.js` so the tooltip can be pinned
+   when the user wants to read longer definitions). The bubble sits
+   in the same dark surface family as the rest of the chrome and
+   stays inside the sidebar's overflow area thanks to the high
+   z-index. */
+.page-dashboard .chip[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    /* Anchor side switches via `data-align` written by dashboard.js
+       on hover/focus so the bubble never slips off the viewport.
+       Default `center` keeps it symmetric for chips that have room
+       on both sides. */
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(2px);
+    width: max-content;
+    max-width: 240px;
+    padding: 8px 10px;
+    background: #121212;
+    color: #d6d6d6;
+    border: 1px solid #2e2e2e;
+    border-radius: 6px;
+    font-family: var(--font-stack);
+    font-size: 11.5px;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    text-align: left;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        opacity 120ms var(--e-quart),
+        transform 160ms var(--e-expo),
+        visibility 120ms;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    z-index: 50;
+}
+
+.page-dashboard .chip[data-tooltip]:hover::after,
+.page-dashboard .chip[data-tooltip]:focus-visible::after,
+.page-dashboard .chip[data-tooltip][data-pinned="true"]::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* When any chip in a row is pinned, suppress the hover/focus
+   tooltip on its siblings — otherwise the bubble of a hovered
+   sibling stacks on top of the pinned bubble (both anchor to the
+   same `.sensor-row`) and the user appears to "lose" the pin.
+   `:has()` is supported on every modern browser SmartHarvest
+   targets; the rule is a no-op on older engines so the legacy
+   stacking still works as a fallback. */
+.page-dashboard .sensor-row:has(.chip[data-pinned="true"]) .chip[data-tooltip]:not([data-pinned="true"]):hover::after,
+.page-dashboard .sensor-row:has(.chip[data-pinned="true"]) .chip[data-tooltip]:not([data-pinned="true"]):focus-visible::after {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Pinned chip is the "active" variable — light it up so the user
+   can see at a glance which chip's tooltip is currently open. The
+   glow uses the chip's own `--accent` (set by `.sensor-row[data-
+   accent]`), so S2 chips burn russet, S1 chips sage, etc. */
+.page-dashboard .chip[data-pinned="true"] {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 30%, var(--c-surface));
+    border-color: var(--accent);
+    box-shadow:
+        0 0 0 1px var(--accent),
+        0 0 12px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* The previous per-chip `data-align` variants are obsolete: with
+   the tooltip anchored to `.sensor-row` (300 px sidebar - 24 px
+   card padding = ~270 px row width), the 240 px bubble always
+   fits inside the column without spilling off the viewport. */
+
+/* ── Export card ─────────────────────────────────────────────────
+   Two compact rows instead of stacked chunky buttons. Keeps the
+   primary action visible without eating the column. */
+.page-dashboard .export-card .export-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.page-dashboard .export-card .btn-download {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    padding: 7px 10px;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    background: var(--c-russet-bg);
+    color: var(--c-russet);
+    border: 1px solid var(--c-russet-stripe);
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.page-dashboard .export-card .btn-download:hover {
+    background: color-mix(in srgb, var(--c-russet-bg) 70%, var(--c-russet) 30%);
+    color: var(--c-text);
+    border-color: var(--c-russet);
+    transform: translateY(-1px);
+}
+
+.page-dashboard .export-card .btn-download:active { transform: translateY(0) scale(0.96); }
+
+.page-dashboard .export-card .btn-download__main {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.page-dashboard .export-card .btn-download__meta {
+    font-family: var(--font-numeric);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* /animate — Start New Project.
+   The footer button now reads as a deliberate exit point: a
+   forest-tinted surface with `--shadow-btn` elevation and an
+   inner glow that sweeps across on hover (a thin diagonal
+   highlight via `::before`, masked to the button's border-radius
+   with `overflow: hidden`). Hover lifts the button 2 px and
+   intensifies the shadow; active punches it back down with a
+   short scale step. The arrow `::after` slides 4 px to the right
+   on hover so the label gains directionality without needing
+   extra DOM. */
+.page-dashboard .btn-new {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: auto;
+    box-sizing: border-box;
+    margin: 0 14px 14px;
+    padding: 11px 16px;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--c-forest);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--c-forest-bg) 80%, var(--c-surface)) 0%,
+        var(--c-forest-bg) 100%
+    );
+    border: 1px solid color-mix(in srgb, var(--c-forest-stripe) 70%, var(--c-border));
+    border-radius: var(--radius-md);
+    box-shadow:
+        var(--shadow-btn),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition:
+        background 220ms var(--e-quart),
+        color 180ms var(--e-quart),
+        border-color 180ms var(--e-quart),
+        transform 240ms var(--e-expo),
+        box-shadow 240ms var(--e-quart);
+}
+
+.page-dashboard .btn-new::before {
+    /* Diagonal highlight that sweeps left → right on hover. Sits
+       under the label thanks to z-index 0; the text rides on
+       its own stacking context via z-index: 1 in the rule below. */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        110deg,
+        transparent 0%,
+        transparent 40%,
+        color-mix(in srgb, var(--c-forest) 22%, transparent) 50%,
+        transparent 60%,
+        transparent 100%
+    );
+    transform: translateX(-110%);
+    transition: transform 540ms var(--e-expo);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.page-dashboard .btn-new::after {
+    content: "→";
+    font-family: var(--font-stack);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0;
+    color: currentColor;
+    transition: transform 220ms var(--e-expo);
+    z-index: 1;
+}
+
+.page-dashboard .btn-new > * { position: relative; z-index: 1; }
+
+.page-dashboard .btn-new:hover {
+    color: color-mix(in srgb, var(--c-forest) 25%, var(--c-text));
+    border-color: var(--c-forest);
+    transform: translateY(-2px);
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.55),
+        0 2px 4px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.page-dashboard .btn-new:hover::before { transform: translateX(110%); }
+.page-dashboard .btn-new:hover::after  { transform: translateX(4px); }
+
+.page-dashboard .btn-new:focus-visible {
+    outline: 0;
+    border-color: var(--c-forest);
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--c-forest) 30%, transparent),
+        var(--shadow-btn);
+}
+
+.page-dashboard .btn-new:active {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 90ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-dashboard .btn-new::before { display: none; }
+    .page-dashboard .btn-new::after,
+    .page-dashboard .btn-new {
+        transition-duration: 0.01ms !important;
+    }
+}
+
+.page-index h1 {
+    color: var(--c-text);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+/* The dashboard's project title goes through Cormorant Garamond —
+   transitional serif, italic-friendly, sits well as the header of
+   a wine-house dashboard without feeling templated. The eyebrow
+   subtitle (`<p>SmartHarvest</p>`) keeps the system stack so the
+   serif/sans contrast underlines the brand mark. */
+.page-dashboard #sidebar .header h2 {
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: -0.005em;
+    color: var(--c-text);
+    margin: 0 0 2px;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ── Section headers (eyebrow pattern with animated underline) ──
+   The exact h3 treatment from landslide-app/widgets.module.css.
+   Targets the dashboard's #sidebar .card h3 — the only place a
+   h3 lives inside a panel. The Data Analysis tab keeps its own
+   document-style headers so we deliberately do NOT touch
+   `.analysis-section header h3`. */
+.page-dashboard #sidebar .card h3 {
+    margin: 0 auto 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    position: relative;
+    display: block;
+    padding-bottom: 6px;
+    transition:
+        letter-spacing 250ms var(--e-expo),
+        color 180ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card h3::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 0;
+    height: 1.5px;
+    background: var(--c-ochre);
+    transform: translateX(-50%);
+    opacity: 0;
+    transition:
+        width 300ms var(--e-expo),
+        opacity 220ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card:hover h3 {
+    letter-spacing: 0.22em;
+    color: var(--c-ochre);
+}
+
+.page-dashboard #sidebar .card:hover h3::after {
+    width: 28px;
+    opacity: 0.7;
+}
+
+/* ── KV rows ─────────────────────────────────────────────────────
+   Sidebar stat list adopts landslide's KV-table behaviour: hover
+   shifts label +3px, scales the value 1.08, both adopt the ochre
+   accent. Tabular-nums for the numeric column. */
+.page-dashboard #sidebar .stat-list .stat-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--c-border-soft);
+    transition: background 180ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:first-child {
+    border-top: 0;
+}
+
+.page-dashboard #sidebar .stat-list .stat-label {
+    font-size: 12px;
+    color: var(--c-text-muted);
+    font-weight: 500;
+    transition:
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+    transform-origin: left center;
+}
+
+.page-dashboard #sidebar .stat-list .stat-val {
+    font-size: 13px;
+    color: var(--c-text);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    transition:
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+    transform-origin: right center;
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:hover .stat-label {
+    color: var(--c-ochre);
+    font-weight: 600;
+    transform: translateX(3px);
+}
+
+.page-dashboard #sidebar .stat-list .stat-item:hover .stat-val {
+    color: var(--c-ochre);
+    transform: scale(1.08);
+}
+
+/* ── Cards ───────────────────────────────────────────────────────
+   Sidebar `.card` is now elevated off the canvas with `--shadow-card`
+   so the deeper background reads as a base plane and the cards as
+   surfaces above it. The 3 px ochre left stripe and faint bg tint
+   stay; the radius bumps a touch (8 px → matches the
+   `--radius-lg` token) so the lift looks intentional. */
+.page-dashboard #sidebar .card {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--c-ochre-stripe);
+    border-radius: var(--radius-lg);
+    /* Padding is asymmetric on purpose: the left stripe is 3 px and
+       the right border is 1 px, so the visual centre of the card
+       sits 1 px right of its content centre. Bumping `padding-right`
+       by 2 px restores true visual centering of any
+       `text-align: center` block (e.g. the eyebrow h3). */
+    padding: 12px 16px 12px 14px;
+    margin-bottom: 12px;
+    color: var(--c-text);
+    box-shadow: var(--shadow-card);
+    transition:
+        filter 200ms var(--e-quart),
+        box-shadow 200ms var(--e-quart);
+}
+
+.page-dashboard #sidebar .card:hover {
+    filter: brightness(1.04);
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.5),
+        0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────
+   Underline indicator instead of the previous filled-pill look. */
+.page-dashboard .tabs {
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+}
+
+.page-dashboard .tab {
+    position: relative;
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition:
+        color 160ms var(--e-quart),
+        background 160ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+/* /animate — micro-interaction layer on the top tabs.
+   Idle tabs grow a 0-width ochre under-rule that animates out from
+   the centre on hover, plus a 1 px lift; the active tab keeps the
+   same rule pinned at full width. Both states share the same
+   pseudo-element so the indicator slides cleanly between tabs
+   instead of flickering off and on. */
+.page-dashboard .tab::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -1px;
+    width: 0;
+    height: 2px;
+    background: var(--c-ochre);
+    transform: translateX(-50%);
+    border-radius: 2px;
+    opacity: 0;
+    transition:
+        width 240ms var(--e-expo),
+        opacity 180ms var(--e-quart);
+}
+
+.page-dashboard .tab:hover {
+    color: var(--c-text);
+    background: color-mix(in srgb, var(--c-surface) 60%, var(--c-bg-linen) 40%);
+    transform: translateY(-1px);
+}
+
+.page-dashboard .tab:hover::after {
+    width: 70%;
+    opacity: 0.7;
+}
+
+.page-dashboard .tab:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 90ms;
+}
+
+.page-dashboard .tab:focus-visible {
+    outline: 0;
+    color: var(--c-text);
+}
+
+.page-dashboard .tab:focus-visible::after {
+    width: 70%;
+    opacity: 0.7;
+}
+
+.page-dashboard .tab.active {
+    /* Active tab carries an ochre tint + bold weight + soft glow.
+       The user wanted the selected button to read as colour-shifted,
+       not just a 2 px underline. */
+    color: var(--c-ochre);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--c-ochre-bg) 80%, var(--c-surface));
+    border-bottom-color: transparent;
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--c-ochre) 45%, transparent),
+        0 1px 0 color-mix(in srgb, var(--c-ochre) 12%, transparent);
+}
+
+.page-dashboard .tab.active:hover {
+    background: color-mix(in srgb, var(--c-ochre-bg) 65%, var(--c-surface));
+    color: var(--c-ochre);
+}
+
+.page-dashboard .tab.active::after {
+    width: 100%;
+    opacity: 1;
+    height: 2px;
+    background: var(--c-ochre);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--c-ochre) 60%, transparent);
+}
+
+/* ── Tinker panel ─ floating dev widget for live token tweaks ──
+   Lives in a fixed pill bottom-right; expands into a drawer with
+   colour pickers for the dominant tokens. Persists to localStorage
+   so a reload keeps the experimental palette. */
+.sh-tinker {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    z-index: 9999;
+    font-family: var(--font-stack);
+}
+
+.sh-tinker__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    background: var(--c-surface);
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    transition:
+        background 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-tinker__toggle:hover {
+    color: var(--c-ochre);
+    border-color: var(--c-ochre-stripe);
+    transform: translateY(-1px);
+}
+
+.sh-tinker__toggle:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.sh-tinker__toggle::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c-ochre);
+    box-shadow: 0 0 0 1px var(--c-surface);
+}
+
+.sh-tinker__panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    padding: 14px 16px 12px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sh-tinker[data-open="true"] .sh-tinker__panel {
+    display: flex;
+    animation: shTinkerIn 220ms var(--e-expo);
+}
+
+@keyframes shTinkerIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sh-tinker__title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin: 0 0 4px;
+}
+
+.sh-tinker__row {
+    display: grid;
+    grid-template-columns: 96px 1fr 36px;
+    align-items: center;
+    gap: 10px;
+    font-size: 11.5px;
+    color: var(--c-text-muted);
+}
+
+.sh-tinker__row label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--c-text-soft);
+}
+
+.sh-tinker__row input[type="color"] {
+    width: 100%;
+    height: 24px;
+    background: transparent;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: 1px;
+    cursor: pointer;
+}
+
+.sh-tinker__row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.sh-tinker__row input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 3px; }
+
+.sh-tinker__row code {
+    font-family: var(--font-numeric);
+    font-size: 10px;
+    color: var(--c-text-muted);
+    text-align: right;
+}
+
+.sh-tinker__actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--c-border-soft);
+}
+
+.sh-tinker__actions button {
+    flex: 1;
+    height: 28px;
+    background: transparent;
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-tinker__actions button:hover {
+    color: var(--c-text);
+    border-color: var(--c-ochre-stripe);
+    background: color-mix(in srgb, var(--c-surface) 70%, var(--c-ochre-bg) 30%);
+    transform: translateY(-1px);
+}
+
+.sh-tinker__actions button:active { transform: translateY(0) scale(0.96); }
+
+/* ──────────────────────────────────────────────────────────────────
+   New Project page — landslide polish
+   ────────────────────────────────────────────────────────────────── */
+
+.page-index #sidebar {
+    width: 320px;
+    padding: 20px 18px 24px;
+    gap: 14px;
+}
+
+.page-index .brand-mark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin-bottom: 6px;
+}
+
+.page-index .brand-name {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--c-text);
+}
+
+.page-index .brand-subtitle {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--c-text-soft);
+}
+
+.page-index #sidebar h1 {
+    /* Legacy h1 in case the markup ever reverts — kept light and
+       restrained so it doesn't compete with the new brand-mark. */
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--c-text);
+    text-align: center;
+    margin: 0 0 12px;
+}
+
+.page-index .form-group label {
+    color: var(--c-text-soft);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.page-index .form-group--card {
+    /* No extra container — the underlying form-group spacing is
+       enough; the modifier stays as a hook for future tweaks. */
+}
+
+.page-index .inline-hint {
+    color: var(--c-text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.page-index .divider {
+    height: 1px;
+    background: var(--c-border-soft);
+    margin: 4px 0 10px;
+}
+
+.page-index .summary-card {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-left: 3px solid var(--c-ochre-stripe);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin: 6px 0 10px;
+    transition: filter 200ms var(--e-quart);
+}
+
+.page-index .summary-card:hover { filter: brightness(1.04); }
+
+.page-index .summary-card .summary-title {
+    margin: 0 auto 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+
+.page-index .summary-kv {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.page-index .summary-kv tr {
+    transition: background 180ms var(--e-quart);
+}
+
+.page-index .summary-kv tr:hover {
+    background: color-mix(in srgb, var(--c-ochre-bg) 60%, transparent);
+}
+
+.page-index .summary-kv td {
+    padding: 5px 0;
+    border-top: 1px solid var(--c-border-soft);
+    transition: color 150ms var(--e-quart), transform 200ms var(--e-expo);
+}
+
+.page-index .summary-kv tr:first-child td { border-top: none; }
+
+.page-index .summary-kv td:first-child {
+    color: var(--c-text-muted);
+    font-weight: 500;
+    transform-origin: left center;
+}
+
+.page-index .summary-kv td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--c-text);
+    transform-origin: right center;
+}
+
+.page-index .summary-kv tr:hover td:first-child {
+    color: var(--c-ochre);
+    font-weight: 600;
+    transform: translateX(3px);
+}
+
+.page-index .summary-kv tr:hover td:last-child {
+    color: var(--c-ochre);
+    transform: scale(1.08);
+}
+
+.page-index .status-message {
+    display: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-border-soft);
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--c-text);
+    background: var(--c-surface-soft);
+}
+
+.page-index .status-message.is-info,
+.page-index .status-message.is-error,
+.page-index .status-message.is-success {
+    display: block;
+}
+
+.page-index .status-message.is-info {
+    border-left: 3px solid var(--c-slate-stripe);
+}
+
+.page-index .status-message.is-success {
+    border-left: 3px solid var(--c-forest-stripe);
+}
+
+.page-index .status-message.is-error {
+    border-left: 3px solid var(--c-russet-stripe);
+    color: var(--c-russet);
+}
+
+.page-index #progress-container {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--radius-md);
+}
+
+.page-index .progress-bar-bg {
+    height: 6px;
+    background: color-mix(in srgb, var(--c-bg-linen) 60%, var(--c-border) 40%);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.page-index .progress-bar-fill {
+    height: 100%;
+    background: var(--c-ochre);
+    width: 0%;
+    transition: width 320ms var(--e-expo);
+}
+
+.page-index .progress-text {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+}
+
+/* ── Basemap switcher (landslide LayersPanel style) ─────────────── */
+.sh-basemap {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    padding: 10px 12px 12px;
+    font-family: var(--font-stack);
+    color: var(--c-text);
+    min-width: 220px;
+}
+
+.sh-basemap__head {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--c-text-soft);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--c-border-soft);
+    margin-bottom: 8px;
+}
+
+.sh-basemap__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+
+.sh-basemap__btn {
+    appearance: none;
+    background: var(--c-surface-soft);
+    color: var(--c-text-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart),
+        transform 200ms var(--e-expo);
+}
+
+.sh-basemap__btn:hover {
+    color: var(--c-text);
+    border-color: var(--c-ochre-stripe);
+    transform: translateY(-1px);
+}
+
+.sh-basemap__btn:active { transform: translateY(0) scale(0.96); }
+
+.sh-basemap__btn[data-active="true"] {
+    color: var(--c-ochre);
+    background: var(--c-ochre-bg);
+    border-color: var(--c-ochre-stripe);
+}
+
+/* Override Leaflet's default control appearance so the panel matches
+   the page chrome rather than the off-the-shelf white box. */
+.leaflet-control-attribution {
+    background: var(--c-surface) !important;
+    color: var(--c-text-muted) !important;
+    font-size: 10px !important;
+    border-top-left-radius: var(--radius-sm);
+}
+
+.leaflet-control-attribution a {
+    color: var(--c-text-soft) !important;
+}
+
+/* Use `background-color` (not the `background` shorthand) so the
+   `background-image: url(spritesheet.png)` set by leaflet-draw on
+   its toolbar anchors keeps painting the icon on top of our dark
+   surface. The shorthand wipes background-image silently, which
+   left every draw button invisibly blank against our dark theme. */
+.leaflet-bar a,
+.leaflet-bar a:hover {
+    background-color: var(--c-surface) !important;
+    color: var(--c-text) !important;
+    border-bottom: 1px solid var(--c-border-soft) !important;
+}
+
+.leaflet-bar a:hover {
+    background-color: var(--c-surface-soft) !important;
+}
+
+/* The leaflet-draw spritesheet ships dark icons designed for a
+   white toolbar — on our dark surface they read as black-on-dark
+   and disappear. Invert them so they read as light-on-dark.
+   `hue-rotate(180deg)` cancels the colour shift from `invert(1)`
+   so the small coloured edges (delete = red) keep their identity. */
+.leaflet-draw-toolbar a {
+    filter: invert(1) hue-rotate(180deg);
+}
+.leaflet-draw-toolbar a:hover {
+    filter: invert(1) hue-rotate(180deg) brightness(1.25);
+}
+/* Children inside the action buttons (the "save / cancel" row that
+   appears while drawing) carry text, not sprite — un-invert so the
+   text stays readable. */
+.leaflet-draw-actions a {
+    filter: none;
+}
+.leaflet-draw-actions a:hover {
+    filter: none;
+    background-color: var(--c-surface-soft) !important;
+}
+
+/* ── Settings card ───────────────────────────────────────────────
+   Sidebar panel that persists palette / background-depth / shadow
+   preferences. Three control rows + one reset; values are written
+   back to `<html>` data-attributes by `dashboard-settings.js` and
+   stored in `localStorage` so the choice survives a refresh. */
+.page-dashboard #sidebar .card.settings-card {
+    border-left: 1px solid var(--c-border-soft);
+    padding: 14px 16px;
+}
+.page-dashboard #sidebar .card.settings-card h3 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    text-align: left;
+    color: var(--c-text);
+    padding-bottom: 0;
+    transition: none;
+}
+.page-dashboard #sidebar .card.settings-card h3::after { content: none; }
+.page-dashboard #sidebar .card.settings-card:hover h3 {
+    color: var(--c-text);
+    letter-spacing: 0;
+}
+.page-dashboard .settings-card .settings-group {
+    margin-bottom: 10px;
+}
+.page-dashboard .settings-card .settings-group:last-of-type {
+    margin-bottom: 12px;
+}
+.page-dashboard .settings-card .settings-group__label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--c-text-muted);
+    margin-bottom: 6px;
+}
+.page-dashboard .settings-card .settings-group__row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.page-dashboard .settings-card .settings-group__row--seg {
+    border: 1px solid var(--c-border-soft);
+    border-radius: var(--radius-sm);
+    padding: 2px;
+    gap: 0;
+}
+.page-dashboard .settings-card .settings-swatch {
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid var(--c-border);
+    background: var(--swatch);
+    cursor: pointer;
+    padding: 0;
+    transition:
+        transform 160ms var(--e-quart),
+        border-color 160ms var(--e-quart),
+        box-shadow 160ms var(--e-quart);
+}
+.page-dashboard .settings-card .settings-swatch:hover {
+    border-color: var(--c-text-soft);
+    transform: scale(1.08);
+}
+.page-dashboard .settings-card .settings-swatch[data-active="true"] {
+    border-color: var(--c-text);
+    box-shadow: 0 0 0 2px var(--c-bg-linen),
+                0 0 0 3px var(--swatch);
+}
+.page-dashboard .settings-card .settings-seg {
+    appearance: none;
+    flex: 1 1 0;
+    background: transparent;
+    border: 0;
+    color: var(--c-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart);
+}
+.page-dashboard .settings-card .settings-seg:hover {
+    color: var(--c-text);
+    background: var(--c-bg-linen);
+}
+.page-dashboard .settings-card .settings-seg[data-active="true"] {
+    background: var(--c-surface);
+    color: var(--c-text);
+    box-shadow: inset 0 0 0 1px var(--c-border-soft);
+}
+.page-dashboard .settings-card .settings-reset {
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 6px 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+        background 150ms var(--e-quart),
+        color 150ms var(--e-quart),
+        border-color 150ms var(--e-quart);
+}
+.page-dashboard .settings-card .settings-reset:hover {
+    color: var(--c-text);
+    border-color: var(--c-border);
+}
+
+/* The dashboard's existing overlay panels (Stats legend, Variables /
+   Layers, Week, Maps in the iframe) inherit the bumped
+   `--shadow-card` automatically. Buttons in the sidebar pick up
+   `--shadow-btn` for a clearer lift off the deeper background. */
+.page-dashboard #sidebar .btn-download,
+.page-dashboard #sidebar .btn-new {
+    box-shadow: var(--shadow-btn);
+}
+
+/* ── Data Analysis sub-tabs ──────────────────────────────────────
+   Four themed sub-tabs (Overview / Temporal / Spatial / Quality)
+   plus a glossary trigger pill. Animation budget per panel switch
+   is in `analysis-subtabs.js`; the visual treatment lives here. */
+.page-dashboard .analysis .subtabs {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 18px;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+}
+.page-dashboard .analysis .subtab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--c-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    z-index: 2;
+    transition:
+        color 180ms var(--e-quart),
+        background 180ms var(--e-quart);
+}
+.page-dashboard .analysis .subtab:hover {
+    color: var(--c-text);
+}
+.page-dashboard .analysis .subtab[data-active="true"] {
+    color: var(--c-text);
+}
+.page-dashboard .analysis .subtab--ghost {
+    margin-left: auto;
+    color: var(--c-text-muted);
+    border: 1px solid var(--c-border-soft);
+    background: transparent;
+}
+.page-dashboard .analysis .subtab--ghost:hover {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 50%, var(--c-border));
+}
+.page-dashboard .analysis .subtabs__sep {
+    flex: 1 1 auto;
+}
+.page-dashboard .analysis .subtabs__rail {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    background: var(--c-bg-linen);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 6px;
+    transform: translateX(0);
+    opacity: 0;
+    transition:
+        transform 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        width 280ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 200ms var(--e-quart);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.page-dashboard .subtab-panel__head {
+    margin: 0 0 14px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+.page-dashboard .subtab-panel__head h2 {
+    margin: 0 0 4px;
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.005em;
+    color: var(--c-text);
+}
+.page-dashboard .subtab-panel__head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--c-text-soft);
+    line-height: 1.5;
+}
+
+/* Stagger reveal for sections inside the active sub-tab panel.
+   The JS sets `animation` per element with a per-step delay; the
+   keyframes live here so they're cacheable + reused on every
+   tab switch. */
+@keyframes subtab-section-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    @keyframes subtab-section-in {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+    }
+}
+
+/* Two-up grid variant for Overview / Spatial. */
+.page-dashboard .analysis .analysis-grid--two {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+}
+@media (max-width: 980px) {
+    .page-dashboard .analysis .analysis-grid--two {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ── Overview · KPI strip ────────────────────────────────────────
+   Four equal-width tiles. Compact, no decorative borders, single
+   accent on the delta. Lives in its own analysis-section so it
+   inherits the section header gutters automatically. */
+.page-dashboard .analysis-section--kpi {
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+.page-dashboard .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+@media (max-width: 980px) {
+    .page-dashboard .kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.page-dashboard .kpi {
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+    transition:
+        transform 200ms var(--e-quart),
+        border-color 200ms var(--e-quart),
+        background 200ms var(--e-quart);
+}
+.page-dashboard .kpi:hover {
+    border-color: color-mix(in srgb, var(--c-accent) 35%, var(--c-border-soft));
+    transform: translateY(-1px);
+    background: color-mix(in srgb, var(--c-accent-bg) 25%, var(--c-surface-soft));
+}
+.page-dashboard .kpi__label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.page-dashboard .kpi__row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+.page-dashboard .kpi__value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.page-dashboard .kpi__delta {
+    font-size: 11.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--c-text-muted) 18%, transparent);
+    color: var(--c-text-muted);
+}
+.page-dashboard .kpi__delta--up {
+    color: #8FBE9A;
+    background: color-mix(in srgb, #8FBE9A 18%, transparent);
+}
+.page-dashboard .kpi__delta--down {
+    color: #C77E83;
+    background: color-mix(in srgb, #C77E83 18%, transparent);
+}
+.page-dashboard .kpi__delta--neutral { color: var(--c-text-muted); }
+.page-dashboard .kpi__sub {
+    font-size: 11px;
+    color: var(--c-text-muted);
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.page-dashboard .analysis-plot--spark {
+    /* Sparkline gets a tighter container — no plot tools, no padding,
+       so the line floats inside the section header gutters. */
+    margin-top: 6px;
+}
+.page-dashboard .analysis-plot--spark .modebar { display: none !important; }
+
+/* Recent acquisitions list. */
+.page-dashboard .recent {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: none;
+}
+.page-dashboard .recent__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 4px;
+    border-top: 1px solid var(--c-border-soft);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .recent__row:first-child { border-top: 0; }
+.page-dashboard .recent__date {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--c-text);
+}
+.page-dashboard .recent__sensor {
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--c-border-soft);
+    background: var(--c-surface-soft);
+}
+.page-dashboard .recent__row[data-sensor="s2"] .recent__sensor {
+    color: var(--c-russet);
+    border-color: color-mix(in srgb, var(--c-russet) 35%, var(--c-border-soft));
+}
+.page-dashboard .recent__row[data-sensor="s1"] .recent__sensor {
+    color: var(--c-sage);
+    border-color: color-mix(in srgb, var(--c-sage) 35%, var(--c-border-soft));
+}
+.page-dashboard .recent__row[data-sensor="l8"] .recent__sensor {
+    color: var(--c-ochre);
+    border-color: color-mix(in srgb, var(--c-ochre) 35%, var(--c-border-soft));
+}
+
+/* ── Spatial · ΔNDVI change card ─────────────────────────────────
+   Stacked horizontal bar + count breakdown + percentile stats.
+   Scaled to a single section card; reads top-to-bottom on mobile,
+   bar-then-counts side-by-side on desktop. */
+.page-dashboard .change-card {
+    display: grid;
+    gap: 14px;
+}
+.page-dashboard .change__bar {
+    display: flex;
+    height: 18px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--c-surface-soft);
+    border: 1px solid var(--c-border-soft);
+}
+.page-dashboard .change__seg {
+    height: 100%;
+    width: var(--w);
+    transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page-dashboard .change__seg--up   { background: #6E9A7B; }
+.page-dashboard .change__seg--flat { background: var(--c-text-muted); }
+.page-dashboard .change__seg--down { background: var(--c-russet); }
+.page-dashboard .change__counts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.page-dashboard .change__count {
+    border: 1px solid var(--c-border-soft);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--c-surface-soft);
+    display: grid;
+    gap: 2px;
+}
+.page-dashboard .change__count--up   { border-left: 2px solid #6E9A7B; }
+.page-dashboard .change__count--flat { border-left: 2px solid var(--c-text-muted); }
+.page-dashboard .change__count--down { border-left: 2px solid var(--c-russet); }
+.page-dashboard .change__pct {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.page-dashboard .change__num {
+    font-size: 11px;
+    color: var(--c-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .change__lbl {
+    font-size: 10.5px;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.page-dashboard .change__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+}
+.page-dashboard .change__stat b {
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    margin-left: 4px;
+}
+.page-dashboard .change__stat--mute {
+    flex-basis: 100%;
+    color: var(--c-text-muted);
+    font-size: 11px;
+}
+
+/* ── Spatial · Moran's I card ────────────────────────────────────
+   Single headline number + verdict pill + supporting stats. The
+   verdict colour scales with autocorrelation strength so the user
+   can read the chart without parsing the digits. */
+.page-dashboard .morans-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--c-border-soft);
+    border-radius: 8px;
+    background: var(--c-surface-soft);
+}
+.page-dashboard .morans__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.page-dashboard .morans__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c-text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.page-dashboard .morans__verdict {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid var(--c-border-soft);
+    background: var(--c-bg-linen);
+    color: var(--c-text);
+}
+.page-dashboard .morans__verdict--strong-cluster {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 50%, var(--c-border));
+}
+.page-dashboard .morans__verdict--cluster {
+    color: var(--c-accent);
+    border-color: color-mix(in srgb, var(--c-accent) 35%, var(--c-border));
+}
+.page-dashboard .morans__verdict--random {
+    color: var(--c-text-soft);
+}
+.page-dashboard .morans__verdict--dispersed,
+.page-dashboard .morans__verdict--strong-dispersed {
+    color: #C77E83;
+    border-color: color-mix(in srgb, #C77E83 35%, var(--c-border));
+}
+.page-dashboard .morans__row {
+    display: flex;
+    gap: 24px;
+    align-items: baseline;
+    flex-wrap: wrap;
+}
+.page-dashboard .morans__value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+.page-dashboard .morans__expected,
+.page-dashboard .morans__cells {
+    display: grid;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--c-text-muted);
+}
+.page-dashboard .morans__expected b,
+.page-dashboard .morans__cells b {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-text);
+    font-variant-numeric: tabular-nums;
+}
+.page-dashboard .morans__hint {
+    margin: 0;
+    font-size: 11.5px;
+    color: var(--c-text-soft);
+    line-height: 1.55;
+}
+
+/* ── Glossary side panel ─────────────────────────────────────────
+   Slides in from the right, dismissible via the close button,
+   backdrop click, or Escape. The trigger pill lives in the
+   sub-tab strip; this panel is independent of which sub-tab is
+   active so the glossary is reachable from any section. */
+.page-dashboard .glossary-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(420px, 92vw);
+    background: var(--c-surface-soft);
+    border-left: 1px solid var(--c-border-soft);
+    box-shadow: var(--shadow-overlay);
+    padding: 20px 22px 24px;
+    overflow-y: auto;
+    z-index: 60;
+    transform: translateX(100%);
+    transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.page-dashboard .glossary-panel[data-open="true"] {
+    transform: translateX(0);
+}
+.page-dashboard .glossary-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--c-border-soft);
+}
+.page-dashboard .glossary-panel__head h2 {
+    margin: 0;
+    font-family: "Cormorant Garamond", "Iowan Old Style", "Palatino", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--c-text);
+}
+.page-dashboard .glossary-panel__close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--c-border-soft);
+    color: var(--c-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 180ms var(--e-quart), border-color 180ms var(--e-quart);
+}
+.page-dashboard .glossary-panel__close:hover {
+    color: var(--c-text);
+    border-color: var(--c-border);
+}
+.page-dashboard .glossary-panel__intro {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: var(--c-text-soft);
+    line-height: 1.5;
+}
+.page-dashboard .glossary-panel dl {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+}
+.page-dashboard .glossary-panel dl > div {
+    display: grid;
+    gap: 4px;
+}
+.page-dashboard .glossary-panel dt {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+}
+.page-dashboard .glossary-panel dd {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--c-text);
+    line-height: 1.55;
+}
+.page-dashboard .glossary-panel__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 55;
+    transition: background 240ms var(--e-quart);
+    pointer-events: none;
+}
+.page-dashboard .glossary-panel__backdrop[data-open="true"] {
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-dashboard .glossary-panel,
+    .page-dashboard .glossary-panel__backdrop,
+    .page-dashboard .change__seg,
+    .page-dashboard .subtabs__rail {
+        transition-duration: 10ms !important;
+    }
 }
