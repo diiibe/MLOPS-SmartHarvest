@@ -2574,15 +2574,42 @@ button, input, select, textarea {
     color: var(--c-text-soft) !important;
 }
 
+/* Use `background-color` (not the `background` shorthand) so the
+   `background-image: url(spritesheet.png)` set by leaflet-draw on
+   its toolbar anchors keeps painting the icon on top of our dark
+   surface. The shorthand wipes background-image silently, which
+   left every draw button invisibly blank against our dark theme. */
 .leaflet-bar a,
 .leaflet-bar a:hover {
-    background: var(--c-surface) !important;
+    background-color: var(--c-surface) !important;
     color: var(--c-text) !important;
     border-bottom: 1px solid var(--c-border-soft) !important;
 }
 
 .leaflet-bar a:hover {
-    background: var(--c-surface-soft) !important;
+    background-color: var(--c-surface-soft) !important;
+}
+
+/* The leaflet-draw spritesheet ships dark icons designed for a
+   white toolbar — on our dark surface they read as black-on-dark
+   and disappear. Invert them so they read as light-on-dark.
+   `hue-rotate(180deg)` cancels the colour shift from `invert(1)`
+   so the small coloured edges (delete = red) keep their identity. */
+.leaflet-draw-toolbar a {
+    filter: invert(1) hue-rotate(180deg);
+}
+.leaflet-draw-toolbar a:hover {
+    filter: invert(1) hue-rotate(180deg) brightness(1.25);
+}
+/* Children inside the action buttons (the "save / cancel" row that
+   appears while drawing) carry text, not sprite — un-invert so the
+   text stays readable. */
+.leaflet-draw-actions a {
+    filter: none;
+}
+.leaflet-draw-actions a:hover {
+    filter: none;
+    background-color: var(--c-surface-soft) !important;
 }
 
 /* ── Settings card ───────────────────────────────────────────────
